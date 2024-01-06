@@ -2,10 +2,26 @@
 title: "Hands-on Exercise 1"
 date: January 6, 2024
 date-modified: "last-modified"
+toc: true
 execute: 
   eval: true
   echo: true
   warning: false
 ---
 
+# Getting started
 
+## Loading required libraries
+
+```{r}
+pacman::p_load(tidyverse)
+```
+
+```{r}
+myString <- 'Hello'
+print(myString)
+```
+
+# Importing Data
+
+## Wrangling Data

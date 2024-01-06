@@ -7,6 +7,20 @@
     "text": "About this site\n\n1 + 1\n\n[1] 2"
   },
   {
+    "objectID": "Hands-on_Ex/Hands-on_Ex1/Hands-on_Ex1.html",
+    "href": "Hands-on_Ex/Hands-on_Ex1/Hands-on_Ex1.html",
+    "title": "Hands-on Exercise 1",
+    "section": "",
+    "text": "pacman::p_load(tidyverse)\n\n\nmyString <- 'Hello'\nprint(myString)\n\n[1] \"Hello\""
+  },
+  {
+    "objectID": "Hands-on_Ex/Hands-on_Ex1/Hands-on_Ex1.html#wrangling-data",
+    "href": "Hands-on_Ex/Hands-on_Ex1/Hands-on_Ex1.html#wrangling-data",
+    "title": "Hands-on Exercise 1",
+    "section": "Wrangling Data",
+    "text": "Wrangling Data"
+  },
+  {
     "objectID": "index.html",
     "href": "index.html",
     "title": "ISSS608-VAA",

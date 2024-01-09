@@ -7,6 +7,9 @@ execute:
   eval: true
   echo: true
   warning: false
+format:
+  html:
+    css: custom.css
 ---
 
 # Getting started

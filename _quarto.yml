@@ -3,10 +3,13 @@ project:
 
 website:
   title: "spacebun"
+  image: "images/spacebunny-banner.svg"
   favicon: "images/spacebunny.svg"
+  page-navigation: true
   navbar:
-    title: ISSS608
-    logo: "images/spacebunny.svg"
+    logo: "images/spacebunny-banner.png"
+    title: false
+    collapse-below: lg
     background: "#30638E"
     search: true
     left: 
@@ -25,12 +28,14 @@ website:
           - text: Take-home Exercise 1
             href: Take-home_Ex/Take-home_Ex1/Take-home_Ex1.html
     right:
-      - icon: github
-        href: https://github.com/spacebun
+      - text: "{{< iconify fxemoji housebuilding >}}"
+        href: "/"
 
 format:
   html:
-    theme: yeti 
+    theme: 
+      - cosmo
+      - theme.scss
     css: styles.css
     toc: true
 

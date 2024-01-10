@@ -1,11 +1,8 @@
 /* css styles */
-body {
-  background-image: url('images/blue-snow.png');
-  background-repeat: repeat; /* tile the image across the background */
-}
 
-pre.sourceCode {
-  background-color: white !important;
-  color: black; /* Optional: change text color if needed */
+
+/* Navbar Logo */
+.navbar-brand > img {
+  max-height: 50px;
 }
 

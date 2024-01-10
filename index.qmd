@@ -2,9 +2,10 @@
 format:
   html:
     toc: true
-    css: styles.css
+    css: styles-index.css
 ---
 
+::: {#index-page}
 ::: whitebox
 ::: {style="padding-left: 0px; padding-right: 100px; display: inline-block;"}
 ::: {style="text-align: left;"}
@@ -12,9 +13,10 @@ format:
 :::
 
 ::: {style="text-align: left;"}
-### ISSS608 Visual Analytics and Applications
+# ISSS608 Visual Analytics and Applications
 
 Welcome to my portfolio for the Visual Analytics and Applications course, taught by Prof. Kam Tin Seong. This website is a collection of exercises and assignments completed throughout the course.
+:::
 :::
 :::
 :::

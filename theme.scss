@@ -1,0 +1,101 @@
+/*-- scss:defaults --*/
+@import url('https://fonts.googleapis.com/css2?family=Poppins&display=swap');
+
+// Colors
+$blue-gray: #464646;
+$dark-blue: #30638E;
+$eggshell: #F8F3E6;
+$gray: #64605f;
+$light-gray: #fafcff;
+$blue: #4d5887;
+$light-blue: #9bcaf2;
+$teal: #93c7c2;
+$orange: #f5bc5f;
+$pink: #f53b5d;
+
+// Base document colors
+$navbar-bg: $dark-blue; // navbar
+$navbar-fg: $light-gray; // navbar foreground elements
+$navbar-hl: $light-blue; // highlight color when hovering over navbar links
+$body-bg: $light-gray; // page background 
+$body-color: $blue-gray; // page text 
+$footer-bg: $eggshell; // footer 
+$link-color: $blue; // hyperlinks 
+
+// fonts
+$font-family: 'Poppins';
+
+//toc 
+$toc-font-size: 14px;
+$toc-active-border: $teal;
+
+// callouts
+$callout-color-note: $blue;
+$callout-color-tip: $teal;
+$callout-color-caution: $orange;
+$callout-color-important: $pink;
+
+
+/*-- scss:rules --*/
+
+.title {
+  margin-top: 2em !important;
+  margin-bottom: 1.5em;
+  font-size: 36px;
+  font-weight: 1000;
+  color: $blue-gray; 
+}
+
+.subtitle {
+  font-size: 24px;
+  color: $blue-gray;
+  font-family: $font-family;
+}
+
+body {
+  font-size: 18px;
+  font-family: $font-family;
+  color: $blue-gray; 
+}
+
+.left {
+  text-align: left;
+  padding-left: 1em;
+}
+.right {
+  text-align: right;
+  padding-right: 1em;
+}
+
+
+/* Heading 1 */
+h1 {
+  font-size: 28px;
+  font-variant: normal; 
+  font-weight: 800; 
+}
+
+/* Heading 2 */
+h2 {
+  font-size: 24px;
+  font-variant: normal; 
+  font-weight: 500; 
+}
+
+/* Heading 3 */
+h3 {
+  font-size: 20px;
+  font-variant: italic; 
+  font-weight: 500; 
+}
+
+/* Heading 4 */
+h4 {
+  font-size: 18px;
+  font-variant: italic; 
+  font-weight: 500; 
+}
+
+.callout.callout-style-default .callout-body {
+  font-size: 0.75rem;
+}

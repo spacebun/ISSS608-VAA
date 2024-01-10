@@ -1,0 +1,6 @@
+/* css styles */
+
+body {
+  background-image: url('images/blue-snow.png');
+  background-repeat: repeat; /* tile the image across the background */
+}

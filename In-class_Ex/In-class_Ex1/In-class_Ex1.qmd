@@ -1,0 +1,21 @@
+---
+title: "In-class Exercise 1"
+subtitle: "In-class Exercise 1"
+date: January 10, 2024
+date-modified: "last-modified"
+format:
+  html:
+    toc: true
+    toc-depth: 4
+    toc-expand: 4
+    toc-font-size: 0.8em
+    number-sections: true
+    code-line-numbers: false
+    
+execute: 
+  eval: true
+  echo: true
+  warning: false  
+---
+
+Nothing here yet

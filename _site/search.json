@@ -58,9 +58,9 @@
   {
     "objectID": "In-class_Ex/In-class_Ex1/In-class_Ex1.html",
     "href": "In-class_Ex/In-class_Ex1/In-class_Ex1.html",
-    "title": "In-class Exercise 1",
+    "title": "In-class Exercise 1: Now You See It",
     "section": "",
-    "text": "1 Nothing here yet"
+    "text": "In this hands-on exercise, two R packages will be used. They are:\n\ntidyverse, and\nhaven\n\nThe code chunk used is as follows:\n\npacman::p_load(tidyverse, haven)\n\n\n\n\n\n\n\nNote\n\n\n\npacman::p_load(tidyverse, haven) is calling the pacman package, since we have not yet loaded this package. If pacman package was already loaded, we can load tidyverse and haven with p_load(tidyverse, haven)."
   },
   {
     "objectID": "index.html",
@@ -75,5 +75,12 @@
     "title": "Take-home Exercise 1",
     "section": "",
     "text": "1 Nothing here yet"
+  },
+  {
+    "objectID": "In-class_Ex/In-class_Ex1/In-class_Ex1.html#importing-pisa-data",
+    "href": "In-class_Ex/In-class_Ex1/In-class_Ex1.html#importing-pisa-data",
+    "title": "In-class Exercise 1: Now You See It",
+    "section": "2 Importing PISA data",
+    "text": "2 Importing PISA data\nThe code chunk below uses read_sas() of haven to import PISA data into R environment.\n\nstu_qqq <- read_sas(\"data/cy08msp_stu_qqq.sas7bdat\")\n\nThe code chunk below filters the data where country code (CNT) is Singapore (SGP).\n\nstu_qqq_SG <- stu_qqq %>% \n  filter(CNT == \"SGP\")\n\nThe code chunk below then saves this filtered data as an RData file. This smaller file can be used in the future.\n\nwrite_rds(stu_qqq_SG, \"data/stu_qqq_SG.rds\")\n\nTo load this file in the future, follow the code in the code chunk below.\n\nstu_qqq_SG <- read_rds(\"data/stu_qqq_SG.rds\")"
   }
 ]

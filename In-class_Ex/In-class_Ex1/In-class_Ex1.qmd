@@ -1,5 +1,6 @@
 ---
-title: "In-class Exercise 1: Now You See It"
+title: "In-class Exercise 1"
+subtitle: "Now You See It"
 date: January 13, 2024
 date-modified: "last-modified"
 format:

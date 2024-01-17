@@ -53,7 +53,7 @@
     "href": "Hands-on_Ex/Hands-on_Ex2/Hands-on_Ex2.html",
     "title": "Hands-on Exercise 2",
     "section": "",
-    "text": "1 Nothing here yet"
+    "text": "In this exercises I will practice using ggplot2 to create elegant and effective statistical graphics, achieving the following:\n\ncontrol the placement of annotation on a graph by using functions provided in ggrepel package,\ncreate professional publication quality figure by using functions provided in ggthemes and hrbrthemes packages,\nplot composite figure by combining ggplot2 graphs by using patchwork package."
   },
   {
     "objectID": "In-class_Ex/In-class_Ex1/In-class_Ex1.html",
@@ -82,5 +82,61 @@
     "title": "In-class Exercise 1: Now You See It",
     "section": "2 Importing PISA data",
     "text": "2 Importing PISA data\nThe code chunk below uses read_sas() of haven to import PISA data into R environment.\n\nstu_qqq <- read_sas(\"data/cy08msp_stu_qqq.sas7bdat\")\n\nThe code chunk below filters the data where country code (CNT) is Singapore (SGP).\n\nstu_qqq_SG <- stu_qqq %>% \n  filter(CNT == \"SGP\")\n\nThe code chunk below then saves this filtered data as an RData file. This smaller file can be used in the future.\n\nwrite_rds(stu_qqq_SG, \"data/stu_qqq_SG.rds\")\n\nTo load this file in the future, follow the code in the code chunk below.\n\nstu_qqq_SG <- read_rds(\"data/stu_qqq_SG.rds\")"
+  },
+  {
+    "objectID": "Hands-on_Ex/Hands-on_Ex2/Hands-on_Ex2.html#getting-started",
+    "href": "Hands-on_Ex/Hands-on_Ex2/Hands-on_Ex2.html#getting-started",
+    "title": "Hands-on Exercise 2",
+    "section": "2 Getting started",
+    "text": "2 Getting started\n\n2.1 Loading libraries\nThe following libraries will be used\n\nggrepel: an R package provides geoms for ggplot2 to repel overlapping text labels.\nggthemes: an R package provides some extra themes, geoms, and scales for ‘ggplot2’.\nhrbrthemes: an R package provides typography-centric themes and theme components for ggplot2.\npatchwork: an R package for preparing composite figure created using ggplot2.\n\n\npacman::p_load(ggrepel, patchwork, \n               ggthemes, hrbrthemes,\n               tidyverse)\n\n\n\n2.2 Importing data\nThe data used is the year end examination grades of a cohort of primary 3 students from a local school. From Hands-On Exercise 1, we know that the data has:\n\nFour categorical attributes: ID, CLASS, GENDER, RACE\nThree continuous attributes: MATHS, ENGLISH, SCIENCE\n\n\nexam_data <- read_csv(\"data/Exam_data.csv\")"
+  },
+  {
+    "objectID": "Hands-on_Ex/Hands-on_Ex2/Hands-on_Ex2.html#using-ggrepel",
+    "href": "Hands-on_Ex/Hands-on_Ex2/Hands-on_Ex2.html#using-ggrepel",
+    "title": "Hands-on Exercise 2",
+    "section": "3 Using ggrepel",
+    "text": "3 Using ggrepel\nAnnotation of statistical graphs can be done by using text geoms like geom_text() or geom_label() (has rectangle behind the text) as shown below.\n\nPlot with geom_text()Code\n\n\n\n\n\n\n\n\n\n\nggplot(data=exam_data, \n       aes(x= ENGLISH, \n           y=SCIENCE)) +\n  geom_point() +\n  geom_label(mapping = aes(label = ID)) +  \n  coord_cartesian(xlim=c(0,100),\n                  ylim=c(0,100)) +\n  ggtitle(\"Science scores versus English scores\")\n\n\n\n\n\nPlot with geom_label()Code\n\n\n\n\n\n\n\n\n\n\nggplot(data=exam_data, \n       aes(x= ENGLISH, \n           y=SCIENCE)) +\n  geom_point() +\n  geom_text(mapping = aes(label = ID)) +  \n  coord_cartesian(xlim=c(0,100),\n                  ylim=c(0,100)) +\n  ggtitle(\"Science scores versus English scores\")"
+  },
+  {
+    "objectID": "Hands-on_Ex/Hands-on_Ex2/Hands-on_Ex2.html#code",
+    "href": "Hands-on_Ex/Hands-on_Ex2/Hands-on_Ex2.html#code",
+    "title": "Hands-on Exercise 2",
+    "section": "5 Code",
+    "text": "5 Code\n\nggplot(data=exam_data, \n       aes(x= ENGLISH, \n           y=SCIENCE)) +\n  geom_point() +\n  geom_label(mapping = aes(label = ID)) +  \n  coord_cartesian(xlim=c(0,100),\n                  ylim=c(0,100)) +\n  ggtitle(\"Science scores versus English scores\")\n\n\nPlot with geom_label()Code\n\n\n\n\n\n\n\n\n\n\nggplot(data=exam_data, \n       aes(x= ENGLISH, \n           y=SCIENCE)) +\n  geom_point() +\n  geom_text(mapping = aes(label = ID)) +  \n  coord_cartesian(xlim=c(0,100),\n                  ylim=c(0,100)) +\n  ggtitle(\"Science scores versus English scores\")"
+  },
+  {
+    "objectID": "Hands-on_Ex/Hands-on_Ex2/Hands-on_Ex2.html#plot-with-geom_text",
+    "href": "Hands-on_Ex/Hands-on_Ex2/Hands-on_Ex2.html#plot-with-geom_text",
+    "title": "Hands-on Exercise 2",
+    "section": "4 Plot with geom_text()",
+    "text": "4 Plot with geom_text()"
+  },
+  {
+    "objectID": "Hands-on_Ex/Hands-on_Ex2/Hands-on_Ex2.html#annotation-of-plots",
+    "href": "Hands-on_Ex/Hands-on_Ex2/Hands-on_Ex2.html#annotation-of-plots",
+    "title": "Hands-on Exercise 2",
+    "section": "3 Annotation of plots",
+    "text": "3 Annotation of plots\n\n3.1 Using Text geoms in ggplot2\nAnnotation of statistical graphs can be done by using text geoms like geom_text() or geom_label() (has rectangle behind the text) as shown below.\n\nPlot with geom_text()Code\n\n\n\n\n\n\n\n\n\n\nggplot(data=exam_data, \n       aes(x= ENGLISH, \n           y=SCIENCE)) +\n  geom_point() +\n  geom_text(mapping = aes(label = ID)) +  \n  coord_cartesian(xlim=c(0,100),\n                  ylim=c(0,100)) +\n  ggtitle(\"Science scores versus English scores\")\n\n\n\n\n\nPlot with geom_label()Code\n\n\n\n\n\n\n\n\n\n\nggplot(data=exam_data, \n       aes(x= ENGLISH, \n           y=SCIENCE)) +\n  geom_point() +\n  geom_label(mapping = aes(label = ID)) +  \n  coord_cartesian(xlim=c(0,100),\n                  ylim=c(0,100)) +\n  ggtitle(\"Science scores versus English scores\")\n\n\n\n\n\n\n3.2 Using ggrepel\nggrepel helps to repel overlapping text. Simply replace geom_text() by geom_text_repel() and geom_label() by geom_label_repel().\n\nPlot with geom_text_repel()Code\n\n\n\n\n\n\n\n\n\n\nggplot(data=exam_data, \n       aes(x= ENGLISH, \n           y=SCIENCE)) +\n  geom_point() +\n  geom_text_repel(mapping = aes(label = ID)) +  \n  coord_cartesian(xlim=c(0,100),\n                  ylim=c(0,100)) +\n  ggtitle(\"Science scores versus English scores\")\n\n\n\n\n\nPlot with geom_label_repel()Code\n\n\n\n\n\n\n\n\n\n\nggplot(data=exam_data, \n       aes(x= ENGLISH, \n           y=SCIENCE)) +\n  geom_point() +\n  geom_label_repel(mapping = aes(label = ID),\n                   max.overlaps = getOption(\"ggrepel.max.overlaps\", default = 20)) +  \n  coord_cartesian(xlim=c(0,100),\n                  ylim=c(0,100)) +\n  ggtitle(\"Science scores versus English scores\")\n\n\n\n\n\n\n\n\n\n\nWarning\n\n\n\nNote how when there are too many data points (320 in this case), the labels that overlap cannot be labeled. Consider varying the number of overlaps allowed in the option for max.overlaps. The default value is 10."
+  },
+  {
+    "objectID": "Hands-on_Ex/Hands-on_Ex2/Hands-on_Ex2.html#themes",
+    "href": "Hands-on_Ex/Hands-on_Ex2/Hands-on_Ex2.html#themes",
+    "title": "Hands-on Exercise 2",
+    "section": "4 Themes",
+    "text": "4 Themes\n\n4.1 ggplot2 themes\nAs explored in Hands-on Exercise 1, there are several themes in ggplot2. Below is an example.\n\nPlotThe code\n\n\nUsing theme_bw() theme.\n\n\n\n\n\n\n\n\nggplot(data=exam_data) +\n  geom_point(aes(x = ENGLISH, y = SCIENCE, colour = RACE)) +\n  theme_bw() +\n  coord_cartesian(xlim=c(0,100),\n                  ylim=c(0,100)) +\n  ggtitle(\"Science scores versus English scores, with race perspective\")\n\n\n\n\n\n\n4.2 Using ggthemes\nThe list of themes available from the ggthemes() package can be found at this link.\n\nPlotThe code\n\n\nUsing theme_fivethirtyeight().\n\n\n\n\n\n\n\n\nggplot(data=exam_data) +\n  geom_point(aes(x = ENGLISH, y = SCIENCE, colour = RACE)) +\n  theme_economist() +\n  coord_cartesian(xlim=c(0,100),\n                  ylim=c(0,100)) +\n  ggtitle(\"Science scores versus English scores, with race perspective\")\n\n\n\n\n\n\n4.3 Using hrbthemes\nWith this package we can edit typographic elements such as placement of labels or fonts used.\n\nUsing hrbthemesThe code\n\n\n\n\n\n\n\n\n\n\nggplot(data=exam_data) +\n  geom_point(aes(x = ENGLISH, y = SCIENCE, colour = RACE)) +\n  theme_ipsum_rc(axis_title_size = 12,\n                 plot_title_size = 14,\n              base_size = 10,\n              grid = \"XY\") +  # gridlines for X and Y axis\n  ggtitle(\"Science scores versus English scores, with race perspective\")"
+  },
+  {
+    "objectID": "Hands-on_Ex/Hands-on_Ex2/Hands-on_Ex2.html#beyond-single-graph",
+    "href": "Hands-on_Ex/Hands-on_Ex2/Hands-on_Ex2.html#beyond-single-graph",
+    "title": "Hands-on Exercise 2",
+    "section": "5 Beyond Single Graph",
+    "text": "5 Beyond Single Graph\n\n5.1 Create individual plots\nWe will create the following plots:\n\nDistribution of Science scores\nDistribution of English scores\nScatterplot for Science score versus English score\n\n\nPlot 1Plot 2Plot 3\n\n\n\np1 <- ggplot(data=exam_data, \n             aes(x = SCIENCE)) +\n  geom_histogram(bins=20, \n                 boundary = 100,\n                 color=\"grey25\", \n                 fill=\"grey90\") +\n  coord_cartesian(xlim=c(0,100)) +\n  ggtitle(\"Distribution of Science scores\")\n\np1\n\n\n\n\n\n\n\np2 <- ggplot(data=exam_data, \n             aes(x = ENGLISH)) +\n  geom_histogram(bins=20, \n                 boundary = 100,\n                 color=\"grey25\", \n                 fill=\"grey90\") +\n  coord_cartesian(xlim=c(0,100)) +\n  ggtitle(\"Distribution of English scores\")\n\np2\n\n\n\n\n\n\n\np3 <- ggplot(data=exam_data, \n       aes(x = ENGLISH, y = SCIENCE)) +\n  geom_point() +\n  geom_smooth(method=lm, \n              linewidth=0.5) +\n  coord_cartesian(xlim=c(0,100),\n                  ylim=c(0,100)) +\n  ggtitle(\"Science scores versus English scores\")\n\np3\n\n\n\n\n\n\n\n\n\n5.2 Creating Composite Graphics: pathwork methods\nPatchwork package has a very simple syntax where we can create layouts super easily. Here’s the general syntax that combines:\n\nTwo-Column Layout using the Plus Sign +.\nParenthesis () to create a subplot group.\nTwo-Row Layout using the Division Sign /\n\n\nCombining two plotsCombining three plotsAdding tagUse inset_element()Adding ggthemes\n\n\n\np1+p2\n\n\n\n\n\n\n\n(p1 / p2) | p3\n\n\n\n\n\n\nObserve that the plots are now numbered by Roman numerals:\n\n((p1 / p2) | p3) + \n  plot_annotation(tag_levels = 'I')\n\n\n\n\n\n\nTo place plots freely on top or below of other plots.\n\np3 + inset_element(p2, \n                   left = 0.02, \n                   bottom = 0.7, \n                   right = 0.5, \n                   top = 1)\n\n\n\n\n\n\n\npatchwork <- (p1 / p2) | p3\npatchwork & theme_economist()"
+  },
+  {
+    "objectID": "Hands-on_Ex/Hands-on_Ex2/Hands-on_Ex2.html#references",
+    "href": "Hands-on_Ex/Hands-on_Ex2/Hands-on_Ex2.html#references",
+    "title": "Hands-on Exercise 2",
+    "section": "6 References",
+    "text": "6 References\n\nR for Visual Analytics: Beyond ggplot2 Fundamentals."
   }
 ]

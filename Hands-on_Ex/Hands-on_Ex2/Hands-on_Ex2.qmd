@@ -1,14 +1,11 @@
 ---
 title: "Hands-on Exercise 2"
 subtitle: "Beyond ggplot2 Fundamentals"
-date: January 10, 2024
+date: January 15, 2024
 date-modified: "last-modified"
 format:
   html:
     toc: true
-    toc-depth: 4
-    toc-expand: 4
-    toc-font-size: 0.8em
     number-sections: true
     code-line-numbers: false
     
@@ -18,4 +15,403 @@ execute:
   warning: false  
 ---
 
-Nothing here yet
+## Overview
+
+In this exercises I will practice using `ggplot2` to create elegant and effective statistical graphics, achieving the following:
+
+-   control the placement of annotation on a graph by using functions provided in ggrepel package,
+-   create professional publication quality figure by using functions provided in ggthemes and hrbrthemes packages,
+-   plot composite figure by combining ggplot2 graphs by using patchwork package.
+
+## Getting started
+
+### Loading libraries
+
+The following libraries will be used
+
+-   `ggrepel`: an R package provides geoms for ggplot2 to repel overlapping text labels.
+
+-   `ggthemes`: an R package provides some extra themes, geoms, and scales for ‘ggplot2’.
+
+-   `hrbrthemes`: an R package provides typography-centric themes and theme components for ggplot2.
+
+-   `patchwork`: an R package for preparing composite figure created using ggplot2.
+
+```{r}
+pacman::p_load(ggrepel, patchwork, 
+               ggthemes, hrbrthemes,
+               tidyverse)
+```
+
+### Importing data
+
+The data used is the year end examination grades of a cohort of primary 3 students from a local school. From Hands-On Exercise 1, we know that the data has:
+
+-   Four categorical attributes: ID, CLASS, GENDER, RACE
+-   Three continuous attributes: MATHS, ENGLISH, SCIENCE
+
+```{r}
+exam_data <- read_csv("data/Exam_data.csv")
+```
+
+## Annotation of plots
+
+
+### Using Text geoms in `ggplot2`
+
+Annotation of statistical graphs can be done by using text geoms like `geom_text()` or `geom_label()` (has rectangle behind the text) as shown below.
+
+::: panel-tabset
+## Plot with `geom_text()`
+
+```{r}
+#| echo: false
+ggplot(data=exam_data, 
+       aes(x= ENGLISH, 
+           y=SCIENCE)) +
+  geom_point() +
+  geom_text(mapping = aes(label = ID)) +  
+  coord_cartesian(xlim=c(0,100),
+                  ylim=c(0,100)) +
+  ggtitle("Science scores versus English scores")
+```
+
+## Code
+
+```{r}
+#| eval: false
+ggplot(data=exam_data, 
+       aes(x= ENGLISH, 
+           y=SCIENCE)) +
+  geom_point() +
+  geom_text(mapping = aes(label = ID)) +  
+  coord_cartesian(xlim=c(0,100),
+                  ylim=c(0,100)) +
+  ggtitle("Science scores versus English scores")
+```
+
+:::
+
+::: panel-tabset
+## Plot with `geom_label()`
+
+```{r}
+#| echo: false
+ggplot(data=exam_data, 
+       aes(x= ENGLISH, 
+           y=SCIENCE)) +
+  geom_point() +
+  geom_label(mapping = aes(label = ID)) +  
+  coord_cartesian(xlim=c(0,100),
+                  ylim=c(0,100)) +
+  ggtitle("Science scores versus English scores")
+```
+
+## Code
+
+```{r}
+#| eval: false
+ggplot(data=exam_data, 
+       aes(x= ENGLISH, 
+           y=SCIENCE)) +
+  geom_point() +
+  geom_label(mapping = aes(label = ID)) +  
+  coord_cartesian(xlim=c(0,100),
+                  ylim=c(0,100)) +
+  ggtitle("Science scores versus English scores")
+```
+:::
+
+### Using `ggrepel`
+
+[`ggrepel`](https://ggrepel.slowkow.com/) helps to repel overlapping text. Simply replace `geom_text()` by `geom_text_repel()` and `geom_label()` by `geom_label_repel()`.
+
+
+
+::: panel-tabset
+## Plot with `geom_text_repel()`
+
+```{r}
+#| echo: false
+ggplot(data=exam_data, 
+       aes(x= ENGLISH, 
+           y=SCIENCE)) +
+  geom_point() +
+  geom_text_repel(mapping = aes(label = ID)) +  
+  coord_cartesian(xlim=c(0,100),
+                  ylim=c(0,100)) +
+  ggtitle("Science scores versus English scores")
+```
+
+## Code
+
+```{r}
+#| eval: false
+ggplot(data=exam_data, 
+       aes(x= ENGLISH, 
+           y=SCIENCE)) +
+  geom_point() +
+  geom_text_repel(mapping = aes(label = ID)) +  
+  coord_cartesian(xlim=c(0,100),
+                  ylim=c(0,100)) +
+  ggtitle("Science scores versus English scores")
+```
+
+:::
+
+::: panel-tabset
+## Plot with `geom_label_repel()`
+
+```{r}
+#| echo: false
+ggplot(data=exam_data, 
+       aes(x= ENGLISH, 
+           y=SCIENCE)) +
+  geom_point() +
+  geom_label_repel(mapping = aes(label = ID),
+                   max.overlaps = getOption("ggrepel.max.overlaps", default = 20)) +  
+  coord_cartesian(xlim=c(0,100),
+                  ylim=c(0,100)) +
+  ggtitle("Science scores versus English scores")
+```
+
+## Code
+
+```{r}
+#| eval: false
+ggplot(data=exam_data, 
+       aes(x= ENGLISH, 
+           y=SCIENCE)) +
+  geom_point() +
+  geom_label_repel(mapping = aes(label = ID),
+                   max.overlaps = getOption("ggrepel.max.overlaps", default = 20)) +  
+  coord_cartesian(xlim=c(0,100),
+                  ylim=c(0,100)) +
+  ggtitle("Science scores versus English scores")
+```
+:::
+
+::: {.callout-warning}
+Note how when there are too many data points (320 in this case), the labels that overlap cannot be labeled. 
+Consider varying the number of overlaps allowed in the option for `max.overlaps`. The default value is 10. 
+:::
+
+
+## Themes
+
+### `ggplot2` themes
+
+As explored in Hands-on Exercise 1, there are several themes in `ggplot2`. Below is an example. 
+
+::: panel-tabset
+### Plot 
+
+Using `theme_bw()` theme.
+
+
+```{r}
+#| echo: false
+ggplot(data=exam_data) +
+  geom_point(aes(x = ENGLISH, y = SCIENCE, colour = RACE)) +
+  theme_bw() +
+  coord_cartesian(xlim=c(0,100),
+                  ylim=c(0,100)) +
+  ggtitle("Science scores versus English scores, with race perspective")
+```
+
+### The code
+
+```{r}
+#| eval: false
+ggplot(data=exam_data) +
+  geom_point(aes(x = ENGLISH, y = SCIENCE, colour = RACE)) +
+  theme_bw() +
+  coord_cartesian(xlim=c(0,100),
+                  ylim=c(0,100)) +
+  ggtitle("Science scores versus English scores, with race perspective")
+```
+::: 
+
+### Using `ggthemes`
+
+The list of themes available from the `ggthemes()` package can be found at this [link](https://jrnold.github.io/ggthemes/reference/index.html).
+
+::: panel-tabset
+### Plot
+
+Using `theme_fivethirtyeight()`.
+
+```{r}
+#| echo: false
+ggplot(data=exam_data) +
+  geom_point(aes(x = ENGLISH, y = SCIENCE, colour = RACE)) +
+  theme_economist() +
+  coord_cartesian(xlim=c(0,100),
+                  ylim=c(0,100)) +
+  ggtitle("Science scores versus English scores, with race perspective")
+```
+### The code
+
+```{r}
+#| eval: false
+ggplot(data=exam_data) +
+  geom_point(aes(x = ENGLISH, y = SCIENCE, colour = RACE)) +
+  theme_economist() +
+  coord_cartesian(xlim=c(0,100),
+                  ylim=c(0,100)) +
+  ggtitle("Science scores versus English scores, with race perspective")
+```
+
+::: 
+
+### Using `hrbthemes` 
+
+With this package we can edit typographic elements such as placement of labels or fonts used. 
+
+::: panel-tabset
+
+### Using `hrbthemes`
+```{r}
+#| echo: false
+
+ggplot(data=exam_data) +
+  geom_point(aes(x = ENGLISH, y = SCIENCE, colour = RACE)) +
+  theme_ipsum_rc(axis_title_size = 12,
+                 plot_title_size = 14,
+              base_size = 10,
+              grid = "XY") +  # gridlines for X and Y axis
+    coord_cartesian(xlim=c(0,100),
+                  ylim=c(0,100)) +
+  ggtitle("Science scores versus English scores, with race perspective")
+```
+### The code
+
+```{r}
+#| eval: false
+
+ggplot(data=exam_data) +
+  geom_point(aes(x = ENGLISH, y = SCIENCE, colour = RACE)) +
+  theme_ipsum_rc(axis_title_size = 12,
+                 plot_title_size = 14,
+              base_size = 10,
+              grid = "XY") +  # gridlines for X and Y axis
+  ggtitle("Science scores versus English scores, with race perspective")
+```
+
+
+::: 
+
+## Beyond Single Graph
+
+### Create individual plots
+
+We will create the following plots:
+
+1. Distribution of Science scores
+2. Distribution of English scores
+3. Scatterplot for Science score versus English score
+
+::: panel-tabset
+
+### Plot 1
+
+```{r}
+p1 <- ggplot(data=exam_data, 
+             aes(x = SCIENCE)) +
+  geom_histogram(bins=20, 
+                 boundary = 100,
+                 color="grey25", 
+                 fill="grey90") +
+  coord_cartesian(xlim=c(0,100)) +
+  ggtitle("Distribution of Science scores")
+
+p1
+```
+
+
+### Plot 2
+
+```{r}
+p2 <- ggplot(data=exam_data, 
+             aes(x = ENGLISH)) +
+  geom_histogram(bins=20, 
+                 boundary = 100,
+                 color="grey25", 
+                 fill="grey90") +
+  coord_cartesian(xlim=c(0,100)) +
+  ggtitle("Distribution of English scores")
+
+p2
+```
+
+### Plot 3
+
+```{r}
+p3 <- ggplot(data=exam_data, 
+       aes(x = ENGLISH, y = SCIENCE)) +
+  geom_point() +
+  geom_smooth(method=lm, 
+              linewidth=0.5) +
+  coord_cartesian(xlim=c(0,100),
+                  ylim=c(0,100)) +
+  ggtitle("Science scores versus English scores")
+
+p3
+```
+:::
+
+
+### Creating Composite Graphics: pathwork methods
+
+Patchwork package has a very simple syntax where we can create layouts super easily. Here’s the general syntax that combines:
+
+-   Two-Column Layout using the Plus Sign +.
+-   Parenthesis () to create a subplot group.
+-   Two-Row Layout using the Division Sign /
+
+::: panel-tabset
+
+### Combining two plots
+```{r}
+p1+p2
+```
+
+### Combining three plots
+
+```{r}
+(p1 / p2) | p3
+```
+### Adding tag
+
+Observe that the plots are now numbered by Roman numerals:
+
+```{r}
+((p1 / p2) | p3) + 
+  plot_annotation(tag_levels = 'I')
+```
+### Use `inset_element()`
+
+To place plots freely on top or below of other plots.
+
+
+```{r}
+p3 + inset_element(p2, 
+                   left = 0.02, 
+                   bottom = 0.7, 
+                   right = 0.5, 
+                   top = 1)
+```
+
+### Adding `ggthemes`
+```{r}
+#| fig-width: 10
+#| fig-height: 5
+patchwork <- (p1 / p2) | p3
+patchwork & theme_economist()
+
+```
+
+:::
+## References
+
+-   [**R for Visual Analytics: Beyond ggplot2 Fundamentals**](https://r4va.netlify.app/chap02#beyond-single-graph).

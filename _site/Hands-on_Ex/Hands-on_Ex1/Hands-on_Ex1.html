@@ -205,43 +205,19 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
   <ul>
   <li><a href="#learning-outcome" id="toc-learning-outcome" class="nav-link active" data-scroll-target="#learning-outcome"><span class="toc-section-number">1</span>  Learning Outcome</a></li>
   <li><a href="#getting-started" id="toc-getting-started" class="nav-link" data-scroll-target="#getting-started"><span class="toc-section-number">2</span>  Getting started</a>
-  <ul>
+  <ul class="collapse">
   <li><a href="#loading-libraries" id="toc-loading-libraries" class="nav-link" data-scroll-target="#loading-libraries"><span class="toc-section-number">2.1</span>  Loading libraries</a></li>
   <li><a href="#importing-data" id="toc-importing-data" class="nav-link" data-scroll-target="#importing-data"><span class="toc-section-number">2.2</span>  Importing data</a></li>
   </ul></li>
   <li><a href="#introducing-ggplot" id="toc-introducing-ggplot" class="nav-link" data-scroll-target="#introducing-ggplot"><span class="toc-section-number">3</span>  Introducing <code>ggplot</code></a></li>
   <li><a href="#grammar-of-graphics" id="toc-grammar-of-graphics" class="nav-link" data-scroll-target="#grammar-of-graphics"><span class="toc-section-number">4</span>  Grammar of Graphics</a></li>
   <li><a href="#essential-grammatical-elements-in-ggplot2" id="toc-essential-grammatical-elements-in-ggplot2" class="nav-link" data-scroll-target="#essential-grammatical-elements-in-ggplot2"><span class="toc-section-number">5</span>  Essential Grammatical Elements in ggplot2</a>
-  <ul>
-  <li><a href="#data-and-aesthetics" id="toc-data-and-aesthetics" class="nav-link" data-scroll-target="#data-and-aesthetics"><span class="toc-section-number">5.1</span>  Data and Aesthetics</a>
   <ul class="collapse">
-  <li><a href="#defining-aes-in-ggplot-or-in-geom-objects" id="toc-defining-aes-in-ggplot-or-in-geom-objects" class="nav-link" data-scroll-target="#defining-aes-in-ggplot-or-in-geom-objects"><span class="toc-section-number">5.1.1</span>  Defining aes in <code>ggplot()</code> or in geom objects</a></li>
-  </ul></li>
-  <li><a href="#geometric-objects" id="toc-geometric-objects" class="nav-link" data-scroll-target="#geometric-objects"><span class="toc-section-number">5.2</span>  Geometric Objects</a>
-  <ul class="collapse">
-  <li><a href="#geom_bar" id="toc-geom_bar" class="nav-link" data-scroll-target="#geom_bar"><span class="toc-section-number">5.2.1</span>  <code>geom_bar()</code></a></li>
-  <li><a href="#geom_dotplot" id="toc-geom_dotplot" class="nav-link" data-scroll-target="#geom_dotplot"><span class="toc-section-number">5.2.2</span>  <code>geom_dotplot()</code></a></li>
-  <li><a href="#geom_histogram" id="toc-geom_histogram" class="nav-link" data-scroll-target="#geom_histogram"><span class="toc-section-number">5.2.3</span>  <code>geom_histogram()</code></a></li>
-  <li><a href="#geom_density" id="toc-geom_density" class="nav-link" data-scroll-target="#geom_density"><span class="toc-section-number">5.2.4</span>  <code>geom_density()</code></a></li>
-  <li><a href="#geom_boxplot" id="toc-geom_boxplot" class="nav-link" data-scroll-target="#geom_boxplot"><span class="toc-section-number">5.2.5</span>  <code>geom_boxplot</code></a></li>
-  <li><a href="#geom_violin" id="toc-geom_violin" class="nav-link" data-scroll-target="#geom_violin"><span class="toc-section-number">5.2.6</span>  <code>geom_violin</code></a></li>
-  <li><a href="#geom_point" id="toc-geom_point" class="nav-link" data-scroll-target="#geom_point"><span class="toc-section-number">5.2.7</span>  <code>geom_point()</code></a></li>
-  <li><a href="#geom-objects-can-be-combined" id="toc-geom-objects-can-be-combined" class="nav-link" data-scroll-target="#geom-objects-can-be-combined"><span class="toc-section-number">5.2.8</span>  <em>geom</em> objects can be combined</a></li>
-  </ul></li>
-  <li><a href="#statistics" id="toc-statistics" class="nav-link" data-scroll-target="#statistics"><span class="toc-section-number">5.3</span>  Statistics</a>
-  <ul class="collapse">
-  <li><a href="#adding-a-best-fit-curve-on-a-scatterplot" id="toc-adding-a-best-fit-curve-on-a-scatterplot" class="nav-link" data-scroll-target="#adding-a-best-fit-curve-on-a-scatterplot"><span class="toc-section-number">5.3.1</span>  Adding a best fit curve on a scatterplot</a></li>
-  </ul></li>
-  <li><a href="#facets" id="toc-facets" class="nav-link" data-scroll-target="#facets"><span class="toc-section-number">5.4</span>  Facets</a>
-  <ul class="collapse">
-  <li><a href="#facet_wrap" id="toc-facet_wrap" class="nav-link" data-scroll-target="#facet_wrap"><span class="toc-section-number">5.4.1</span>  <code>facet_wrap()</code></a></li>
-  <li><a href="#facet_grid" id="toc-facet_grid" class="nav-link" data-scroll-target="#facet_grid"><span class="toc-section-number">5.4.2</span>  <code>facet_grid()</code></a></li>
-  </ul></li>
-  <li><a href="#coordinates" id="toc-coordinates" class="nav-link" data-scroll-target="#coordinates"><span class="toc-section-number">5.5</span>  Coordinates</a>
-  <ul class="collapse">
-  <li><a href="#coord_flip" id="toc-coord_flip" class="nav-link" data-scroll-target="#coord_flip"><span class="toc-section-number">5.5.1</span>  <code>coord_flip()</code></a></li>
-  <li><a href="#coord_cartesian" id="toc-coord_cartesian" class="nav-link" data-scroll-target="#coord_cartesian"><span class="toc-section-number">5.5.2</span>  <code>coord_cartesian()</code></a></li>
-  </ul></li>
+  <li><a href="#data-and-aesthetics" id="toc-data-and-aesthetics" class="nav-link" data-scroll-target="#data-and-aesthetics"><span class="toc-section-number">5.1</span>  Data and Aesthetics</a></li>
+  <li><a href="#geometric-objects" id="toc-geometric-objects" class="nav-link" data-scroll-target="#geometric-objects"><span class="toc-section-number">5.2</span>  Geometric Objects</a></li>
+  <li><a href="#statistics" id="toc-statistics" class="nav-link" data-scroll-target="#statistics"><span class="toc-section-number">5.3</span>  Statistics</a></li>
+  <li><a href="#facets" id="toc-facets" class="nav-link" data-scroll-target="#facets"><span class="toc-section-number">5.4</span>  Facets</a></li>
+  <li><a href="#coordinates" id="toc-coordinates" class="nav-link" data-scroll-target="#coordinates"><span class="toc-section-number">5.5</span>  Coordinates</a></li>
   <li><a href="#themes" id="toc-themes" class="nav-link" data-scroll-target="#themes"><span class="toc-section-number">5.6</span>  Themes</a></li>
   </ul></li>
   <li><a href="#references" id="toc-references" class="nav-link" data-scroll-target="#references"><span class="toc-section-number">6</span>  References</a></li>
@@ -272,7 +248,7 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
     <div>
     <div class="quarto-title-meta-heading">Modified</div>
     <div class="quarto-title-meta-contents">
-      <p class="date-modified">January 13, 2024</p>
+      <p class="date-modified">January 20, 2024</p>
     </div>
   </div>
     
@@ -384,8 +360,8 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <p>The table below describes the seven grammars of <code>ggplot2</code>.</p>
 <table class="table">
 <colgroup>
-<col style="width: 20%">
-<col style="width: 79%">
+<col style="width: 25%">
+<col style="width: 75%">
 </colgroup>
 <thead>
 <tr class="header">
@@ -689,8 +665,8 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 </div>
 </div>
 </section>
-<section id="geom-objects-can-be-combined" class="level4" data-number="5.2.8">
-<h4 data-number="5.2.8" class="anchored" data-anchor-id="geom-objects-can-be-combined"><span class="header-section-number">5.2.8</span> <em>geom</em> objects can be combined</h4>
+<section id="xgeom-objects-can-be-combined" class="level4" data-number="5.2.8">
+<h4 data-number="5.2.8" class="anchored" data-anchor-id="xgeom-objects-can-be-combined"><span class="header-section-number">5.2.8</span> <em>xgeom</em> objects can be combined</h4>
 <p>The code chunk below plots the data points on the violin plots by using both <code>geom_violin()</code> and <code>geom_point()</code>.</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb27"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(<span class="at">data=</span>exam_data, </span>

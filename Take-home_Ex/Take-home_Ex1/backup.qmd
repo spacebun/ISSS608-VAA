@@ -1,0 +1,613 @@
+---
+title: "Untitled"
+---
+
+## EDA 3: GENDER
+
+```{r}
+
+# Create boxplot for PV1MATH
+p_math <- ggplot(stu_qqq_SG_filtered, aes(x = SOCIOECONOMICSTATUS, y = PV1MATH, fill = GENDER)) +
+  geom_boxplot() +
+  ggtitle("Math Performance by Gender") +
+  xlab("Gender") +
+  ylab("PV1MATH Score")
+
+# Create boxplot for PV1READ
+p_read <- ggplot(stu_qqq_SG_filtered, aes(x = SOCIOECONOMICSTATUS, y = PV1MATH, fill = GENDER)) +
+  geom_boxplot() +
+  ggtitle("Reading Performance by Gender") +
+  xlab("Gender") +
+  ylab("PV1READ Score")
+
+# Create boxplot for PV1SCIE
+p_scie <- ggplot(stu_qqq_SG_filtered, aes(x = SOCIOECONOMICSTATUS, y = PV1MATH, fill = GENDER)) +
+  geom_boxplot() +
+  ggtitle("Science Performance by Gender") +
+  xlab("Gender") +
+  ylab("PV1SCIE Score")
+
+# Combine the plots into a single composite graph
+composite_plot <- p_math | p_read | p_scie
+
+# Display the composite graph
+composite_plot
+
+```
+
+```{r}
+# Create density plot for PV1MATH
+p_math_density <- ggplot(stu_qqq_SG_filtered, aes(x = PV1MATH, colour = GENDER)) +
+  geom_density() +
+  ggtitle("Density of Math Performance by Gender") +
+  xlab("PV1MATH Score") +
+  ylab("Density")  +  
+  coord_cartesian(xlim=c(0,1000))
+
+# Create density plot for PV1READ
+p_read_density <- ggplot(stu_qqq_SG_filtered, aes(x = PV1READ, colour = GENDER)) +
+  geom_density() +
+  ggtitle("Density of Reading Performance by Gender") +
+  xlab("PV1READ Score") +
+  ylab("Density")  +  
+  coord_cartesian(xlim=c(0,1000))
+
+# Create density plot for PV1SCIE
+p_scie_density <- ggplot(stu_qqq_SG_filtered, aes(x = PV1SCIE, colour = GENDER)) +
+  geom_density() +
+  ggtitle("Density of Science Performance by Gender") +
+  xlab("PV1SCIE Score") +
+  ylab("Density")  +  
+  coord_cartesian(xlim=c(0,1000))
+
+# Combine the plots into a single composite graph
+composite_density_plot <- p_math_density / p_read_density / p_scie_density
+
+# Display the composite graph
+composite_density_plot
+```
+
+```{r}
+ggplot(stu_qqq_SG_filtered, 
+       aes(x = PV1READ, 
+           y = GENDER)) +
+  geom_density_ridges(
+    scale = 3,
+    rel_min_height = 0.01,
+    bandwidth = 3.4,
+    fill = lighten("#7097BB", .3),
+    color = "white"
+  ) +
+  scale_x_continuous(
+    name = "English grades",
+    expand = c(0, 0)
+    ) +
+  scale_y_discrete(name = NULL, expand = expansion(add = c(0.2, 2.6))) +
+  theme_ridges()
+```
+
+::: {.callout-note icon="false" title="Insights"}
+Insights on data FOR EDA 3
+:::
+
+########################################################################################################################################################################################### 
+
+########################################################################################################################################################################################### 
+
+########################################################################################################################################################################################### 
+
+## EDA 4: STRATUM
+
+```{r}
+ggplot(stu_qqq_SG_filtered, aes(x = STRATUM, y = PV1MATH, fill = STRATUM)) +
+  geom_boxplot() +
+  ggtitle("Math Performance by STRATUM") +
+  xlab("STRATUM") +
+  ylab("PV1MATH Score")
+```
+
+::: {.callout-note icon="false" title="Insights"}
+Insights on data for EDA 4
+:::
+
+########################################################################################################################################################################################### 
+
+########################################################################################################################################################################################### 
+
+########################################################################################################################################################################################### 
+
+## EDA 5: ESCS
+
+Maybe try to use school on the third layer.
+
+```{r}
+ggplot(stu_qqq_SG_filtered, aes(x = ESCS, y = PV1MATH, color = GENDER)) +
+  geom_point() +
+  ggtitle("Relationship between ESCS and PV1MATH") +
+  xlab("Economic, Social and Cultural Status (ESCS)") +
+  ylab("PV1MATH Score")
+
+
+```
+
+```{r}
+ggplot(stu_qqq_SG_filtered, aes(x = SOCIOECONOMICSTATUS, y = PV1MATH)) +
+  geom_boxplot() +
+  ggtitle("Boxplot of PV1MATH Scores by Socioeconomic Status") +
+  xlab("Socioeconomic Status") +
+  ylab("PV1MATH Score")
+```
+
+```{r}
+ggplot(stu_qqq_SG_filtered,
+       aes(x = IMMIG, 
+           y = PV1MATH)) +
+  stat_halfeye(adjust = 0.5,
+               justification = -0.2,
+               .width = 0,
+               point_colour = NA) +
+  geom_boxplot(width = .20,
+               outlier.shape = NA) +
+  stat_dots(side = "left", 
+            justification = 1.2, 
+            binwidth = .5,
+            dotsize = 1.5) +
+  coord_flip() +
+  theme_economist()
+```
+
+```{r}
+ggplot(stu_qqq_SG_filtered, aes(x=PV1SCIE, y=PV1MATH)) +
+  geom_point(alpha=0.7)
+```
+
+```{r}
+# Aggregate the data
+aggregated_data <- stu_qqq_SG_filtered %>%
+  group_by(SOCIOECONOMICSTATUS) %>%
+  summarise(Mean_PV1MATH = mean(PV1MATH, na.rm = TRUE),
+            Count = n())
+
+# Create the bubble plot
+ggplot(aggregated_data, aes(x = SOCIOECONOMICSTATUS, y = Mean_PV1MATH, size = Count)) +
+  geom_point(alpha = 0.6) +
+  scale_size_continuous(range = c(3, 12)) +  # Adjust the size scale as needed
+  ggtitle("Performance in PV1MATH by Socioeconomic Status") +
+  xlab("Socioeconomic Status") +
+  ylab("Average PV1MATH Score") +
+  guides(size = guide_legend(title = "Number of Students"))
+```
+
+::: {.callout-note icon="false" title="Insights"}
+Insights on data for EDA 5
+:::
+
+########################################################################################################################################################################################### 
+
+########################################################################################################################################################################################### 
+
+########################################################################################################################################################################################### 
+
+########################################################################################################################################################################################### 
+
+########################################################################################################################################################################################### 
+
+########################################################################################################################################################################################### 
+
+## UNUSED : DIstribution
+
+```{r}
+# Beautfiutl distirbution plot 
+PV1_values <- pivot_longer(stu_qqq_SG_filtered, 
+                          cols = c(PV1READ, PV1MATH, PV1SCIE),
+                          names_to = "Subject",
+                          values_to = "PV")
+
+ggplot(data=PV1_values, aes(x = PV, fill = Subject)) +    
+  geom_density(alpha = 0.3) + 
+  labs(y = "Plausible Value") +
+  ggtitle("Distribution of performance of students in Singapore")
+
+```
+
+```{r}
+#| echo: false
+
+# Calculate mean, median, and whisker positions for each subject
+stats <- stu_qqq_SG_filtered %>%
+  summarise(
+    Mean_MATH = mean(PV1MATH, na.rm = TRUE),
+    Median_MATH = median(PV1MATH, na.rm = TRUE),
+    WhiskerLow_MATH = max(min(PV1MATH, na.rm = TRUE), quantile(PV1MATH, 0.25, na.rm = TRUE) - 1.5 * IQR(PV1MATH, na.rm = TRUE)),
+    WhiskerHigh_MATH = min(max(PV1MATH, na.rm = TRUE), quantile(PV1MATH, 0.75, na.rm = TRUE) + 1.5 * IQR(PV1MATH, na.rm = TRUE)),
+
+    Mean_READ = mean(PV1READ, na.rm = TRUE),
+    Median_READ = median(PV1READ, na.rm = TRUE),
+    WhiskerLow_READ = max(min(PV1READ, na.rm = TRUE), quantile(PV1READ, 0.25, na.rm = TRUE) - 1.5 * IQR(PV1READ, na.rm = TRUE)),
+    WhiskerHigh_READ = min(max(PV1READ, na.rm = TRUE), quantile(PV1READ, 0.75, na.rm = TRUE) + 1.5 * IQR(PV1READ, na.rm = TRUE)),
+
+    Mean_SCIE = mean(PV1SCIE, na.rm = TRUE),
+    Median_SCIE = median(PV1SCIE, na.rm = TRUE),
+    WhiskerLow_SCIE = max(min(PV1SCIE, na.rm = TRUE), quantile(PV1SCIE, 0.25, na.rm = TRUE) - 1.5 * IQR(PV1SCIE, na.rm = TRUE)),
+    WhiskerHigh_SCIE = min(max(PV1SCIE, na.rm = TRUE), quantile(PV1SCIE, 0.75, na.rm = TRUE) + 1.5 * IQR(PV1SCIE, na.rm = TRUE))
+  )
+
+
+
+
+# Create the density plot with vertical faceting
+PV_densityplot <- ggplot(stu_qqq_SG_filtered_long, aes(x = PV, fill = Subject)) +
+  geom_density(alpha = 0.5) +
+  facet_wrap(~ Subject, scales = "free", nrow = 3) +  # Facet by subject, arranged vertically
+  ggtitle("Density Plot of PV1MATH, PV1READ, and PV1SCIE") +
+  xlab("Score") +
+  theme_minimal() +
+  scale_fill_brewer(palette = "Set1") +
+  labs(subtitle="Symmetrical curves appear to resemble Normal distributions across subjects.")
+
+PV_densityplot
+
+
+
+```
+
+```{r}
+
+# Assuming your long-format data is called stu_qqq_SG_filtered_long
+# Create the density plot
+PV_densityplot <- ggplot(stu_qqq_SG_filtered_long, aes(x = PV, fill = Subject)) +
+  geom_density(alpha = 0.5) +
+  ggtitle("Density Plot of PV1MATH, PV1READ, and PV1SCIE") +
+  xlab("Score") +
+  ylab("Density") +
+  theme_minimal() +
+  scale_fill_brewer(palette = "Set1") +
+  labs(x = "Score", y = NULL, title = "Median score for Math higher than Science and Reading.", 
+         subtitle="Symmetrical curves appear to resemble Normal distributions across subject.")
+PV_densityplot
+
+```
+
+```{r}
+# Rain Cloud - DO not run this 
+
+stu_qqq_SG_filtered_long <- 
+  stu_qqq_SG_filtered %>% 
+  pivot_longer(cols = c(PV1READ, PV1MATH, PV1SCIE),
+               names_to = "subject",
+               names_prefix="Avg_",
+               values_to="score")
+
+ggplot(stu_qqq_SG_filtered_long, 
+       aes(x = subject, 
+           y = score)) +
+  stat_halfeye(adjust = 0.5,
+               justification = -0.2,
+               .width = 0,
+               point_colour = NA) +
+  geom_boxplot(width = .20,
+               outlier.shape = NA) +
+  stat_dots(side = "left", 
+            justification = 1.2, 
+            binwidth = .5,
+            dotsize = 1.5) +
+  coord_flip() +
+  theme_economist()
+
+
+```
+
+```{r}
+stu_qqq_SG_filtered_long <- 
+  stu_qqq_SG_filtered %>% 
+  pivot_longer(cols = c(PV1READ, PV1MATH, PV1SCIE),
+               names_to = "subject",
+               names_prefix="Avg_",
+               values_to="score")
+
+stu_qqq_SG_filtered_long %>%
+  ggplot(aes(y = subject, x = score)) +
+  stat_slab(aes(fill = after_stat(level)), 
+            .width = c(.66, .95, 1),
+            alpha=0.8) +
+  stat_pointinterval() +
+  scale_fill_brewer() +
+  scale_y_discrete(labels= c("Math", "Reading", "Science")) +
+  labs(x = "Score", y = NULL, title = "Median score for Math higher than Science and Reading.", 
+         subtitle="Symmetrical curves appear to resemble Normal distributions across subject.")+
+  theme(legend.position = "bottom",
+          plot.title = element_text(size = 12, face = "bold"),
+          plot.subtitle = element_text(size = 9),
+          plot.caption = element_text(size = rel(0.8)),
+          axis.text.y = element_text(size = rel(0.9)),
+          plot.background=element_rect(fill="#f5f5f5",colour="#f5f5f5")
+          )
+```
+
+```{r}
+# Ridge plot for PVs
+ggplot(data= stu_qqq_SG_filtered_long,
+        aes(x = score, 
+            y = subject, 
+           fill = subject,
+), 
+           ) + 
+  stat_density_ridges(quantiles = 2,
+                      quantile_lines = TRUE,
+                     alpha = 0.8,
+                     scale = 2,
+                     geom = "density_ridges_gradient", calc_ecdf = TRUE) + 
+
+  scale_x_continuous(
+    breaks = scales::pretty_breaks(n = 5)
+  ) +
+  guides(color = "none", fill = "none") + 
+  scale_fill_manual(values=c("#f27279", "#73b2c4", "#f2b678")) +
+  labs(x = "Score", y = NULL, title = "Median score for Math higher than Science and Reading.", 
+         subtitle="Symmetrical curves appear to resemble Normal distributions across subject.")+
+  theme(legend.position = "bottom",
+          plot.title = element_text(size = 12, face = "bold"),
+          plot.subtitle = element_text(size = rel(0.8)),
+          plot.caption = element_text(size = rel(0.8)),
+          axis.text.y = element_text(size = rel(0.9)),
+          plot.background=element_rect(fill="#f5f5f5",colour="#f5f5f5")
+          )
+```
+
+```{r}
+# Ridge plot for Levels
+ggplot(data= stu_qqq_SG_filtered_long,
+        aes(x = PV, 
+            y = Subject, 
+           fill = Subject,
+), 
+           ) + 
+  stat_density_ridges(quantiles = 2,
+                      quantile_lines = TRUE,
+                     alpha = 0.8,
+                     scale = 2,
+                     geom = "density_ridges_gradient", calc_ecdf = TRUE) + 
+
+  scale_x_continuous(
+    breaks = scales::pretty_breaks(n = 5)
+  ) +
+  guides(color = "none", fill = "none") + 
+  scale_fill_manual(values=c("#f27279", "#73b2c4", "#f2b678")) +
+  labs(x = "Score", y = NULL, title = "Median score for Math higher than Science and Reading.", 
+         subtitle="Symmetrical curves appear to resemble Normal distributions across subject.")+
+  theme(legend.position = "bottom",
+          plot.title = element_text(size = 12, face = "bold"),
+          plot.subtitle = element_text(size = rel(0.8)),
+          plot.caption = element_text(size = rel(0.8)),
+          axis.text.y = element_text(size = rel(0.9)),
+          plot.background=element_rect(fill="#f5f5f5",colour="#f5f5f5")
+          )
+```
+
+```{r}
+ggplot(data = stu_qqq_SG_filtered) +
+  geom_boxplot(aes(y = PV1READ, x = "PV1READ")) +
+  geom_boxplot(aes(y = PV2READ, x = "PV2READ")) +
+  geom_boxplot(aes(y = PV3READ, x = "PV3READ")) +
+  geom_boxplot(aes(y = PV4READ, x = "PV4READ")) +
+  geom_boxplot(aes(y = PV5READ, x = "PV5READ")) +
+  geom_boxplot(aes(y = PV6READ, x = "PV6READ")) +
+  geom_boxplot(aes(y = PV7READ, x = "PV7READ")) +
+  geom_boxplot(aes(y = PV8READ, x = "PV8READ")) +
+  geom_boxplot(aes(y = PV9READ, x = "PV9READ")) +
+  geom_boxplot(aes(y = PV10READ, x = "PV10READ")) +
+  scale_x_discrete(name = "Plausible Values") +
+  ylab("Scores") +
+  ggtitle("Boxplot of All PVs for Reading")
+```
+
+```{r}
+# Pivot the data to long format for easier plotting
+ggplot(stu_qqq_SG_filtered, aes(x = PV1READ_LEVEL)) +
+  geom_bar(aes(fill = PV1READ_LEVEL), position = position_dodge()) +
+  ggtitle("Proficiency Level Distribution in PV1READ") +
+  xlab("Proficiency Level") +
+  ylab("Count of Students")
+
+```
+
+```{r}
+long_data <- stu_qqq_SG_filtered %>%
+  pivot_longer(cols = c("PV1MATH_LEVEL", "PV1READ_LEVEL", "PV1SCIE_LEVEL"),
+               names_to = "Subject",
+               values_to = "Proficiency_Level")
+ggplot(long_data, aes(x = Proficiency_Level)) +
+  geom_bar(aes(fill = Proficiency_Level)) +
+  facet_wrap(~ Subject, scales = "free_x") +
+  ggtitle("Proficiency Level Distribution Across Subjects") +
+  xlab("Proficiency Level") +
+  ylab("Count of Students") +
+  theme_minimal()
+
+```
+
+```{r}
+ggplot(long_data, aes(x = Proficiency_Level, y = ..count.., fill = Proficiency_Level)) +
+  geom_bar(position = position_dodge(), stat = "count") +
+  facet_wrap(~ Proficiency_Level, scales = 'free_x') +
+  labs(title = "Clustered Bar Chart of Proficiency Levels",
+       x = "Proficiency Level",
+       y = "Count") +
+  theme_minimal()
+
+```
+
+```{r}
+
+# Create separate plots for each variable and combine them
+p1 <- ggplot(data=stu_qqq_SG_filtered, aes(y = PV1MATH)) +    
+  geom_boxplot() + 
+  coord_cartesian(ylim=c(0,1000)) +
+  theme_minimal() +
+  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank(),
+        plot.background = element_rect(fill="#FFFFFF",colour="#FFFFFF")) + 
+  labs(y = "Plausible Value") +
+  ggtitle("PV1MATH")
+
+p2 <- ggplot(data=stu_qqq_SG_filtered, aes(y = PV1READ)) +    
+  geom_boxplot() + 
+  coord_cartesian(ylim=c(0,1000)) +
+  theme_minimal() +
+  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank(), 
+        axis.text.y = element_blank(), axis.ticks.y = element_blank(), axis.title.y = element_blank(),
+        plot.background = element_rect(fill="#FFFFFF",colour="#FFFFFF")) + 
+  ggtitle("PV1READ")
+
+p3 <-ggplot(data=stu_qqq_SG_filtered, aes(y = PV1SCIE)) +  
+  geom_boxplot() + 
+  coord_cartesian(ylim=c(0,1000)) +
+  theme_minimal() +
+  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank(), 
+        axis.text.y = element_blank(), axis.ticks.y = element_blank(), axis.title.y = element_blank(),
+        plot.background = element_rect(fill="#FFFFFF",colour="#FFFFFF")) +
+  ggtitle("PV1SCIE")
+
+p1 + p2 + p3
+
+```
+
+# GENDER
+
+# Create a violin plot
+
+ggplot(long_data, aes(x = Subject, y = Score, fill = GENDER)) + geom_violin(position = position_dodge(0.8)) + facet_wrap(\~ Subject, scales = "free") + theme_minimal() + labs(y = "Score", x = "Subject", title = "Comparison of Student Performance by Gender and Subject") + scale_fill_brewer(palette = "Set1")
+
+```{r}
+
+# Filter the data to include only the PV1MATH scores and GENDER
+math_scores_gender <- stu_qqq_SG_filtered %>%
+  select(PV1MATH, GENDER)
+
+# Create a histogram for PV1MATH performance by gender
+ggplot(math_scores_gender, aes(x = PV1MATH, fill = GENDER)) +
+  geom_histogram(bins = 30, alpha = 0.6) +
+  facet_wrap(~ GENDER, scales = "free_y", nrow = 2) + # Facets arranged vertically
+  theme_minimal() +
+  labs(title = "Histogram of PV1MATH Performance by Gender",
+       x = "PV1MATH Score", y = "Count") +
+  scale_fill_brewer(palette = "Pastel1") # A color palette for gender distinction
+
+
+```
+
+```{r}
+
+ggplot(stu_qqq_SG_filtered_long, 
+       aes(x = PV1MATH, 
+           y = GENDER)) +
+  stat_halfeye(adjust = 0.5,
+               justification = -0.2,
+               .width = 0,
+               point_colour = NA) +
+  geom_boxplot(width = .1,
+               outlier.shape = NA) 
+```
+
+```{r}
+#| echo: false
+
+ggplot(data=stu_qqq_SG_filtered_long, aes(x = PV1MATH, fill = GENDER)) +    
+  geom_density(alpha = 0.3) + 
+  labs(x = "Plausible Value")
+
+```
+
+## ggridge and ggdist
+
+::: panel-tabset
+### The plot
+
+```{r}
+#| echo: false
+ggplot(stu_qqq_SG_filtered, 
+       aes(x = STRATUM, 
+           y = PV1SCIE)) +
+  stat_halfeye(adjust = 0.5,
+               justification = -0.2,
+               .width = 0,
+               point_colour = NA)
+```
+
+### The code chunk
+
+```{r}
+#| eval: false
+ggplot(data = stu_qqq_SG) +
+  geom_boxplot(aes(y = PV1READ, x = "PV1READ")) +
+  geom_boxplot(aes(y = PV2READ, x = "PV2READ")) +
+  geom_boxplot(aes(y = PV3READ, x = "PV3READ")) +
+  geom_boxplot(aes(y = PV4READ, x = "PV4READ")) +
+  geom_boxplot(aes(y = PV5READ, x = "PV5READ")) +
+  geom_boxplot(aes(y = PV6READ, x = "PV6READ")) +
+  geom_boxplot(aes(y = PV7READ, x = "PV7READ")) +
+  geom_boxplot(aes(y = PV8READ, x = "PV8READ")) +
+  geom_boxplot(aes(y = PV9READ, x = "PV9READ")) +
+  geom_boxplot(aes(y = PV10READ, x = "PV10READ")) +
+  scale_x_discrete(name = "Plausible Values") +
+  ylab("Scores") +
+  ggtitle("Boxplot of All PVs for Reading")
+```
+:::
+
+# PERFORMANCE
+
+# Gather the levels into one column, "Proficiency_Level", and their values into "Value".
+
+proportions \<- stu_qqq_SG_filtered %\>% gather(key = "Proficiency_Level", value = "Value", PV1MATH_LEVEL, PV1READ_LEVEL, PV1SCIE_LEVEL) %\>% count(STRATUM, Proficiency_Level, Value) %\>% group_by(STRATUM, Proficiency_Level) %\>% mutate(Proportion = n / sum(n)) %\>% ungroup()
+
+heatmap_plot \<- ggplot(proportions, aes(x = STRATUM, y = Value, fill = Proportion)) + geom_tile() + scale_fill_gradient(low = "white", high = "steelblue", labels = percent_format()) + facet_wrap(\~ Proficiency_Level, scales = "free_x") + labs(title = "Heatmap of Performance Level Proportions by School Type", x = "School Type", y = "Proficiency Level", fill = "Proportion") + theme_minimal() + theme( panel.background = element_rect(fill = "white", colour = NA), \# Set the panel background to white axis.text.x = element_text() )
+
+# Render the plot
+
+heatmap_plot
+
+```{r}
+
+# Assuming 'stu_qqq_SG_filtered' is your original data frame and contains columns 'PV1MATH' and 'STRATUM'
+ggplot(stu_qqq_SG_filtered, aes(x = PV1MATH, fill = STRATUM)) +
+  geom_density(alpha = 0.5) +
+  labs(title = "Density Plot of PV1MATH Performance by School Type",
+       x = "PV1MATH Score",
+       y = "Density") +
+  scale_fill_manual(values = c("PUBLIC" = "#1f77b4", "PRIVATE" = "#ff7f0e")) +
+  theme_minimal()
+
+```
+
+# SES
+
+```{r}
+ggplot(stu_qqq_SG_filtered, aes(x = SOCIOECONOMICSTATUS, y = PV1MATH)) +
+  geom_boxplot() +
+  ggtitle("Boxplot of PV1MATH Scores by Socioeconomic Status") +
+  xlab("Socioeconomic Status") +
+  ylab("PV1MATH Score")
+
+
+# Create the ridge plot
+SES_ridgeplot <- ggplot(stu_qqq_SG_filtered, aes(x = PV1READ, y = SOCIOECONOMICSTATUS, fill = SOCIOECONOMICSTATUS)) +
+  geom_density_ridges(alpha = 0.5, quantile_lines=TRUE, quantile_fun = function(y, ...) quantile(y, probs = 0.5, na.rm = TRUE)) +
+  ylab("") +
+  xlab("PV1") +
+  scale_x_continuous(limits = c(0,1000)) + 
+  labs(title = "Distributions of performance of students in Singapore for Science, Reading and Math") +
+  theme_minimal() +
+  scale_fill_brewer(palette = "Set1") +
+  theme(legend.position = "none",  # Hides the legend
+        axis.title.x = element_blank(),  # Hides the x-axis title
+        axis.text.x = element_blank(),  # Hides the x-axis text/numbers
+        axis.ticks.x = element_blank(), # Hides the x-axis ticks
+        plot.title = element_text(face = "bold", size = 12), plot.subtitle = element_text(size = 8))  
+SES_ridgeplot
+```
+
+```{r}
+ggplot(stu_qqq_SG_filtered_long, aes(x = PV1, y = SOCIOECONOMICSTATUS, fill = 0.5 - abs(0.5 - stat(ecdf)))) +
+  stat_density_ridges(geom = "density_ridges_gradient", calc_ecdf = TRUE) +
+  scale_fill_viridis_c(name = "Tail probability", direction = -1)
+```

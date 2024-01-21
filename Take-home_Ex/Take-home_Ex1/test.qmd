@@ -1,0 +1,3417 @@
+---
+title: "Take-home Exercise 1: "
+date: "01 Jan 2024"
+date-modified: "last-modified"
+editor: visual
+toc-depth: 4
+execute:
+  freeze: true #never re-render during project render
+  echo: true #if false, displays charts without codes
+  eval: true #if false, displays codes without charts
+  warning: false #dont display if there are any warnings
+format: 
+  html:
+    code-fold: false
+    code-overflow: scroll
+    code-summary: "Show the code"
+    code-line-numbers: false
+---
+
+![](images/placeholder.PNG){fig-align="center"}
+
+# 1 Overview
+
+## 1.1 Background
+
+The OECD Programme for International Student Assessment (PISA) surveys collected data on 15 year-old students' performances in reading, mathematics and science, as well as contextual information on students' background, home characteristics and school factors which could influence performance. It provides the most comprehensive and rigorous international assessment of student learning outcomes. Results from PISA indicate the quality and equity of learning outcomes attained around the world, and allow educators and policy makers to learn from the policies and practices applied in other countries.
+
+This could be used to create shared points of reference and spur collaboration to act on the data. The goal of PISA was to help schools and policy makers shift from looking inward at each other within the same education system to looking outward: to teachers, schools and policy makers across the world.
+
+The latest PISA assessment took place in 2022 and consisted of 8 questionnaires completed by different education systems stakeholders (students, teachers, parents, and school principals).
+
+## 1.2 The Data
+
+The data for this exercise is the **Student questionnaire data file** in SAS format, retrieved from [OECD's PISA 2022 Database](https://www.oecd.org/pisa/data/2022database/).
+
+![](images/PISA.PNG){fig-align="center" width="450"}
+
+Supplementary materials used in conjunction with dataset:
+
+-   [Codebook](https://webfs.oecd.org/pisa2022/CY08MSP_CODEBOOK_5thDecember23.xlsx)
+-   [Master Questionnaire](https://www.oecd.org/pisa/data/2022database/CY8_202111_QST_MS_STQ_CBA_NoNotes.pdf)
+-   [Technical Report](https://www.oecd.org/pisa/data/pisa2022technicalreport/)
+
+## 1.3 The Task
+
+Using the **2022 Student Questionnaire Dataset**, this post aims to use appropriate Exploratory Data Analysis (EDA) methods and ggplot2 functions to uncover:
+
+-   the distribution of [Singapore students']{.underline} performance in **mathematics, reading, and science**, and
+-   the relationship between these performances with **schools, gender and socioeconomic status** of the students.
+
+# 2 Loading Packages
+
++----------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------------+
+| **Library**                                                                                  | **Description**                                                                                               |
++==============================================================================================+===============================================================================================================+
+| [**tidyverse**](https://www.tidyverse.org/)                                                  | A collection of core packages designed for data science, used extensively for data preparation and wrangling. |
++----------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------------+
+| [**haven**](https://haven.tidyverse.org/)                                                    | To enable R to read and write various data formats such as SAS and SPSS.                                      |
++----------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------------+
+| knitr                                                                                        |                                                                                                               |
++----------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------------+
+| [**patchwork**](https://patchwork.data-imaginist.com/)                                       | For preparing composite figure created using ggplot2.                                                         |
++----------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------------+
+| [**ggthemes**](https://yutannihilation.github.io/allYourFigureAreBelongToUs/ggthemes/)       | Extra themes, geoms, and scales for ggplot2.                                                                  |
++----------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------------+
+| [**scales**](https://scales.r-lib.org/)                                                      | For data labels and annotations for ggplot2                                                                   |
++----------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------------+
+| ggridges                                                                                     |                                                                                                               |
++----------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------------+
+| ggpubr                                                                                       |                                                                                                               |
++----------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------------+
+| gganimate                                                                                    |                                                                                                               |
++----------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------------+
+| ggdist                                                                                       |                                                                                                               |
++----------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------------+
+| ggtext                                                                                       |                                                                                                               |
++----------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------------+
+| ggalt                                                                                        |                                                                                                               |
++----------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------------+
+| ggextra                                                                                      |                                                                                                               |
++----------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------------+
+| cowplot                                                                                      |                                                                                                               |
++----------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------------+
+| [**ggpp**](https://docs.r4photobiology.info/ggpp/)                                           | For data labels and annotations for ggplot2.                                                                  |
++----------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------------+
+| [**ggridges**](https://cran.r-project.org/web/packages/ggridges/vignettes/introduction.html) | For plotting ridgeline plots                                                                                  |
++----------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------------+
+| [**ggpubr**](https://rpkgs.datanovia.com/ggpubr/)                                            | For publication-ready plots                                                                                   |
++----------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------------+
+|                                                                                              |                                                                                                               |
++----------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------------+
+| **knitr**                                                                                    |                                                                                                               |
++----------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------------+
+| ggdist                                                                                       |                                                                                                               |
++----------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------------+
+
+: {tbl-colwidths="\[20,80\]"}
+
+The following code chunk uses `p_load()` of [**pacman**](https://rpubs.com/akshaypatankar/594834) package to check if tidyverse packages are installed in the computer. If they are, the libraries will be called into R.
+
+```{r}
+pacman::p_load(tidyverse, haven, knitr,
+               patchwork, ggthemes, scales,
+               ggridges, ggpubr, gganimate,
+               ggdist, ggtext, ggalt,
+               cowplot)
+```
+
+# 3 PISA Data
+
+In the next two sections, I'll go through all of the steps I took to wrangle the data -- from reading in the raw data to my final dataset. I'll be using the **tidyverse** package, specifically **dplyr** for data manipulation and **haven** for reading in data.
+
+::: panel-tabset
+## Importing sas file
+
+The code chunk below imports the *2022 Student Questionnaire* dataset downloaded from OECD's PISA 2022 Database using the [`read_sas()`](https://haven.tidyverse.org/reference/read_sas.html) function of the [**haven**](https://haven.tidyverse.org/) package.
+
+```{r}
+#| eval: false
+stu <- read_sas(data_file = "data/cy08msp_stu_qqq.sas7bdat")
+```
+
+The dataset is in a tibble dataframe, containing 613,744 observations (rows) across 1,279 variables (columns). Each observation corresponds to an entry from a student who participated in the 2022 PISA survey for students, and the variables correspond to information from students on various aspects of their home, family, and school background.
+
+Note that the first variable *CNT* refers to the country of response, we can use this to filter for Singapore (where *CNT = SGP*) responses for our analysis. [`filter()`](https://dplyr.tidyverse.org/reference/filter.html) of the [**dplyr**](https://dplyr.tidyverse.org/) package allows us to perform this extraction of participating country.
+
+```{r}
+#| eval: false
+stu_SG <- stu %>%
+  filter(CNT == "SGP")
+```
+
+The resulting data contains 6,606 observations across 1,279 variables.
+
+The *.rds* file format is usually smaller than its SAS file counterpart and will therefore take up less storage space. The *.rds* file will also preserve data types and classes such as factors and dates eliminating the need to redefine data types after loading the file. For fast and space efficient data storage, files can be exported as RDS and re-imported into R using [`write_rds()`](https://readr.tidyverse.org/reference/read_rds.html) and [`read_rds()`](https://readr.tidyverse.org/reference/read_rds.html) respectively.
+
+```{r}
+#| eval: false
+write_rds(stu_SG, "data/stu_SG.rds")
+```
+
+```{r}
+stu_SG <- read_rds("data/stu_qqq_SG.rds")
+```
+
+## Duplicates Check
+
+Before moving on to the next step, let us check for duplicated records to prevent double counting of our results with the help of `group_by_all()` to detect if there are more than one instance of a row with the same details throughout all the columns.
+
+```{r}
+duplicate <- stu_SG %>% 
+  group_by_all() %>% 
+  filter(n()>1) %>% 
+  ungroup()
+  
+duplicate
+```
+
+Results confirm that there are no duplicated records found.
+
+I also wanted to check if every observation in the dataset belongs to a unique Student using *CNTSTUID*, which is the Intl. Student ID.
+
+```{r}
+n_distinct(stu_SG$CNTSTUID)
+```
+
+The results confirm that each observation pertains to a unique Student as there are 6606 distinct student IDs for the 6606 rows in the dataset.
+:::
+
+# 4 Data Wrangling
+
+The flowchart shows the main variables used and created in this study.
+
+```{mermaid}
+%%| fig-width: 8
+%%| echo: false
+flowchart LR
+    A(Student PISA Survey) -->|\nFilter| B[Singapore Students' Responses]
+
+    B--> F[Schools]
+    F-.-> F1[CNTSCHID]
+    
+    B--> B1[Student ID]
+    B1-.-> B1.1[CNTSTUID]  
+
+    B--> G[Gender]
+    G-.-> M[ST004D01T] 
+
+    B--> H[Socioeconomic status]
+    H--> H1[Immigration status] 
+    H1-.-> H1A[IMMIG]        
+    H--> H2[Parental occupational status] 
+    H2-.-> H2A[OCOD1, OCOD2]
+    H--> H3[Educational resources]
+    H3-.-> H3A[ST250Q02JA, ST250Q03JA, ST250Q05JA]
+
+    H--> H6[Parental educational status]
+    H6-.-> H6A[MISCED, FISCED]          
+
+    B--> C[Math performance]
+    C--> C1[Out-of-school study time]
+    C1-.-> C1A[ST296Q01JA]
+    C--> C2[Curriculum time]   
+    C2-.-> C2A[ST059Q01TA]
+    C--> C3[Plausible Values]   
+    C3-.-> C3A[PV1MATH to PV10MATH]        
+
+    B--> D[Reading performance]
+    D--> D1[Out-of-school study time]
+    D1-.-> D1A[ST296Q02JA] 
+    D--> D2[Plausible Values]
+    D2-.-> D2A[PV1READ to PV10READ]     
+
+    B--> E[Science performance]
+    E--> E1[Out-of-school study time]
+    E1-.-> E1A[ST296Q03JA]   
+    E--> E2[Plausible Values]
+    E2-.-> E12[PV1SCIE to PV10SCIE] 
+
+    1(Schools PISA Survey) -->|\nFilter| 1.1[Singapore Schools \nResponses]
+    F1--> F2[Type, Student-Teacher ratio]
+    F2-.-> F2a[SCHLTYPE, STRATIO]
+    1.1-.->F1
+```
+
+## 4.1 Variable Selection
+
+Now, I want to just keep the columns that are useful to me. Both [**Technical Report**](https://www.oecd.org/pisa/data/pisa2022technicalreport/) and [**Codebook**](https://webfs.oecd.org/pisa2022/CY08MSP_CODEBOOK_5thDecember23.xlsx) on PISA's website were particularly helpful in deciphering the various variable names.
+
+In particular, [Chapter 19: Scaling procedures and construct validation of context questionnaire data](https://www.oecd.org/pisa/data/pisa2022technicalreport/PISA-2022-Technical-Report-Ch-19-PISA-Scaling-Procedures-Construct-Validation-Context-Questionnaire-Data.pdf) of the Technical Report provides detailed descriptions of the derived variables in each questionnaire while the [Codebook](https://webfs.oecd.org/pisa2022/CY08MSP_CODEBOOK_5thDecember23.xlsx) provides information on variable names, variable locations, format information, variable labels, questionnaire text, values, and frequencies.
+
+Below are the list of variables retained for this study, which can be grouped into 4 broad categories of School, Gender, Socio-economic status, Performance (Math, Reading, and Science). Details are extracted from the Codebook:
+
++----------------------+---------------------+-----------------------------------------------------------------------------------------------------------------------+--------+----------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Category             | Variable Name       | Description/Question                                                                                                  | Type   | Encoding Scheme                                                                                                                                          |
++======================+=====================+=======================================================================================================================+========+==========================================================================================================================================================+
+| School               | CNTSCHID            | Intl. School ID                                                                                                       | NUM    |                                                                                                                                                          |
++----------------------+---------------------+-----------------------------------------------------------------------------------------------------------------------+--------+----------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Gender               | ST004D01T           | Student (Standardized) Gender                                                                                         | NUM    | 1 - Female                                                                                                                                               |
+|                      |                     |                                                                                                                       |        |                                                                                                                                                          |
+|                      |                     |                                                                                                                       |        | 2 - Male                                                                                                                                                 |
+|                      |                     |                                                                                                                       |        |                                                                                                                                                          |
+|                      |                     |                                                                                                                       |        | .N/97 - Not Applicable                                                                                                                                   |
++----------------------+---------------------+-----------------------------------------------------------------------------------------------------------------------+--------+----------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Socioeconomic Status | IMMIG               | Index on immigrant background (OECD definition)                                                                       | NUM    | 1 - Native Student                                                                                                                                       |
+|                      |                     |                                                                                                                       |        |                                                                                                                                                          |
+|                      |                     |                                                                                                                       |        | 2 - Second-Generation Student                                                                                                                            |
+|                      |                     |                                                                                                                       |        |                                                                                                                                                          |
+|                      |                     |                                                                                                                       |        | 3 - First Generation Student                                                                                                                             |
++----------------------+---------------------+-----------------------------------------------------------------------------------------------------------------------+--------+----------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Socioeconomic Status | OCOD1               | ISCO-08 Occupation code - Mother                                                                                      | CHAR   | There are multiple labels for various occupations. However, we can generally group the following groups as "Unemployed" and the remaining as "Employed": |
+|                      |                     |                                                                                                                       |        |                                                                                                                                                          |
+|                      |                     |                                                                                                                       |        | 9701 - Doing housework, bringing up children                                                                                                             |
+|                      |                     |                                                                                                                       |        |                                                                                                                                                          |
+|                      |                     |                                                                                                                       |        | 9702 - Learning, studying                                                                                                                                |
+|                      |                     |                                                                                                                       |        |                                                                                                                                                          |
+|                      |                     |                                                                                                                       |        | 9703 - Retired, pensioner, on unemployment benefits                                                                                                      |
+|                      |                     |                                                                                                                       |        |                                                                                                                                                          |
+|                      |                     |                                                                                                                       |        | 9704 - I do not know, it's hard to say                                                                                                                   |
+|                      |                     |                                                                                                                       |        |                                                                                                                                                          |
+|                      |                     |                                                                                                                       |        | 9997 - Not applicable                                                                                                                                    |
+|                      |                     |                                                                                                                       |        |                                                                                                                                                          |
+|                      |                     |                                                                                                                       |        | 9998 - Invalid                                                                                                                                           |
+|                      |                     |                                                                                                                       |        |                                                                                                                                                          |
+|                      |                     |                                                                                                                       |        | 9999 - No response                                                                                                                                       |
++----------------------+---------------------+-----------------------------------------------------------------------------------------------------------------------+--------+----------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Socioeconomic Status | OCOD2               | ISCO-08 Occupation code - Father                                                                                      | CHAR   | Same as previous variable.                                                                                                                               |
++----------------------+---------------------+-----------------------------------------------------------------------------------------------------------------------+--------+----------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Socioeconomic Status | ST250Q02JA          | Which of the following are in your \[home\]: A computer (laptop, desktop, or tablet) that you can use for school work | NUM    | 1 - Yes                                                                                                                                                  |
+|                      |                     |                                                                                                                       |        |                                                                                                                                                          |
+|                      |                     |                                                                                                                       |        | 2 - No                                                                                                                                                   |
++----------------------+---------------------+-----------------------------------------------------------------------------------------------------------------------+--------+----------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Socioeconomic Status | ST250Q03JA          | Which of the following are in your \[home\]: Educational Software or Apps                                             | NUM    | 1 - Yes                                                                                                                                                  |
+|                      |                     |                                                                                                                       |        |                                                                                                                                                          |
+|                      |                     |                                                                                                                       |        | 2 - No                                                                                                                                                   |
++----------------------+---------------------+-----------------------------------------------------------------------------------------------------------------------+--------+----------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Socioeconomic Status | ST250Q05JA          | Which of the following are in your \[home\]: Internet access (e.g. Wi-fi) (excluding through smartphones)             | NUM    | 1 - Yes                                                                                                                                                  |
+|                      |                     |                                                                                                                       |        |                                                                                                                                                          |
+|                      |                     |                                                                                                                       |        | 2 - No                                                                                                                                                   |
++----------------------+---------------------+-----------------------------------------------------------------------------------------------------------------------+--------+----------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Socioeconomic Status | MISCED              | Mother's level of education (ISCED)                                                                                   | NUM    | 1 - Less than ISCED Level 1                                                                                                                              |
+|                      |                     |                                                                                                                       |        |                                                                                                                                                          |
+|                      |                     |                                                                                                                       |        | 2 - ISCED level 1                                                                                                                                        |
+|                      |                     |                                                                                                                       |        |                                                                                                                                                          |
+|                      |                     |                                                                                                                       |        | 3 - ISCED level 2                                                                                                                                        |
+|                      |                     |                                                                                                                       |        |                                                                                                                                                          |
+|                      |                     |                                                                                                                       |        | 4 - ISCED level 3.3                                                                                                                                      |
+|                      |                     |                                                                                                                       |        |                                                                                                                                                          |
+|                      |                     |                                                                                                                       |        | 5 - ISCED level 3.4                                                                                                                                      |
+|                      |                     |                                                                                                                       |        |                                                                                                                                                          |
+|                      |                     |                                                                                                                       |        | 6 - ISCED level 4                                                                                                                                        |
+|                      |                     |                                                                                                                       |        |                                                                                                                                                          |
+|                      |                     |                                                                                                                       |        | 7 - ISCED level 5                                                                                                                                        |
+|                      |                     |                                                                                                                       |        |                                                                                                                                                          |
+|                      |                     |                                                                                                                       |        | 8 - ISCED level 6                                                                                                                                        |
+|                      |                     |                                                                                                                       |        |                                                                                                                                                          |
+|                      |                     |                                                                                                                       |        | 9 - ISCED level 7                                                                                                                                        |
+|                      |                     |                                                                                                                       |        |                                                                                                                                                          |
+|                      |                     |                                                                                                                       |        | 10 - ISCED level 8                                                                                                                                       |
++----------------------+---------------------+-----------------------------------------------------------------------------------------------------------------------+--------+----------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Socioeconomic Status | FISCED              | Father's level of education (ISCED)                                                                                   | NUM    | Same as previous variable.                                                                                                                               |
++----------------------+---------------------+-----------------------------------------------------------------------------------------------------------------------+--------+----------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Math                 | ST296Q01JA          | How much time spent on homework in: Mathematics homework                                                              | NUM    | 1 - Up to 30 minutes a day                                                                                                                               |
+|                      |                     |                                                                                                                       |        |                                                                                                                                                          |
+|                      |                     |                                                                                                                       |        | 2 - More than 30 minutes and up to 1 hour a day                                                                                                          |
+|                      |                     |                                                                                                                       |        |                                                                                                                                                          |
+|                      |                     |                                                                                                                       |        | 3 - More than 1 hour and up to 2 hours a day                                                                                                             |
+|                      |                     |                                                                                                                       |        |                                                                                                                                                          |
+|                      |                     |                                                                                                                       |        | 4 - More than 2 hours and up to 3 hours a day                                                                                                            |
+|                      |                     |                                                                                                                       |        |                                                                                                                                                          |
+|                      |                     |                                                                                                                       |        | 5 - More than 3 hours and up to 4 hours a day                                                                                                            |
+|                      |                     |                                                                                                                       |        |                                                                                                                                                          |
+|                      |                     |                                                                                                                       |        | 6 - More than 4 hours a day                                                                                                                              |
++----------------------+---------------------+-----------------------------------------------------------------------------------------------------------------------+--------+----------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Reading              | ST296Q02JA          | How much time spent on homework in: \[Test language\] homework                                                        | NUM    | Same as previous variable.                                                                                                                               |
++----------------------+---------------------+-----------------------------------------------------------------------------------------------------------------------+--------+----------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Science              | ST296Q03JA          | How much time spent on homework in: \[Science\] homework                                                              | NUM    | Same as previous variable.                                                                                                                               |
++----------------------+---------------------+-----------------------------------------------------------------------------------------------------------------------+--------+----------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Math                 | PV1MATH to PV10MATH | Plausible Values 1 to 10 in Mathematics                                                                               | NUM    |                                                                                                                                                          |
++----------------------+---------------------+-----------------------------------------------------------------------------------------------------------------------+--------+----------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Reading              | PV1READ to PV10READ | Plausible Value 1 to 10 in Science                                                                                    | NUM    |                                                                                                                                                          |
++----------------------+---------------------+-----------------------------------------------------------------------------------------------------------------------+--------+----------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Science              | PV1SCIE to PV10SCIE | Plausible Values 1 to 10 in Science                                                                                   | NUM    |                                                                                                                                                          |
++----------------------+---------------------+-----------------------------------------------------------------------------------------------------------------------+--------+----------------------------------------------------------------------------------------------------------------------------------------------------------+
+
+: {tbl-colwidths="\[10,10,30,5,45\]" .striped .hover}
+
+The code chunk below filters for the selected variables based on their column names using `select()` and renames them to more intuitive headers using `rename()`.
+
+```{r}
+stu_SG_filtered <- stu_SG %>%
+
+  # Retains desired variables for further analysis  
+  select(CNTSCHID,ST004D01T,IMMIG,OCOD1,OCOD2, ST250Q02JA, ST250Q03JA, ST250Q05JA, MISCED, FISCED, ST296Q01JA,ST296Q02JA, ST296Q03JA, PV1MATH, PV2MATH, PV3MATH, PV4MATH, PV5MATH, PV6MATH, PV7MATH, PV8MATH, PV9MATH, PV10MATH, PV1READ, PV2READ, PV3READ, PV4READ, PV5READ, PV6READ, PV7READ, PV8READ, PV9READ, PV10READ, PV1SCIE, PV2SCIE, PV3SCIE, PV4SCIE, PV5SCIE, PV6SCIE, PV7SCIE, PV8SCIE ,PV9SCIE ,PV10SCIE) %>% 
+  
+  # Renames columns to more intuitive headers
+  rename(c(SchID="CNTSCHID",
+           Gender="ST004D01T",
+           Immigration_Status="IMMIG",
+           Occupation_Status_Father="OCOD1",
+           Occupation_Status_Mother="OCOD2", 
+           Have_Comp="ST250Q02JA", 
+           Have_EduSW="ST250Q03JA", 
+           Have_Internet="ST250Q05JA", 
+           Edu_Mother="MISCED", 
+           Edu_Father="FISCED", 
+           Time_HW_Math="ST296Q01JA",
+           Time_HW_Reading="ST296Q02JA", 
+           Time_HW_Science="ST296Q03JA",
+           ))
+```
+
+## 4.2 Handling missing values
+
+Now, I need to remove incomplete rows that have missing data in them. The main reason for doing this is that later on, I want to recode the variables into more intuitive descriptions. If there are NA's in the columns, that might affect the recoding if a value is accidentally inputted to a variable which was originally NA.
+
+`is.na()` allows us to identify missing values in our dataset and `sum()` counts the frequency of such missing values.
+
+```{r}
+# Checks for NA in each column
+sum(is.na(stu_SG_filtered$SchID))
+sum(is.na(stu_SG_filtered$Gender))
+sum(is.na(stu_SG_filtered$Immigration_Status))
+sum(is.na(stu_SG_filtered$Occupation_Status_Father))
+sum(is.na(stu_SG_filtered$Occupation_Status_Mother))
+sum(is.na(stu_SG_filtered$Have_Comp))
+sum(is.na(stu_SG_filtered$Have_EduSW))
+sum(is.na(stu_SG_filtered$Have_Internet))
+sum(is.na(stu_SG_filtered$Edu_Father))
+sum(is.na(stu_SG_filtered$Edu_Mother))
+sum(is.na(stu_SG_filtered$Time_HW_Reading))
+sum(is.na(stu_SG_filtered$Time_HW_Math))
+sum(is.na(stu_SG_filtered$Time_HW_Science))
+```
+
+The variables with missing values are: *Immigration_Status*, *Have_Comp*, *Have_EduSW*, *Have_Internet*, *Edu_Father*, *Edu_Mother*, *Time_HW_Reading*, *Time_HW_Math*, and *Time_HW_Science*.
+
+`drop_na()` drops rows where any column specified contains a missing value.
+
+```{r}
+stu_SG_filtered <- drop_na(stu_SG_filtered,
+                           # Drops rows where either of these columns have NAs
+                           Immigration_Status, Have_Comp, Have_EduSW, Have_Internet, Edu_Father,
+                           Edu_Mother, Time_HW_Reading, Time_HW_Math, Time_HW_Science)
+
+# Here's what the dataset looks like so far
+stu_SG_filtered
+```
+
+The output shows that 6,610 observations are retained.
+
+## 4.3 Recoding Categorical Variables
+
+::: panel-tabset
+## Gender
+
+`recode()` helps to set new values by providing a mapping from old to new values. Here, Gender = 1 is mapped to Female and Gender = 2 is mapped to Male. The recoded variable is then assigned using `mutate()` of the **dplyr** package.
+
+```{r}
+stu_SG_filtered <- stu_SG_filtered %>%
+  mutate(Gender=(recode(Gender, '1'="Female", 
+                        '2'="Male")))
+```
+
+## Immigration Status
+
+The code chunk below uses `mutate()` to replace the existing variable which sets its value based on the `recode()` function.
+
+```{r}
+stu_SG_filtered <- stu_SG_filtered %>%
+  mutate(Immigration_Status=
+           (recode(Immigration_Status, 
+                   '1'="Native", 
+                   '2'="Second-Gen", 
+                   '3'="Third-Gen")))
+```
+
+## Occupation Status
+
+There are multiple labels for various occupations. However, we can generally group the following groups as "Unemployed" and the remaining as "Employed":
+
+-   9701 - Doing housework, bringing up children
+-   9702 - Learning, studying
+-   9703 - Retired, pensioner, on unemployment benefits
+-   9704 - I do not know, it's hard to say
+-   9997 - Not applicable
+-   9998 - Invalid
+-   9999 - No response
+
+The code chunk below makes use of the [`ifelse()`](https://rdrr.io/r/base/ifelse.html) function to evaluate if the Occupation code falls in the list above with the help of the `%in%` operator. If it is, output will be "Unemployed", else it would be shown as "Employed".
+
+```{r}
+
+# Occupation_Status_Father
+stu_SG_filtered <- stu_SG_filtered %>% 
+  mutate(Occupation_Status_Father = ifelse(Occupation_Status_Father %in% c("9701", "9702", "9703", "9704", "9997", "9998", "9999"), 
+                                           "Unemployed", 
+                                           "Employed"))
+
+# Occupation_Status_Mother
+stu_SG_filtered <- stu_SG_filtered %>% 
+  mutate(Occupation_Status_Mother = ifelse(Occupation_Status_Mother %in% c("9701", "9702", "9703", "9704", "9997", "9998", "9999"), 
+                                           "Unemployed", 
+                                           "Employed"))  
+```
+
+## Access to Computer, Educational Software, and Internet
+
+For access to computer, educational software, and internet columns, `ifelse()` statement returns a "Yes" when the number is 1, else it returns a "No".
+
+```{r}
+# Have_Comp
+stu_SG_filtered <- stu_SG_filtered %>% 
+  mutate(Have_Comp = ifelse(Have_Comp=="1", 
+                            "Yes", 
+                            "No"))
+
+# Have_EduSW
+stu_SG_filtered <- stu_SG_filtered %>% 
+  mutate(Have_EduSW = ifelse(Have_EduSW=="1", 
+                            "Yes", 
+                            "No"))
+
+# Have_Internet
+stu_SG_filtered <- stu_SG_filtered %>% 
+  mutate(Have_Internet = ifelse(Have_Internet=="1", 
+                            "Yes", 
+                            "No"))
+```
+
+## Parental Educational Status
+
+PISA Survey adopts the International Standard Classification of Education (ISCED), which is the official framework used to facilitate international comparisons of education systems.
+
+Diagram below shows Singapore qualifications mapped against ISCED levels obtained from [UNESCO](https://isced.uis.unesco.org/wp-content/uploads/sites/15/uis_isced_uploads/6841c457f6d3a64dcc01efb65e886330.jpg).
+
+![](images/ISCED.PNG){fig-align="center"}
+
+The following mapping is used to recode for further data analysis:
+
++--------------+-------------------------+-----------------------------+----------------+
+| PISA Value   | PISA Value Description  | Converted Education Level   | Recoded Group  |
++==============+=========================+=============================+================+
+| 1            | Less than ISCED Level 1 | Early childhood             | Pre-Primary    |
++--------------+-------------------------+-----------------------------+----------------+
+| 2            | ISCED level 1           | Primary                     | Primary        |
++--------------+-------------------------+-----------------------------+----------------+
+| 3            | ISCED level 2           | Lower Secondary             | Secondary      |
++--------------+-------------------------+-----------------------------+----------------+
+| 4            | ISCED level 3.3         | Upper Secondary             | Secondary      |
++--------------+-------------------------+-----------------------------+----------------+
+| 6            | ISCED level 4           | Post-secondary Non-tertiary | Post-secondary |
++--------------+-------------------------+-----------------------------+----------------+
+| 7            | ISCED level 5           | Diploma                     | Post-secondary |
++--------------+-------------------------+-----------------------------+----------------+
+| 8            | ISCED level 6           | Bachelors                   | Tertiary       |
++--------------+-------------------------+-----------------------------+----------------+
+| 9            | ISCED level 7           | Masters                     | Tertiary       |
++--------------+-------------------------+-----------------------------+----------------+
+| 10           | ISCED level 8           | Doctoral                    | Tertiary       |
++--------------+-------------------------+-----------------------------+----------------+
+
+After recoding, the `ordered()` function helps create such ordered factors to reflect the ascending sequence of the educational level.
+
+```{r}
+# Edu_Mother
+stu_SG_filtered <- stu_SG_filtered %>%
+  mutate(Edu_Mother=(recode(Edu_Mother,         
+                                    '1'="Pre-Primary",   
+                                    '2'="Primary", 
+                                    '3'="Secondary",
+                                    '4'='Secondary',
+                                    '6'="Post-Secondary",
+                                    '7'="Post-Secondary",
+                                    '8'="Tertiary",
+                                    '9'="Tertiary",
+                                    '10'="Tertiary")
+  )) 
+
+stu_SG_filtered$Edu_Mother = ordered(stu_SG_filtered$Edu_Mother, 
+                                             levels=c("Pre-Primary", "Primary", "Secondary", "Post-Secondary", "Tertiary"))
+
+
+# Edu_Father
+stu_SG_filtered <- stu_SG_filtered %>%
+  mutate(Edu_Father=(recode(Edu_Father,         
+                                    '1'="Pre-Primary",   
+                                    '2'="Primary", 
+                                    '3'="Secondary",
+                                    '4'='Secondary',
+                                    '6'="Post-Secondary",
+                                    '7'="Post-Secondary",
+                                    '8'="Tertiary",
+                                    '9'="Tertiary",
+                                    '10'="Tertiary")
+  )) 
+
+stu_SG_filtered$Edu_Father = ordered(stu_SG_filtered$Edu_Father, 
+                                             levels=c("Pre-Primary", "Primary", "Secondary", "Post-Secondary", "Tertiary"))
+```
+
+## Time Spent on Homework
+
+```{r}
+#| code-fold: true
+#| code-summary: "Show the code"
+
+p_hwt_reading <- ggplot(data = stu_SG_filtered, 
+       aes(x = Time_HW_Reading)) +
+    geom_bar(fill="#c7c8cc")+
+    ylim(0, 2600) + 
+    geom_text(stat="count", 
+      aes(label=paste0(after_stat(count), ", \n", 
+      round(after_stat(count)/sum(after_stat(count))*100, 1), "%")),
+      vjust=-0.2,
+      size=3) +  
+    labs(x = "",
+         y = "",
+         title="Reading") + 
+    theme(
+      panel.grid.major = element_blank(), 
+      plot.title = element_text(size=9, face="bold"),
+      axis.text.y = element_blank(),
+      axis.title.y = element_blank(),
+      axis.ticks.y = element_blank(),
+      #axis.ticks.x = element_blank(),      
+      plot.background=element_rect(fill="#f5f5f5",colour="#f5f5f5")
+    ) 
+
+p_hwt_math <- ggplot(data = stu_SG_filtered, 
+       aes(x = Time_HW_Math)) +
+    geom_bar(fill="#c7c8cc")+
+    ylim(0, 2600) + 
+    geom_text(stat="count", 
+      aes(label=paste0(after_stat(count), ", \n", 
+      round(after_stat(count)/sum(after_stat(count))*100, 1), "%")),
+      vjust=-0.2,
+      size=3) +  
+    labs(x = "",
+         y = "",
+         title="Math") + 
+    theme(
+      panel.grid.major = element_blank(), 
+      plot.title = element_text(size=9, face="bold"),
+      axis.text.y = element_blank(),
+      axis.title.y = element_blank(),
+      axis.ticks.y = element_blank(),
+      #axis.ticks.x = element_blank(),      
+      plot.background=element_rect(fill="#f5f5f5",colour="#f5f5f5")
+    ) 
+
+p_hwt_sci <- ggplot(data = stu_SG_filtered, 
+       aes(x = Time_HW_Science)) +
+    geom_bar(fill="#c7c8cc")+
+    ylim(0, 2600) + 
+    geom_text(stat="count", 
+      aes(label=paste0(after_stat(count), ", \n", 
+      round(after_stat(count)/sum(after_stat(count))*100, 1), "%")),
+      vjust=-0.2,
+      size=3) +  
+    labs(x = "",
+         y = "",
+         title="Science") + 
+    theme(
+      panel.grid.major = element_blank(), 
+      plot.title = element_text(size=9, face="bold"),
+      axis.text.y = element_blank(),
+      axis.title.y = element_blank(),
+      axis.ticks.y = element_blank(),
+      #axis.ticks.x = element_blank(),      
+      plot.background=element_rect(fill="#f5f5f5",colour="#f5f5f5")
+    ) 
+
+
+p_hwt_reading + p_hwt_sci + p_hwt_math +
+  plot_layout(widths=c(1,1,1)) +
+  plot_annotation(title="Time Spent on Homework in mins (before grouping)", 
+                  theme=theme(plot.title = element_text(hjust = 0),
+                  plot.background = element_rect(fill="#f5f5f5", colour = "#f5f5f5"),
+                  panel.border = element_blank()))
+```
+
+The bar charts display the distribution of responses regarding the time spent on homework for the 3 subjects. We can see that the frequency dips significantly where response is 4 and above, i.e. after 2 hours. We can combine codes 4 through 6 to be analysed together.
+
+```{r}
+#| code-fold: true
+#| code-summary: "Show the code"
+
+# Time_HW_Math
+stu_SG_filtered <- stu_SG_filtered %>%
+  mutate(Time_HW_Math=(recode(Time_HW_Math,         
+                                    '1'="<31",   
+                                    '2'="31-60", 
+                                    '3'="61-120",
+                                    '4'='>120',
+                                    '5'='>120',
+                                    '6'=">120")
+  )) 
+
+stu_SG_filtered$Time_HW_Math = ordered(stu_SG_filtered$Time_HW_Math, 
+                                             levels=c("<31", "31-60", "61-120", ">120"))
+# Time_HW_Reading
+stu_SG_filtered <- stu_SG_filtered %>%
+  mutate(Time_HW_Reading=(recode(Time_HW_Reading,         
+                                    '1'="<31",   
+                                    '2'="31-60", 
+                                    '3'="61-120",
+                                    '4'='>120',
+                                    '5'='>120',
+                                    '6'=">120")
+  )) 
+
+stu_SG_filtered$Time_HW_Reading = ordered(stu_SG_filtered$Time_HW_Reading, 
+                                             levels=c("<31", "31-60", "61-120", ">120"))
+
+# Time_HW_Science
+stu_SG_filtered <- stu_SG_filtered %>%
+  mutate(Time_HW_Science=(recode(Time_HW_Science,         
+                                    '1'="<31",   
+                                    '2'="31-60", 
+                                    '3'="61-120",
+                                    '4'='>120',
+                                    '5'='>120',
+                                    '6'=">120")
+  )) 
+
+stu_SG_filtered$Time_HW_Science = ordered(stu_SG_filtered$Time_HW_Science, 
+                                             levels=c("<31", "31-60", "61-120", ">120"))
+
+```
+
+The distribution after combining and recoding looks like this:
+
+```{r}
+#| code-fold: true
+#| code-summary: "Show the code"
+
+p2_hwt_reading <- ggplot(data = stu_SG_filtered, 
+       aes(x = Time_HW_Reading)) +
+    geom_bar(fill="#c7c8cc")+
+    ylim(0, 2600) + 
+    geom_text(stat="count", 
+      aes(label=paste0(after_stat(count), ", \n", 
+      round(after_stat(count)/sum(after_stat(count))*100, 1), "%")),
+      vjust=-0.2,
+      size=3) +  
+    labs(x = "",
+         y = "",
+         title="Reading") + 
+    theme(
+      panel.grid.major = element_blank(), 
+      plot.title = element_text(size=9, face="bold"),
+      axis.text.y = element_blank(),
+      axis.title.y = element_blank(),
+      axis.ticks.y = element_blank(),
+      #axis.ticks.x = element_blank(),      
+      plot.background=element_rect(fill="#f5f5f5",colour="#f5f5f5")
+    ) 
+
+p2_hwt_math <- ggplot(data = stu_SG_filtered, 
+       aes(x = Time_HW_Math)) +
+    geom_bar(fill="#c7c8cc")+
+    ylim(0, 2600) + 
+    geom_text(stat="count", 
+      aes(label=paste0(after_stat(count), ", \n", 
+      round(after_stat(count)/sum(after_stat(count))*100, 1), "%")),
+      vjust=-0.2,
+      size=3) +  
+    labs(x = "",
+         y = "",
+         title="Math") + 
+    theme(
+      panel.grid.major = element_blank(), 
+      plot.title = element_text(size=9, face="bold"),
+      axis.text.y = element_blank(),
+      axis.title.y = element_blank(),
+      axis.ticks.y = element_blank(),
+      #axis.ticks.x = element_blank(),      
+      plot.background=element_rect(fill="#f5f5f5",colour="#f5f5f5")
+    ) 
+
+p2_hwt_sci <- ggplot(data = stu_SG_filtered, 
+       aes(x = Time_HW_Science)) +
+    geom_bar(fill="#c7c8cc")+
+    ylim(0, 2600) + 
+    geom_text(stat="count", 
+      aes(label=paste0(after_stat(count), ", \n", 
+      round(after_stat(count)/sum(after_stat(count))*100, 1), "%")),
+      vjust=-0.2,
+      size=3) +  
+    labs(x = "",
+         y = "",
+         title="Science") + 
+    theme(
+      panel.grid.major = element_blank(), 
+      plot.title = element_text(size=9, face="bold"),
+      axis.text.y = element_blank(),
+      axis.title.y = element_blank(),
+      axis.ticks.y = element_blank(),
+      #axis.ticks.x = element_blank(),      
+      plot.background=element_rect(fill="#f5f5f5",colour="#f5f5f5")
+    ) 
+
+
+p2_hwt_reading + p2_hwt_sci + p2_hwt_math +
+  plot_layout(widths=c(1,1,1)) +
+  plot_annotation(title="Time Spent on Homework in mins (after grouping)", 
+                  theme=theme(plot.title = element_text(hjust = 0),
+                  plot.background = element_rect(fill="#f5f5f5", colour = "#f5f5f5"),
+                  panel.border = element_blank()))
+
+```
+:::
+
+## 4.4 Data Type Conversion
+
+`glimpse()` of the **dplyr** package allows us to see all columns and their data type in the data frame.
+
+```{r}
+glimpse(stu_SG_filtered)
+```
+
+::: {.brainbox .brain data-latex="brain"}
+**Observations:**
+
+1.  *SchID* should be converted from `<dbl>` to `<chr>` format. It should be in categorical instead of numerical data type.
+
+2.  The columns *Gender*, *Immigration_Status*, *Occupation_Status_Father*, *Occupation_Status_Mother*, *Have_Comp*, *Have_EduSW*, *Have_Internet*, *Edu_Mother*, *Edu_Father*, *Time_HW_Math*, *Time_HW_Reading*, and *Time_HW_Science* are in numeric data type. These should be in factor data type for further processing.
+:::
+
+The code chunk below does the following:
+
+1.  `across` of **dplyr** package is used to convert all character data type into factor for multiple columns. It applies `as.factor()` function to convert the variables from numeric to categorical data type each column specified in the *col* argument.
+2.  `as.character()` is used to convert the `SchID` variable from numeric to categorical data type.
+
+```{r}
+
+col <- c("Gender", "Immigration_Status", "Occupation_Status_Father", "Occupation_Status_Mother",
+         "Have_Comp", "Have_EduSW", "Have_Internet", "Edu_Mother", "Edu_Father",
+         "Time_HW_Math", "Time_HW_Reading", "Time_HW_Science")
+
+stu_SG_filtered <- stu_SG_filtered %>%
+  mutate(across(col, as.factor)) %>%
+  mutate(SchID = as.character(SchID))
+
+```
+
+We use `glimpse()` again to check the results.
+
+```{r}
+glimpse(stu_SG_filtered)
+```
+
+## 4.5 Variable Creation
+
+### 4.5.1 Calculating Average Plausible Values
+
+The following code chunk calculates the mean Plausible Values of each row for each subject for the columns saved under *PV_Math*, *PV_Reading*, and *PV_Sci*.
+
+-   `c_across()` works with `rowwise()` to perform aggregations on a data frame a row at a time.
+    -   `c_across()` allows us to indicate the columns we want to transform.
+-   `na.rm=TRUE` ignores NA values when calculating the mean.
+-   `mutate()` creates new columns to store our new variable.
+-   `select()` and the `- minus sign` removes columns we no longer require.
+
+```{r}
+# Columns of interest
+PV_Math <- c("PV1MATH", "PV2MATH", "PV3MATH", "PV4MATH", "PV5MATH", "PV6MATH", "PV7MATH", "PV8MATH", "PV9MATH", "PV10MATH")
+PV_Reading <- c("PV1READ", "PV2READ", "PV3READ", "PV4READ", "PV5READ", "PV6READ", "PV7READ", "PV8READ", "PV9READ", "PV10READ")
+PV_Sci <- c("PV1SCIE", "PV2SCIE", "PV3SCIE", "PV4SCIE", "PV5SCIE", "PV6SCIE", "PV7SCIE", "PV8SCIE", "PV9SCIE", "PV10SCIE")
+
+# Performing row-wise aggregation
+stu_SG_lean <- 
+  stu_SG_filtered %>% 
+  rowwise() %>% 
+  mutate(Avg_Math = mean(c_across(PV_Math), na.rm=TRUE),
+         Avg_Reading = mean(c_across(PV_Reading), na.rm=TRUE),
+         Avg_Sci = mean(c_across(PV_Sci), na.rm=TRUE)) %>% 
+  select(-c(PV_Math, PV_Reading, PV_Sci))
+
+
+```
+
+### 4.5.2 Retrieving Variables from Schools Questionnaire
+
+The [**School Questionnaire**](https://www.oecd.org/pisa/data/2022database/) administered to school principals contains additional data we can use to further analyse how variations in school-related factors can affect students' performance.
+
+The dataset in SAS format is retrieved from [OECD's PISA 2022 Database](https://www.oecd.org/pisa/data/2022database/).
+
+![](images/PISA.PNG){fig-align="center" width="450"}
+
+`read_sav` of the **haven** package lets us read SPSS data (in .sav data format) into RStudio.
+
+```{r}
+sch <- read_sav("data/CY08MSP_SCH_QQQ.sav")
+
+sch
+```
+
+Similar to the Student's Questionnaire, let's first filter for Singapore schools.
+
+```{r}
+sch_SG <- sch %>%
+  filter(CNT == "SGP")
+
+head(sch_SG,3)
+```
+
+A quick look at the data using `head()` shows that the table contains column *CNTSCHID* that we can use to perform a join with our *stu_SG_lean* table to patch in additional variables.
+
+After perusing through the [**Codebook**](https://webfs.oecd.org/pisa2022/CY08MSP_CODEBOOK_5thDecember23.xlsx), the following variables are selected for further analysis:
+
++-----------+---------------+-----------------------+-----------+----------------------------------+
+| Category  | Variable Name | Description/Question  | Type      | Encoding Scheme                  |
++===========+===============+=======================+===========+==================================+
+| School    | SCHLTYPE      | School type           | NUM       | 1 - Private independent          |
+|           |               |                       |           |                                  |
+|           |               |                       |           | 2 - Private Government-dependent |
+|           |               |                       |           |                                  |
+|           |               |                       |           | 3 - Public                       |
++-----------+---------------+-----------------------+-----------+----------------------------------+
+| School    | STRATIO       | Student-teacher ratio | NUM       |                                  |
++-----------+---------------+-----------------------+-----------+----------------------------------+
+
+: {tbl-colwidths="\[10,10,30,5,45\]" .striped .hover}
+
+#### 4.5.2.1 Narrowing School Data
+
+The code chunk below performs the following purpose:
+
+-   [`select()`](https://benwhalley.github.io/just-enough-r/selecting-columns.html) extracts using the names of columns we have identified.
+-   [`rename()`](https://dplyr.tidyverse.org/reference/rename.html) changes the names of individual variables so they are more intuitive.
+-   [`mutate()`](https://dplyr.tidyverse.org/reference/mutate.html) replaces 'SchType' from numeric type to factor type using [`as.factor()`](https://www.rdocumentation.org/packages/h2o/versions/2.4.3.11/topics/as.factor) and replaces 'SchID' numeric to character data type with [`as.character()`](https://www.rdocumentation.org/packages/base/versions/3.6.2/topics/character).
+
+```{r}
+sch_SG_lean <- sch_SG %>% 
+  select(CNTSCHID, SCHLTYPE, STRATIO) %>% 
+  rename(c(SchID="CNTSCHID",
+           SchType="SCHLTYPE",
+           StuTeacher_ratio="STRATIO")) %>% 
+  mutate(SchType=as.factor(SchType)) %>%
+  mutate(SchID = as.character(SchID))
+```
+
+#### 4.5.2.2 Recoding School Type
+
+*SchType* is recoded to reflect the type of schools in the education system (Private Independent, Private government-dependent, and public).
+
+```{r}
+sch_SG_lean <- sch_SG_lean %>%
+  mutate(SchType=
+           (recode(SchType, 
+                   '1'="privindependent", 
+                   '2'="privgovdependent", 
+                   '3'="public")))
+```
+
+#### 4.5.2.3 Performing left join
+
+Next, the `left_join()` retains all observations that appear in the left (first) data frame, even if they lack a match in the right (second) dataframe. `by=c("SchID"="CNTSCHID")` refers to the key used to perform the match, which are *SchID* from *stu_SG_lean* data and *CNTSCHID* from *sch_SG_lea* data.
+
+```{r}
+stu_SG_more <- 
+  left_join(stu_SG_lean, 
+            sch_SG_lean,
+            by=c("SchID"="SchID")) %>% 
+  mutate(StuTeacher_ratio = as.numeric(StuTeacher_ratio))
+
+```
+
+Finally, `is.na()` function is used to confirm that there are no missing values in our data,
+
+```{r}
+sum(is.na(stu_SG_more))
+```
+
+The first 5 results of the final dataset are displayed below using [kable()](https://www.rdocumentation.org/packages/knitr/versions/1.45/topics/kable) of the **knitr** package.
+
+```{r}
+kable(head(stu_SG_more, n=5), caption = "Results from the 2022 PISA Student Questionnaire Survey")
+```
+
+# 5 Univariate Analysis
+
+The next few plots helps visualise the key variables used for this study before diving into Exploratory Data Analysis.
+
+```{r}
+#| echo: true
+pacman::p_load(urbnthemes)
+set_urbn_defaults(style = "print")
+```
+
+## 5.1 Subject Performance/Scores
+
+Note that the axis limits are consistent across the three subjects to facilitate comparison. This ensures that when a user navigates between various tabs, the scales remain identical. This uniformity in scale is crucial as it allows for more accurate and straightforward comparison. Users can easily compare data across different subjects without the need to adjust mentally for variation in scale.
+
+::: panel-tabset
+## Math
+
+```{r}
+#| code-fold: true
+#| code-summary: "Show the code"
+
+# Calculating the mean, median, min and max
+mean_math <- round(mean(stu_SG_more$Avg_Math),0)
+median_math <- round(median(stu_SG_more$Avg_Math),0)
+min_math <- round(min(stu_SG_more$Avg_Math),0)
+max_math <- round(max(stu_SG_more$Avg_Math),0)
+leftwhisk_math <- round(quantile(stu_SG_more$Avg_Math, probs = .25)-1.5*IQR(stu_SG_more$Avg_Math),0)
+
+# Histogram
+hist_math <- 
+  ggplot(
+    stu_SG_more, 
+    aes(x = Avg_Math)
+  ) +
+  geom_histogram(
+    bins = 25,
+    color = "#f5f5f5",
+    fill="#c7c8cc"
+  ) +
+  scale_x_continuous(
+    breaks = scales::pretty_breaks(n = 5),
+    
+    # Set same limits for both plots to ensure justification
+    limits = c(150,950), 
+  ) + 
+  geom_vline(
+    aes(xintercept = median_math),
+    colour="#595DE5", 
+    linewidth = 0.7, 
+    linetype = "dashed"
+  ) +
+  annotate(
+    geom = "text", 
+    x = 660, 
+    y = 870,
+    label = paste0("Median = ", median_math),
+    color="#595DE5"
+  ) +
+  geom_vline(
+    aes(xintercept = mean_math),
+    colour="#e0218a", 
+    linewidth = 0.7, 
+    linetype = "dashed"
+  ) +
+  annotate(
+    geom = "text", 
+    x = 535, 
+    y = 870,
+    label = paste0("Mean = ", mean_math),
+    color="#e0218a"
+  ) +  
+  labs(x = NULL, y = NULL
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.y = element_blank(),
+    panel.grid.major = element_blank(),
+    plot.background = element_rect(fill="#f5f5f5",colour="#f5f5f5")
+  )
+
+# Boxplot
+box_math <- 
+  ggplot(
+    stu_SG_more, 
+    aes(y = Avg_Math, x="")
+  ) + 
+  geom_boxplot(
+    fill="#c7c8cc",
+    outlier.colour="#d18a7d", 
+    outlier.shape=16,
+    outlier.size=1, 
+    notch=FALSE
+  ) + 
+  stat_summary(geom = 'point',
+               fun.y='mean',
+               colour = '#e0218a',
+               size=4) +
+  coord_flip() + 
+  
+    #Annotate with amounts to show range
+  annotate(
+    geom = "text", 
+    x = 0.5, 
+    y = min_math,
+    label = paste0(min_math),
+    color = "#d18a7d"
+  ) + 
+   annotate(
+    geom = "text", 
+    x = 0.5, 
+    y = leftwhisk_math,
+    label = paste0(leftwhisk_math),
+    color = "#34414E"
+  ) +
+  annotate(
+    geom = "text", 
+    x = 0.5, 
+    y = max_math,
+    label = paste0(max_math),
+    color = "#34414E"
+  ) + 
+  
+  labs(
+    title = "Symmetrical Distribution of Average Math Scores",
+     y = "", 
+    x = ""
+  ) + 
+   scale_y_continuous(
+    limits = c(150,950), 
+  ) +
+  
+  stat_boxplot(
+    geom="errorbar", 
+    width=0.5
+  ) + 
+  theme_minimal() +
+  theme(
+    axis.text = element_blank(), 
+    axis.ticks = element_blank(),
+    panel.grid.major = element_blank(),
+     plot.background = element_rect(
+       fill="#f5f5f5",colour="#f5f5f5")
+  )
+
+hbox_math <- (box_math / hist_math) + 
+        plot_layout(heights = c(1, 3.5)) #< Scale layout to keep boxplot height shorter
+
+hbox_math & theme(plot.background = element_rect(fill="#f5f5f5",colour="#f5f5f5"))
+```
+
+## Reading
+
+```{r}
+#| code-fold: true
+#| code-summary: "Show the code"
+
+# Calculating the mean, median, min and max
+mean_reading <- round(mean(stu_SG_more$Avg_Reading),0)
+median_reading <- round(median(stu_SG_more$Avg_Reading),0)
+min_reading <- round(min(stu_SG_more$Avg_Reading),0)
+max_reading <- round(max(stu_SG_more$Avg_Reading),0)
+leftwhisk_reading <- round(quantile(stu_SG_more$Avg_Reading, probs = .25)-1.5*IQR(stu_SG_more$Avg_Reading),0)
+
+# Histogram
+hist_reading <- 
+  ggplot(
+    stu_SG_more, 
+    aes(x = Avg_Reading)
+  ) +
+  geom_histogram(
+    bins = 25,
+    color = "#f5f5f5",
+    fill="#c7c8cc"
+  ) +
+  scale_x_continuous(
+    breaks = scales::pretty_breaks(n = 5),
+    
+    # Set same limits for both plots to ensure justification
+    limits = c(150,950), 
+  ) + 
+  geom_vline(
+    aes(xintercept = median_reading),
+    colour="#595DE5", 
+    linewidth = 0.7, 
+    linetype = "dashed"
+  ) +
+  annotate(
+    geom = "text", 
+    x = median_reading+80, 
+    y = 920,
+    label = paste0("Median = ", median_reading),
+    color="#595DE5"
+  ) +
+  geom_vline(
+    aes(xintercept = mean_reading),
+    colour="#e0218a", 
+    linewidth = 0.7, 
+    linetype = "dashed"
+  ) +
+  annotate(
+    geom = "text", 
+    x = mean_reading-50, 
+    y = 920,
+    label = paste0("Mean = ", mean_reading),
+    color="#e0218a"
+  ) +  
+  labs(x = NULL, y = NULL
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.y = element_blank(),
+    panel.grid.major = element_blank(),
+    plot.background = element_rect(fill="#f5f5f5",colour="#f5f5f5")
+  )
+
+# Boxplot
+box_reading <- 
+  ggplot(
+    stu_SG_more, 
+    aes(y = Avg_Reading, x="")
+  ) + 
+  geom_boxplot(
+    fill="#c7c8cc",
+    outlier.colour="#d18a7d", 
+    outlier.shape=16,
+    outlier.size=1, 
+    notch=FALSE
+  ) + 
+  stat_summary(geom = 'point',
+               fun.y='mean',
+               colour = '#e0218a',
+               size=4) +
+  coord_flip() + 
+  
+    #Annotate with amounts to show range
+  annotate(
+    geom = "text", 
+    x = 0.5, 
+    y = min_reading,
+    label = paste0(min_reading),
+    color = "#d18a7d"
+  ) + 
+   annotate(
+    geom = "text", 
+    x = 0.5, 
+    y = leftwhisk_reading,
+    label = paste0(leftwhisk_reading),
+    color = "#34414E"
+  ) +
+  annotate(
+    geom = "text", 
+    x = 0.5, 
+    y = max_reading,
+    label = paste0(max_reading),
+    color = "#34414E"
+  ) + 
+  
+  labs(
+    title = "Symmetrical Distribution of Average Reading Scores",
+     y = "", 
+    x = ""
+  ) + 
+   scale_y_continuous(
+    limits = c(150,950), 
+  ) +
+  
+  stat_boxplot(
+    geom="errorbar", 
+    width=0.5
+  ) + 
+  theme_minimal() +
+  theme(
+    axis.text = element_blank(), 
+    axis.ticks = element_blank(),
+    panel.grid.major = element_blank(),
+     plot.background = element_rect(
+       fill="#f5f5f5",colour="#f5f5f5")
+  )
+
+hbox_reading <- (box_reading / hist_reading) + 
+        plot_layout(heights = c(1, 3.5)) #< Scale layout to keep boxplot height shorter
+
+hbox_reading & theme(plot.background = element_rect(fill="#f5f5f5",colour="#f5f5f5"))
+```
+
+## Science
+
+```{r}
+#| code-fold: true
+#| code-summary: "Show the code"
+
+# Calculating the mean, median, min and max
+mean_sci <- round(mean(stu_SG_more$Avg_Sci),0)
+median_sci <- round(median(stu_SG_more$Avg_Sci),0)
+min_sci <- round(min(stu_SG_more$Avg_Sci),0)
+max_sci <- round(max(stu_SG_more$Avg_Sci),0)
+leftwhisk_sci <- round(quantile(stu_SG_more$Avg_Sci, probs = .25)-1.5*IQR(stu_SG_more$Avg_Sci),0)
+
+# Histogram
+hist_sci <- 
+  ggplot(
+    stu_SG_more, 
+    aes(x = Avg_Sci)
+  ) +
+  geom_histogram(
+    bins = 25,
+    color = "#f5f5f5",
+    fill="#c7c8cc"
+  ) +
+  scale_x_continuous(
+    breaks = scales::pretty_breaks(n = 5),
+    
+    # Set same limits for both plots to ensure justification
+    limits = c(150,950), 
+  ) + 
+  geom_vline(
+    aes(xintercept = median_sci),
+    colour="#595DE5", 
+    linewidth = 0.7, 
+    linetype = "dashed"
+  ) +
+  annotate(
+    geom = "text", 
+    x = median_sci+70, 
+    y = 940,
+    label = paste0("Median = ", median_sci),
+    color="#595DE5"
+  ) +
+  geom_vline(
+    aes(xintercept = mean_sci),
+    colour="#e0218a", 
+    linewidth = 0.7, 
+    linetype = "dashed"
+  ) +
+  annotate(
+    geom = "text", 
+    x = mean_sci-50, 
+    y = 940,
+    label = paste0("Mean = ", mean_sci),
+    color="#e0218a"
+  ) +  
+  labs(x = NULL, y = NULL
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.y = element_blank(),
+    panel.grid.major = element_blank(),
+    plot.background = element_rect(fill="#f5f5f5",colour="#f5f5f5")
+  )
+
+# Boxplot
+box_sci <- 
+  ggplot(
+    stu_SG_more, 
+    aes(y = Avg_Sci, x="")
+  ) + 
+  geom_boxplot(
+    fill="#c7c8cc",
+    outlier.colour="#d18a7d", 
+    outlier.shape=16,
+    outlier.size=1, 
+    notch=FALSE
+  ) + 
+  stat_summary(geom = 'point',
+               fun.y='mean',
+               colour = '#e0218a',
+               size=4) +
+  coord_flip() + 
+  
+  #Annotate with amounts to show range
+  annotate(
+    geom = "text", 
+    x = 0.5, 
+    y = min_sci,
+    label = paste0(min_sci),
+    color = "#d18a7d"
+  ) + 
+   annotate(
+    geom = "text", 
+    x = 0.5, 
+    y = leftwhisk_sci,
+    label = paste0(leftwhisk_sci),
+    color = "#34414E"
+  ) +
+  annotate(
+    geom = "text", 
+    x = 0.5, 
+    y = max_sci,
+    label = paste0(max_sci),
+    color = "#34414E"
+  ) + 
+  
+  labs(
+    title = "Symmetrical Distribution of Average Science Scores",
+     y = "", 
+    x = ""
+  ) + 
+   scale_y_continuous(
+    limits = c(150,950), 
+  ) +
+  
+  stat_boxplot(
+    geom="errorbar", 
+    width=0.5
+  ) + 
+  theme_minimal() +
+  theme(
+    axis.text = element_blank(), 
+    axis.ticks = element_blank(),
+    panel.grid.major = element_blank(),
+     plot.background = element_rect(
+       fill="#f5f5f5",colour="#f5f5f5")
+  )
+
+hbox_sci <- (box_sci / hist_sci) + 
+        plot_layout(heights = c(1, 3.5)) #< Scale layout to keep boxplot height shorter
+
+hbox_sci & theme(plot.background = element_rect(fill="#f5f5f5",colour="#f5f5f5"))
+```
+:::
+
+::: {.brainbox .brain data-latex="brain"}
+**Observations**
+
+-   Math has the highest mean and median scores amongst the 3 subjects.
+-   Distribution of math, reading and science scores based on the average plausible values seem to be quite symmetrically distributed. Mean and median for each subject are close together with most values spreading around the mean line.
+-   We note the presence of outliers on the left end of the whisker from the boxplots. This is particularly prominent for Reading scores.
+:::
+
+## 4.2 Student Characteristics
+
+```{r}
+#| code-fold: true
+#| code-summary: "Show the code"
+
+p_gender <-
+  ggplot(data = stu_SG_more, 
+       aes(x = reorder(Gender, Gender, function(x)-length(x)))) +
+    geom_bar(fill="#c7c8cc")+
+    ylim(0, 5200) + 
+    geom_text(stat="count", 
+      aes(label=paste0(after_stat(count), ", ", 
+      round(after_stat(count)/sum(after_stat(count))*100, 1), "%")),
+      vjust=-0.5,
+      size=3) +
+    labs(x = "",
+         y = "",
+         title = "Gender: ") + 
+    theme(
+      plot.title = element_text(size=9, face="bold"),
+      panel.grid.major = element_blank(), 
+      axis.text.y = element_blank(),
+      axis.title.y = element_blank(),
+      axis.ticks.y = element_blank(),   
+      #axis.ticks.x = element_blank(),      
+      plot.background=element_rect(fill="#f5f5f5",colour="#f5f5f5")
+    ) 
+
+p_immig <-
+  ggplot(data = stu_SG_more, 
+       aes(x = Immigration_Status)) +
+    geom_bar(fill="#c7c8cc")+
+    ylim(0, 5200) + 
+    geom_text(stat="count", 
+      aes(label=paste0(after_stat(count), ", ", 
+      round(after_stat(count)/sum(after_stat(count))*100, 1), "%")),
+      vjust=-0.5,
+      size=3) +
+    labs(x = "",
+         y = "",
+         title = "Immigration Status: ") + 
+    theme(
+      plot.title = element_text(size=9, face="bold"),
+      panel.grid.major = element_blank(), 
+      axis.text.y = element_blank(),
+      axis.title.y = element_blank(),
+      axis.ticks.y = element_blank(),     
+      #axis.ticks.x = element_blank(),      
+      plot.background=element_rect(fill="#f5f5f5",colour="#f5f5f5")
+    ) 
+
+
+p_havecomp <- ggplot(data = stu_SG_more, 
+       aes(x = Have_Comp)) +
+    geom_bar(fill="#c7c8cc")+
+    ylim(0, 6600) + 
+    geom_text(stat="count", 
+      aes(label=paste0(after_stat(count), ", ", 
+      round(after_stat(count)/sum(after_stat(count))*100, 1), "%")),
+      vjust=-0.5,
+      size=3) +
+    labs(x = "",
+         y = "",
+         title="Computer: ") + 
+    theme(
+      plot.title = element_text(size=9, face="bold"),
+      panel.grid.major = element_blank(), 
+      axis.text.y = element_blank(),
+      axis.title.y = element_blank(),
+      axis.ticks.y = element_blank(),   
+      #axis.ticks.x = element_blank(),      
+      plot.background=element_rect(fill="#f5f5f5",colour="#f5f5f5")
+    ) 
+
+p_haveEduSW <- ggplot(data = stu_SG_more, 
+       aes(x = Have_EduSW)) +
+    geom_bar(fill="#c7c8cc")+
+    ylim(0, 6600) + 
+    geom_text(stat="count", 
+      aes(label=paste0(after_stat(count), ", ", 
+      round(after_stat(count)/sum(after_stat(count))*100, 1), "%")),
+      vjust=-0.5,
+      size=3) +
+    labs(x = "",
+         y = "",
+         title="Educational Software: ") + 
+    theme(
+      panel.grid.major = element_blank(), 
+      plot.title = element_text(size=9, face="bold"),
+      axis.text.y = element_blank(),
+      axis.title.y = element_blank(),
+      axis.ticks.y = element_blank(),
+      #axis.ticks.x = element_blank(),      
+      plot.background=element_rect(fill="#f5f5f5",colour="#f5f5f5",)
+    ) 
+
+p_haveInternet <- ggplot(data = stu_SG_more, 
+       aes(x = Have_Internet)) +
+    geom_bar(fill="#c7c8cc")+
+    ylim(0, 6600) + 
+    geom_text(stat="count", 
+      aes(label=paste0(after_stat(count), ", ", 
+      round(after_stat(count)/sum(after_stat(count))*100, 1), "%")),
+      vjust=-0.5,
+      size=3) +
+    labs(x = "",
+         y = "",
+         title="Internet: ") + 
+    theme(
+      panel.grid.major = element_blank(), 
+      plot.title = element_text(size=9, face="bold"),
+      axis.text.y = element_blank(),
+      axis.title.y = element_blank(),
+      axis.ticks.y = element_blank(),
+      #axis.ticks.x = element_blank(),      
+      plot.background=element_rect(fill="#f5f5f5",colour="#f5f5f5")
+    ) 
+
+
+p_access <- (p_havecomp + p_haveEduSW + p_haveInternet) 
+p_stuchar <- (p_gender + p_immig) / p_access +
+              plot_layout(widths = c(1,1))+
+              plot_annotation(title="Equitable Gender Distribution, Majority Native Singaporeans,\n and High Access to Educational Tools", 
+                              theme=theme(plot.title = element_text(hjust = 0),
+                                          plot.background = element_rect(fill="#f5f5f5", colour = "#f5f5f5"),
+                                          panel.border = element_blank()))
+
+
+p_stuchar
+```
+
+::: {.brainbox .brain data-latex="brain"}
+**Observations**
+
+-   The students responses are almost equally split between males and females.
+-   Native Singaporeans make up the bulk of the survey responses.
+-   Most students have access to educational tools/resources such as computer, educational software, and the internet.
+:::
+
+## 4.3 Parents Occupational & Educational Status
+
+```{r}
+#| code-fold: true
+#| code-summary: "Show the code"
+
+p_osf <- ggplot(data = stu_SG_more, 
+       aes(x = Occupation_Status_Father)) +
+    geom_bar(fill="#c7c8cc")+
+    ylim(0, 6110) + 
+    geom_text(stat="count", 
+      aes(label=paste0(after_stat(count), ", ", 
+      round(after_stat(count)/sum(after_stat(count))*100, 1), "%")),
+      vjust=-0.5,
+      size=3) +
+    labs(x = "",
+         y = "",
+         title="Father") + 
+    theme(
+      panel.grid.major = element_blank(), 
+      plot.title = element_text(size=9, face="bold"),
+      axis.text.y = element_blank(),
+      axis.title.y = element_blank(),
+      axis.ticks.y = element_blank(),
+      #axis.ticks.x = element_blank(),      
+      plot.background=element_rect(fill="#f5f5f5",colour="#f5f5f5")
+    ) 
+
+p_osm <- ggplot(data = stu_SG_more, 
+       aes(x = Occupation_Status_Mother)) +
+    geom_bar(fill="#c7c8cc")+
+    ylim(0, 6110) + 
+    geom_text(stat="count", 
+      aes(label=paste0(after_stat(count), ", ", 
+      round(after_stat(count)/sum(after_stat(count))*100, 1), "%")),
+      vjust=-0.5,
+      size=3) +
+    labs(x = "",
+         y = "",
+         title="Mother") + 
+    theme(
+      panel.grid.major = element_blank(), 
+      plot.title = element_text(size=9, face="bold"),
+      axis.text.y = element_blank(),
+      axis.title.y = element_blank(),
+      axis.ticks.y = element_blank(),
+      #axis.ticks.x = element_blank(),      
+      plot.background=element_rect(fill="#f5f5f5",colour="#f5f5f5")
+    ) 
+
+p_eduF <- ggplot(data = stu_SG_more, 
+       aes(x = Edu_Father)) +
+    geom_bar(fill="#c7c8cc")+
+    ylim(0, 6110) + 
+    geom_text(stat="count", 
+      aes(label=paste0(after_stat(count), ", ", 
+      round(after_stat(count)/sum(after_stat(count))*100, 1), "%")),
+      vjust=-0.5,
+      size=3) +
+    labs(x = "",
+         y = "",
+         title="Father") + 
+    theme(
+      panel.grid.major = element_blank(), 
+      plot.title = element_text(size=9, face="bold"),
+      axis.text.y = element_blank(),
+      axis.title.y = element_blank(),
+      axis.ticks.y = element_blank(),
+      #axis.ticks.x = element_blank(),      
+      plot.background=element_rect(fill="#f5f5f5",colour="#f5f5f5")
+    ) 
+
+p_eduM <- ggplot(data = stu_SG_more, 
+       aes(x = Edu_Mother)) +
+    geom_bar(fill="#c7c8cc")+
+    ylim(0, 6110) + 
+    geom_text(stat="count", 
+      aes(label=paste0(after_stat(count), ", ", 
+      round(after_stat(count)/sum(after_stat(count))*100, 1), "%")),
+      vjust=-0.5,
+      size=3) +
+    labs(x = "",
+         y = "",
+         title="Mother") + 
+    theme(
+      panel.grid.major = element_blank(), 
+      plot.title = element_text(size=9, face="bold"),
+      axis.text.y = element_blank(),
+      axis.title.y = element_blank(),
+      axis.ticks.y = element_blank(),
+      #axis.ticks.x = element_blank(),      
+      plot.background=element_rect(fill="#f5f5f5",colour="#f5f5f5")
+    )  
+
+p_eduF + p_osf + p_eduM + p_osm +
+  plot_layout(widths=c(2,1)) +
+  plot_annotation(title="Similar Patterns in Education and Employment Among Fathers and Mothers", 
+                  theme=theme(plot.title = element_text(hjust = 0),
+                  plot.background = element_rect(fill="#f5f5f5", colour = "#f5f5f5"),
+                  panel.border = element_blank()))
+
+```
+
+::: {.brainbox .brain data-latex="brain"}
+**Observations**
+
+-   There is not much variation in the distribution. The split between educational levels and employment status are similar between Fathers and Mothers. Both have the highest proportion (almost half) with Tertiary education and most parents are employed.
+
+-   Unemployed father are almost 2x as many as unemployed mothers.
+:::
+
+## 4.4 School Characteristics
+
+```{r}
+#| code-fold: true
+#| code-summary: "Show the code"
+
+p_schtype <- ggplot(data = stu_SG_more, 
+       aes(x = SchType )) +
+    geom_bar(fill="#c7c8cc")+
+    ylim(0, 6110) + 
+    geom_text(stat="count", 
+      aes(label=paste0(after_stat(count), ", ", 
+      round(after_stat(count)/sum(after_stat(count))*100, 1), "%")),
+      vjust=-0.5,
+      size=3) +
+    labs(x = "",
+         y = "",
+         title="School Type") + 
+    theme(
+      panel.grid.major = element_blank(), 
+      plot.title = element_text(size=9, face="bold"),
+      axis.text.y = element_blank(),
+      axis.title.y = element_blank(),
+      axis.ticks.y = element_blank(),
+      #axis.ticks.x = element_blank(),      
+      plot.background=element_rect(fill="#f5f5f5",colour="#f5f5f5")
+    ) 
+
+# Calculating the mean, median, min and max
+mean_str <- round(mean(stu_SG_more$StuTeacher_ratio),2)
+median_str <- round(median(stu_SG_more$StuTeacher_ratio),2)
+min_str <- round(min(stu_SG_more$StuTeacher_ratio),2)
+max_str <- round(max(stu_SG_more$StuTeacher_ratio),2)
+leftwhisk_str <- round(quantile(stu_SG_more$StuTeacher_ratio, probs = .25)-1.5*IQR(stu_SG_more$StuTeacher_ratio),2)
+
+# Histogram
+hist_str <- 
+  ggplot(
+    stu_SG_more, 
+    aes(x = StuTeacher_ratio)
+  ) +
+  geom_histogram(
+    bins = 25,
+    color = "#f5f5f5",
+    fill="#c7c8cc"
+  ) +
+  scale_x_continuous(
+    breaks = scales::pretty_breaks(n = 5),
+    
+    # Set same limits for both plots to ensure justification
+    limits = c(1,100), 
+  ) + 
+  geom_vline(
+    aes(xintercept = median_str),
+    colour="#595DE5", 
+    linewidth = 0.7, 
+    linetype = "dashed"
+  ) +
+  annotate(
+    geom = "text", 
+    x = 20, 
+    y = 5000,
+    label = paste0("Median =\n", median_str),
+    color="#595DE5"
+  ) +
+  geom_vline(
+    aes(xintercept = mean_str),
+    colour="#e0218a", 
+    linewidth = 0.7, 
+    linetype = "dashed"
+  ) +
+  annotate(
+    geom = "text", 
+    x = 5, 
+    y = 5000,
+    label = paste0("Mean =\n", mean_str),
+    color="#e0218a"
+  ) +  
+  labs(x = NULL, y = NULL
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.y = element_blank(),
+    panel.grid.major = element_blank(),
+    plot.background = element_rect(fill="#f5f5f5",colour="#f5f5f5")
+  )
+
+# Boxplot
+box_str <- 
+  ggplot(
+    stu_SG_more, 
+    aes(y = StuTeacher_ratio, x="")
+  ) + 
+  geom_boxplot(
+    fill="#c7c8cc",
+    outlier.colour="#d18a7d", 
+    outlier.shape=16,
+    outlier.size=1, 
+    notch=FALSE
+  ) + 
+  stat_summary(geom = 'point',
+               fun.y='mean',
+               colour = '#e0218a',
+               size=2) +
+  coord_flip() + 
+  
+  #Annotate with amounts to show range
+  annotate(
+    geom = "text", 
+    x = 0.5, 
+    y = min_str,
+    label = paste0(min_str),
+    color = "#d18a7d"
+  ) + 
+  annotate(
+    geom = "text", 
+    x = 0.5, 
+    y = max_str,
+    label = paste0(max_str),
+    color = "#d18a7d"
+  ) + 
+  
+  labs(
+    title = "Distribution of Student-Teacher Ratio",
+     y = "", 
+    x = ""
+  ) + 
+   scale_y_continuous(
+    limits = c(1,100), 
+  ) +
+  
+  stat_boxplot(
+    geom="errorbar", 
+    width=0.5
+  ) + 
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size=9, face="bold"),
+    axis.text = element_blank(), 
+    axis.ticks = element_blank(),
+    panel.grid.major = element_blank(),
+     plot.background = element_rect(
+       fill="#f5f5f5",colour="#f5f5f5")
+  )
+
+
+hbox_str <- (box_str / hist_str) + 
+        plot_layout(heights = c(1, 3.5)) #< Scale layout to keep boxplot height shorter
+
+(p_schtype + hbox_str) +
+  plot_layout(widths=c(1,2)) +
+  plot_annotation(title="Most Responses from Public Schools Show a 12:1 Student-Teacher Ratio", 
+                  theme=theme(plot.title = element_text(hjust = 0),
+                  plot.background = element_rect(fill="#f5f5f5", colour = "#f5f5f5"),
+                  panel.border = element_blank()))
+
+```
+
+::: {.brainbox .brain data-latex="brain"}
+**Observations**
+
+-   Responses are mostly from students attending public schools, with less than 10% of responses from private-school goers.
+
+-   Most of the responses centered around the mean and median Student-Teacher Ratio of 12.
+
+-   There is a large variation in the Student-Teacher Ratio range. Significant outliers on both ends of the scale are noted, particularly on the right tail with a ratio of 100 students to 1 teacher.
+
+**Design Consideration for EDA**
+
+-   Interestingly, the boxplot was able to highlight the outliers on the far right end of the scale while the histogram was unable to capture this due to the scale/range of the y-axis even though the y-axis starts from 0. Graphically, the boxplot is a much better tool for detecting outliers in such cases.
+
+-   Yet, boxplots are not very helpful at conveying frequencies. It is hard to tell the sample size through conventional boxplots.
+:::
+
+# 6 Exploratory Data Analysis
+
+## 6.1 Comparing Distribution of Subject Performance
+
+```{r}
+#| code-fold: true
+#| code-summary: "Show the code"
+
+stu_SG_more_long <- 
+  stu_SG_more %>% 
+  pivot_longer(cols = starts_with("Avg"),
+               names_to = "subject",
+               names_prefix="Avg_",
+               values_to="score")
+
+stu_SG_more_long %>%
+  ggplot(aes(y = subject, x = score)) +
+  stat_slab(aes(fill = after_stat(level)), 
+            .width = c(.66, .95, 1),
+            alpha=0.8) +
+  stat_pointinterval() +
+  scale_fill_brewer() +
+  scale_y_discrete(labels= c("Math", "Reading", "Science")) +
+  labs(x = "Score", y = NULL, title = "Median score for Math higher than Science and Reading.", 
+         subtitle="Symmetrical curves appear to resemble Normal distributions across subject.")+
+  theme(legend.position = "bottom",
+          plot.title = element_text(size = 12, face = "bold"),
+          plot.subtitle = element_text(size = 9),
+          plot.caption = element_text(size = rel(0.8)),
+          axis.text.y = element_text(size = rel(0.9)),
+          plot.background=element_rect(fill="#f5f5f5",colour="#f5f5f5")
+          )
+
+```
+
+```{r}
+ggplot(data= stu_SG_more_long,
+        aes(x = score, 
+            y = subject, 
+           fill = subject,
+), 
+           ) + 
+  stat_density_ridges(quantiles = 2,
+                      quantile_lines = TRUE,
+                     alpha = 0.8,
+                     scale = 2,
+                     geom = "density_ridges_gradient", calc_ecdf = TRUE) + 
+
+  scale_x_continuous(
+    breaks = scales::pretty_breaks(n = 5)
+  ) +
+  guides(color = "none", fill = "none") + 
+  scale_fill_manual(values=c("#f27279", "#73b2c4", "#f2b678")) +
+  labs(x = "Score", y = NULL, title = "Median score for Math higher than Science and Reading.", 
+         subtitle="Symmetrical curves appear to resemble Normal distributions across subject.")+
+  theme(legend.position = "bottom",
+          plot.title = element_text(size = 12, face = "bold"),
+          plot.subtitle = element_text(size = rel(0.8)),
+          plot.caption = element_text(size = rel(0.8)),
+          axis.text.y = element_text(size = rel(0.9)),
+          plot.background=element_rect(fill="#f5f5f5",colour="#f5f5f5")
+          )
+```
+
+::: {.nursebox .nurse data-latex="nurse"}
+**Observations**
+
+**Editor's Notes** - `stat_density_ridges` with `quantile_lines` and `quantiles` to show median line for comparison - `scale = 2`
+:::
+
+## 6.2 Comparing Scores against Time Spent on Homework between Genders
+
+```{r}
+mean_hwtime <- stu_SG_more %>% 
+  select(Gender,Time_HW_Math,Time_HW_Reading, Time_HW_Science, Avg_Math, Avg_Reading, Avg_Sci) %>% 
+  pivot_longer(cols = starts_with("Time_HW_"),
+             names_to = "subject",
+             names_prefix = "Time_HW_",
+             values_to="time") %>% 
+  group_by(Gender, subject, time) %>% 
+  summarise(mean_m=mean(Avg_Math),
+             mean_r=mean(Avg_Reading),
+             mean_s=mean(Avg_Sci))
+  
+```
+
+::: panel-tabset
+## Math
+
+```{r}
+#| code-fold: true
+#| code-summary: "Show the code"
+#| 
+pyr_math <- 
+  ggplot(data = stu_SG_more,
+            aes(x = Avg_Math, group=Time_HW_Math)) +
+  # Math + Male
+  geom_density(data = subset(stu_SG_more, Gender=="Male"),
+               aes(x = Avg_Math,
+                   y=-..density..),
+               fill="#73b2c4",
+               color="#73b2c4",
+               alpha=0.5)+
+  # Math + Female
+  geom_density(data = subset(stu_SG_more, Gender=="Female"),
+               aes(x = Avg_Math,
+                   y=..density..),
+               fill="#f27279",
+               colour="#f27279",
+               alpha=0.5)+
+    guides(fill = guide_legend(reverse = TRUE)) +
+    theme_minimal() +
+    theme(legend.position = "bottom",
+          plot.title = element_markdown(size = 12, face = "bold"),
+          plot.subtitle = element_text(size = rel(0.8)),
+          plot.caption = element_text(size = rel(0.8)),
+          axis.text.y = element_text(size = rel(0.9)),
+          axis.text.x = element_blank(),
+          axis.title.x = element_blank(),
+          plot.background=element_rect(fill="#f5f5f5",colour="#f5f5f5")
+          ) +
+  scale_x_continuous(breaks = seq(150,950,100),
+                     labels = seq(150,950,100)) +
+  scale_y_continuous(breaks = -1:1,
+                     labels = abs(-1:1)) +
+    labs(x = "", y = NULL, title = "Direct relationship between time spent on math homework and scores<br> for <span style='color: #f27279;'>females</span>, inverse relationship for <span style='color: #73b2c4;'>males</span>",
+         subtitle = "Time spent on homework: {current_frame} minutes",
+         fill = "Gender") +
+        coord_flip(clip="off")+
+  annotate(
+    geom = "text", 
+    x = 780, 
+    y = -0.003,
+    label = "Male",
+    color = "#4472af")+
+      
+    annotate(
+    geom = "text", 
+    x = 780, 
+    y = 0.003,
+    label = "Female",
+    color = "#e0218a")
+
+
+pyr_math +
+  transition_manual(factor(Time_HW_Math, c("<31", "31-60", "61-120", ">120"))) +
+  ease_aes("linear")
+
+```
+
+## Reading
+
+```{r}
+#| code-fold: true
+#| code-summary: "Show the code"
+#| 
+pyr_reading <- 
+  ggplot(data = stu_SG_more,
+            aes(x = Avg_Reading, group=Time_HW_Reading)) +
+  # Reading + Male
+  geom_density(data = subset(stu_SG_more, Gender=="Male"),
+               aes(y=-..density..),
+               fill="#73b2c4",
+               color="#73b2c4",
+               alpha=0.5)+
+  # Reading + Female
+  geom_density(data = subset(stu_SG_more, Gender=="Female"),
+               aes(y=..density..),
+               fill="#f27279",
+               colour="#f27279",
+               alpha=0.5)+
+    guides(fill = guide_legend(reverse = TRUE)) +
+    theme_minimal() +
+    theme(legend.position = "bottom",
+          plot.title = element_text(size = 12, face = "bold"),
+          plot.subtitle = element_text(size = rel(0.8)),
+          plot.caption = element_text(size = rel(0.8)),
+          axis.text.y = element_text(size = rel(0.9)),
+          axis.text.x = element_blank(),
+          axis.title.x = element_blank(),
+          plot.background=element_rect(fill="#f5f5f5",colour="#f5f5f5")
+          ) +
+  scale_x_continuous(breaks = seq(150,950,100),
+                     labels = seq(150,950,100)) +
+  scale_y_continuous(breaks = -1:1,
+                     labels = abs(-1:1)) +
+    labs(x = "", y = NULL, title = "Multimodal, left-tailed distribution for both genders observed where\nless time is spent on reading homework.",
+         subtitle = "Time spent on homework: {current_frame} minutes",
+         fill = "Gender") +
+        coord_flip(clip="off")+
+  annotate(
+    geom = "text", 
+    x = 780, 
+    y = -0.003,
+    label = "Male",
+    color = "#4472af")+
+      
+    annotate(
+    geom = "text", 
+    x = 780, 
+    y = 0.003,
+    label = "Female",
+    color = "#e0218a")
+
+
+pyr_reading +
+  transition_manual(factor(Time_HW_Reading, c("<31", "31-60", "61-120", ">120"))) +
+  ease_aes("linear")
+
+```
+
+## Science
+
+```{r}
+#| code-fold: true
+#| code-summary: "Show the code"
+pyr_science <- 
+  ggplot(data = stu_SG_more,
+            aes(x = Avg_Sci, group=Time_HW_Science)) +
+  # Science + Male
+  geom_density(data = subset(stu_SG_more, Gender=="Male"),
+               aes(y=-..density..),
+               fill="#73b2c4",
+               color="#73b2c4",
+               alpha=0.5)+
+  # Science + Female
+  geom_density(data = subset(stu_SG_more, Gender=="Female"),
+               aes(y=..density..),
+               fill="#f27279",
+               colour="#f27279",
+               alpha=0.5)+
+    guides(fill = guide_legend(reverse = TRUE)) +
+    theme_minimal() +
+    theme(legend.position = "bottom",
+          plot.title = element_markdown(size = 12, face = "bold"),
+          plot.subtitle = element_text(size = rel(0.8)),
+          plot.caption = element_text(size = rel(0.8)),
+          axis.text.y = element_text(size = rel(0.9)),
+          axis.text.x = element_blank(),
+          axis.title.x = element_blank(),
+          plot.background=element_rect(fill="#f5f5f5",colour="#f5f5f5")
+          ) +
+  scale_x_continuous(breaks = seq(150,950,100),
+                     labels = seq(150,950,100)) +
+  scale_y_continuous(breaks = -1:1,
+                     labels = abs(-1:1)) +
+    labs(x = "", y = NULL, title = "Higher <span style='color: #73b2c4;'>Males</span> Science score across all durations.",
+         subtitle = "Time spent on homework: {current_frame} minutes",
+         fill = "Gender") +
+        coord_flip(clip="off")+
+  annotate(
+    geom = "text", 
+    x = 780, 
+    y = -0.003,
+    label = "Male",
+    color = "#4472af")+
+      
+    annotate(
+    geom = "text", 
+    x = 780, 
+    y = 0.003,
+    label = "Female",
+    color = "#e0218a")
+
+
+pyr_science +
+  transition_manual(factor(Time_HW_Science, c("<31", "31-60", "61-120", ">120"))) +
+  ease_aes("linear")
+
+```
+:::
+
+```{r}
+#| code-fold: true
+#| code-summary: "Show the code"
+pyr_hwtime <- 
+  ggplot(NULL,
+            aes(x = x)) +
+  # Math + Male
+  geom_density(data = subset(stu_SG_more, Gender=="Male" & Time_HW_Math=="<31"),
+               aes(x=Avg_Math,
+                   y=-..density..),
+               fill="#f7af7a",
+               color="#f7af7a",
+               alpha=0.2)+
+  # Math + Female
+  geom_density(data = subset(stu_SG_more, Gender=="Female" & Time_HW_Math=="<31"),
+               aes(x=Avg_Math,
+                   y=..density..),
+               fill="#f7af7a",
+               colour="#f7af7a",
+               alpha=0.2)+
+  
+  # Reading + Male
+  geom_density(data = subset(stu_SG_more,  Gender=="Male" & Time_HW_Reading=="<31"),
+               aes(x=Avg_Reading,
+                   y=-..density..),
+               fill="#f27279",
+               color="#f27279",
+               alpha=0.2)+
+  # Science + Male
+  geom_density(data = subset(stu_SG_more,  Gender=="Female" & Time_HW_Science=="<31"),
+               aes(x=Avg_Sci,
+                   y=-..density..),
+               fill="#73b2c4",
+               color="#73b2c4",
+               alpha=0.2)+
+  # Math + Female
+  geom_density(data = subset(stu_SG_more, Gender=="Female" & Time_HW_Math=="<31"),
+               aes(x=Avg_Math,
+                   y=..density..),
+               fill="#f7af7a",
+               colour="#f7af7a",
+               alpha=0.2)+
+  # Reading + Female
+  geom_density(data = subset(stu_SG_more,  Gender=="Female" & Time_HW_Reading=="<31"),
+               aes(x=Avg_Reading,
+                   y=..density..),
+               fill="#f27279",
+               color="#f27279",
+               alpha=0.2)+
+  # Science + Female
+  geom_density(data = subset(stu_SG_more,  Gender=="Female" & Time_HW_Science=="<31"),
+               aes(x=Avg_Sci,
+                   y=..density..),
+               fill="#73b2c4",
+               colour="#73b2c4",
+               alpha=0.2)+      
+    guides(fill = guide_legend(reverse = TRUE)) +
+    theme_minimal() +
+    theme(legend.position = "bottom",
+          plot.title = element_text(size = rel(0.8), face = "bold"),
+          plot.subtitle = element_text(size = rel(0.8)),
+          plot.caption = element_text(size = rel(0.8)),
+          axis.text.y = element_text(size = rel(0.9)),
+          axis.text.x = element_text(size = rel(0.9)),
+          axis.title.x = element_blank(),
+          plot.background=element_rect(fill="#f5f5f5",colour="#f5f5f5")
+          ) +
+  scale_x_continuous(breaks = seq(150,950,100),
+                     labels = seq(150,950,100)) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0)), breaks = -1:1,
+                     labels = abs(-1:1)) +
+    labs(x = "", y = NULL, title = "Score Distribution:",
+         subtitle = "Time spent on homework: {frame_time} minutes",
+         caption = "",
+         fill = "Gender") +
+        coord_flip(clip="off")
+
+
+pyr_math 
+#+
+#  transition_time(Time_HW_Math) +
+#  ease_aes("linear")
+
+```
+
+::: {.nursebox .nurse data-latex="nurse"}
+**Editor's Notes** - `geom_density` - `..density..` and `-..density..` - gganimate -
+:::
+
+## 6.3 Comparing Scores against Student-Teacher Ratio and School Type
+
+::: panel-tabset
+## Math
+
+```{r}
+#| code-fold: true
+#| code-summary: "Show the code"
+
+stu_SG_more <- stu_SG_more %>% 
+  mutate(logstr = log(StuTeacher_ratio))
+
+pmain <- ggplot(stu_SG_more, 
+                aes(x = Avg_Math, y = logstr, color = SchType)) +
+  geom_point(alpha=0.5) +
+  scale_color_manual(values = c("#7F948F","#E1C8C4"))+
+geom_vline(aes(xintercept=mean_math),
+               color="#595DE5", linewidth=0.8, linetype="dashed") +
+  annotate(
+      "text", 
+      x = 520, 
+      y = 4.2,
+      label = paste("Mean Score =\n", mean_math),
+      color = "#595DE5",
+      size = 2.8
+    ) +
+  geom_hline(aes(yintercept=round(mean(stu_SG_more$logstr, na.rm=T),3)),
+               color="red", linewidth=0.8, linetype="dashed") +  
+  annotate(
+      "text", 
+      x = 800, 
+      y = 3.1,
+      label = paste("Mean Ratio =\n", round(mean(stu_SG_more$logstr, na.rm=T),3)),
+      color = "red",
+      size = 2.8
+    ) +
+      labs(x = "Math Score",
+       y = "log(Student-\nTeacher Ratio)",
+       title = "Density of Maths Score by Gender") +
+      theme(
+            axis.title.y = element_text(hjust=1, angle=0),
+            plot.background=element_rect(fill="#f5f5f5",colour="#f5f5f5"))
+  
+
+# Marginal densities along x axis
+xdens <- axis_canvas(pmain, axis = "x") +
+  geom_density(data = stu_SG_more, aes(x = Avg_Math, fill = SchType),
+               alpha = 0.5, size = 0.2) +
+  scale_fill_manual(values = c("#7F948F","#E1C8C4"))
+
+# Marginal densities along y axis
+ydens <- axis_canvas(pmain, axis = "y", coord_flip = TRUE) +
+  geom_density(data = stu_SG_more, aes(x = logstr, fill = SchType),
+               alpha = 0.5, size = 0.2) +
+  coord_flip() +
+  scale_fill_manual(values = c("#7F948F","#E1C8C4"))
+
+p1 <- insert_xaxis_grob(pmain, xdens, grid::unit(.2, "null"), position = "top")
+p2 <- insert_yaxis_grob(p1, ydens, grid::unit(.2, "null"), position = "right")
+ggdraw(p2)
+```
+
+## Reading
+
+```{r}
+#| code-fold: true
+#| code-summary: "Show the code"
+
+pmainr <- ggplot(stu_SG_more, 
+                aes(x = Avg_Reading, y = logstr, color = SchType)) +
+  geom_point(alpha=0.5) +
+  scale_color_manual(values = c("#7F948F","#E1C8C4"))+
+geom_vline(aes(xintercept=mean_reading),
+               color="#595DE5", linewidth=0.8, linetype="dashed") +
+  annotate(
+      "text", 
+      x = mean_reading -80, 
+      y = 4,
+      label = paste("Mean Score =\n", mean_reading),
+      color = "#595DE5",
+      size = 2.8
+    ) +
+  geom_hline(aes(yintercept=round(mean(stu_SG_more$logstr, na.rm=T),3)),
+               color="red", linewidth=0.8, linetype="dashed") +  
+  annotate(
+      "text", 
+      x = 770, 
+      y = 3,
+      label = paste("Mean Ratio =\n", round(mean(stu_SG_more$logstr, na.rm=T),3)),
+      color = "red",
+      size = 2.8
+    ) +
+      labs(x = "Reading Score",
+       y = "log(Student-\nTeacher Ratio)",
+       title = "Density of Reading Score by Gender") +
+      theme(
+            axis.title.y = element_text(hjust=1, angle=0),
+            plot.background=element_rect(fill="#f5f5f5",colour="#f5f5f5"))
+  
+
+# Marginal densities along x axis
+xdensr <- axis_canvas(pmain, axis = "x") +
+  geom_density(data = stu_SG_more, aes(x = Avg_Reading, fill = SchType),
+               alpha = 0.5, size = 0.2) +
+  scale_fill_manual(values = c("#7F948F","#E1C8C4"))
+
+# Marginal densities along y axis
+# Need to set coord_flip = TRUE, if you plan to use coord_flip()
+ydensr <- axis_canvas(pmain, axis = "y", coord_flip = TRUE) +
+  geom_density(data = stu_SG_more, aes(x = logstr, fill = SchType),
+               alpha = 0.5, size = 0.2) +
+  coord_flip() +
+  scale_fill_manual(values = c("#7F948F","#E1C8C4"))
+
+p1r <- insert_xaxis_grob(pmainr, xdensr, grid::unit(.2, "null"), position = "top")
+p2r <- insert_yaxis_grob(p1r, ydensr, grid::unit(.2, "null"), position = "right")
+ggdraw(p2r)
+```
+
+## Science
+
+```{r}
+#| code-fold: true
+#| code-summary: "Show the code"
+
+pmains <- ggplot(stu_SG_more, 
+                aes(x = Avg_Sci, y = logstr, color = SchType)) +
+  geom_point(alpha=0.5) +
+  scale_color_manual(values = c("#7F948F","#E1C8C4"))+
+geom_vline(aes(xintercept=mean_sci),
+               color="#595DE5", linewidth=0.8, linetype="dashed") +
+  annotate(
+      "text", 
+      x = mean_sci -80, 
+      y = 4,
+      label = paste("Mean Score =\n", mean_sci),
+      color = "#595DE5",
+      size = 2.8
+    ) +
+  geom_hline(aes(yintercept=round(mean(stu_SG_more$logstr, na.rm=T),3)),
+               color="red", linewidth=0.8, linetype="dashed") +  
+  annotate(
+      "text", 
+      x = 770, 
+      y = 3,
+      label = paste("Mean Ratio =\n", round(mean(stu_SG_more$logstr, na.rm=T),3)),
+      color = "red",
+      size = 2.8
+    ) +
+      labs(x = "Science Score",
+       y = "log(Student-\nTeacher Ratio)",
+       title = "Density of Science Score by Gender") +
+      theme(
+            axis.title.y = element_text(hjust=1, angle=0),
+            plot.background=element_rect(fill="#f5f5f5",colour="#f5f5f5"))
+  
+
+# Marginal densities along x axis
+xdenss <- axis_canvas(pmain, axis = "x") +
+  geom_density(data = stu_SG_more, aes(x = Avg_Sci, fill = SchType),
+               alpha = 0.5, size = 0.2) +
+  scale_fill_manual(values = c("#7F948F","#E1C8C4"))
+
+# Marginal densities along y axis
+# Need to set coord_flip = TRUE, if you plan to use coord_flip()
+ydenss <- axis_canvas(pmain, axis = "y", coord_flip = TRUE) +
+  geom_density(data = stu_SG_more, aes(x = logstr, fill = SchType),
+               alpha = 0.5, size = 0.2) +
+  coord_flip() +
+  scale_fill_manual(values = c("#7F948F","#E1C8C4"))
+
+p1s <- insert_xaxis_grob(pmains, xdenss, grid::unit(.2, "null"), position = "top")
+p2s <- insert_yaxis_grob(p1r, ydenss, grid::unit(.2, "null"), position = "right")
+ggdraw(p2s)
+```
+:::
+
+::: {.nursebox .nurse data-latex="nurse"}
+**Observations** - Distribution of Math scores is more widely scattered among Public school students. - Students from Private-Independent schools have higher median Math scores as compared to students from Public schools. -
+:::
+
+## 6.4 Comparing scores with parents education level & occupational status
+
+### 6.4.1 Education Levels
+
+```{r}
+#| code-fold: true
+#| code-summary: "Show the code"
+
+# Pivot parents education data longer
+parentsedu_long <- 
+  stu_SG_more %>% 
+  pivot_longer(cols = starts_with("Edu_"),
+               names_to = "parentsedu",
+               names_prefix="Edu_",
+               values_to="level") 
+
+means_parentsedu <- 
+  parentsedu_long %>% 
+  select(parentsedu, level, Avg_Math, Avg_Reading, Avg_Sci) %>% 
+  group_by(parentsedu, level) %>% 
+  summarise(mean_math = mean(Avg_Math),
+            mean_reading = mean(Avg_Reading),
+            mean_sci = mean(Avg_Sci),
+            .groups = 'drop')
+```
+
+```{r}
+#| code-fold: true
+#| code-summary: "Show the code"
+
+p_parentsedu_m <-
+ggplot(parentsedu_long, 
+       aes(x = Avg_Math, y = level,
+           fill = parentsedu,
+           color=parentsedu)) +
+  geom_density_ridges(
+    calc_ecdf = TRUE, 
+  # Reduce space between between education levels 
+    scale = 0.8,
+    alpha= 0.5,
+  rel_min_height = 0.01,
+  position = position_nudge(y=0.11)
+  ) +
+  # point for father's mean
+  geom_point(data = subset(means_parentsedu, parentsedu=="Father"),
+             aes(x = mean_math, 
+                 y = level), 
+             shape = 21, size = 3, colour = "#73b2c4", fill = "#73b2c4") +
+  # point for mother's 
+  geom_point(data = subset(means_parentsedu, parentsedu=="Mother"),
+             aes(x = mean_math, 
+                 y = level), shape = 23, size = 3, colour = "#f27279", fill = "#f27279", stroke = .5) +
+  scale_color_manual(name="Parent",
+                        values = c("Father" = "#73b2c4", 
+                               "Mother" = "#f27279")) +
+  scale_fill_manual(values = c("Father" = "#73b2c4", 
+                               "Mother" = "#f27279")) +
+  labs(
+    x = "Math", 
+  ) +
+  scale_y_discrete(expand = c(0, 0.1))+
+  guides(color="none") +
+  theme(
+    legend.direction = "horizontal",
+    legend.position = "bottom",
+    plot.title = element_text(size =12, face = "bold"),
+    plot.subtitle = element_text(size = rel(0.8)),
+    plot.caption = element_text(size = rel(0.8)),
+    axis.text.y = element_text(size = rel(0.9)),
+    axis.text.x = element_text(size = rel(0.9)),
+    axis.title.y = element_blank(),
+    plot.background=element_rect(fill="#f5f5f5",colour="#f5f5f5") )  
+
+p_parentsedu_r <-
+ggplot(parentsedu_long, 
+       aes(x = Avg_Reading, y = level,
+           fill = parentsedu,
+           color=parentsedu)) +
+  geom_density_ridges(
+    calc_ecdf = TRUE, 
+  # Reduce space between between education levels 
+    scale = 0.8,
+    alpha= 0.5,
+  rel_min_height = 0.01,
+  position = position_nudge(y=0.11)
+  ) +
+  # point for father's mean
+  geom_point(data = subset(means_parentsedu, parentsedu=="Father"),
+             aes(x = mean_reading, 
+                 y = level), 
+             shape = 21, size = 3, colour = "#73b2c4", fill = "#73b2c4") +
+  # point for mother's 
+  geom_point(data = subset(means_parentsedu, parentsedu=="Mother"),
+             aes(x = mean_reading, 
+                 y = level), shape = 23, size = 3, colour = "#f27279", fill = "#f27279", stroke = .5) +
+  scale_color_manual(name="Parent",
+                        values = c("Father" = "#73b2c4", 
+                               "Mother" = "#f27279")) +
+  scale_fill_manual(values = c("Father" = "#73b2c4", 
+                               "Mother" = "#f27279")) +
+  labs(
+    x = "Reading", 
+  ) +
+  guides(color="none") +
+  scale_y_discrete(expand = c(0, 0.1))+
+  theme(
+    legend.direction = "horizontal",
+    legend.position = "bottom",
+    plot.title = element_text(size =12, face = "bold"),
+    plot.subtitle = element_text(size = rel(0.8)),
+    plot.caption = element_text(size = rel(0.8)),
+    axis.text.x = element_text(size = rel(0.9)),
+    axis.title.y = element_blank(),
+    axis.text.y = element_blank(),
+    plot.background=element_rect(fill="#f5f5f5",colour="#f5f5f5") ) +
+  annotate(
+    geom = "curve", x = 80, y = 2.0, xend = 280, yend = 2.35, 
+    curvature = -.3, arrow = arrow(length = unit(2, "mm"))
+  ) +
+  annotate(geom = "text", x = 0.1, y = 1.6, label = "Lower Reading scores\nwhere their fathers'\neducation level is\nlow.", hjust = "left", size= 2)  
+  
+p_parentsedu_s <-
+ggplot(parentsedu_long, 
+       aes(x = Avg_Sci, y = level,
+           fill = parentsedu,
+           color=parentsedu)) +
+  geom_density_ridges(
+    calc_ecdf = TRUE, 
+  # Reduce space between between education levels 
+    scale = 0.8,
+    alpha= 0.5,
+  rel_min_height = 0.01,
+  position = position_nudge(y=0.11)
+  ) +
+  # point for father's mean
+  geom_point(data = subset(means_parentsedu, parentsedu=="Father"),
+             aes(x = mean_sci, 
+                 y = level), 
+             shape = 21, size = 3, colour = "#73b2c4", fill = "#73b2c4") +
+  # point for mother's 
+  geom_point(data = subset(means_parentsedu, parentsedu=="Mother"),
+             aes(x = mean_sci, 
+                 y = level), shape = 23, size = 3, colour = "#f27279", fill = "#f27279", stroke = .5) +
+  scale_color_manual(name="Parent",
+                        values = c("Father" = "#73b2c4", 
+                               "Mother" = "#f27279")) +
+  scale_fill_manual(values = c("Father" = "#73b2c4", 
+                               "Mother" = "#f27279")) +
+  labs(
+    x = "Science", 
+  ) +
+  guides(color="none") +
+  scale_y_discrete(expand = c(0, 0.1))+
+  theme(
+    legend.direction = "horizontal",
+    legend.position = "bottom",
+    plot.title = element_text(size =12, face = "bold"),
+    plot.subtitle = element_text(size = rel(0.8)),
+    plot.caption = element_text(size = rel(0.8)),
+    axis.text.x = element_text(size = rel(0.9)),
+    axis.title.y = element_blank(),
+    axis.text.y = element_blank(),
+    plot.background=element_rect(fill="#f5f5f5",colour="#f5f5f5") )   +
+  annotate(
+    geom = "curve", x = 100, y = 5.6
+    , xend = 440, yend = 5.65, 
+    curvature = -.3, arrow = arrow(length = unit(2, "mm"))
+  ) +
+  annotate(geom = "text", x = 0.08, y = 5.4, label = "Density plots almost\noverlap completely.", hjust = "left", size= 2)  
+
+(p_parentsedu_m + p_parentsedu_r + p_parentsedu_s) +
+  plot_layout(guides = "collect") +
+  plot_annotation(title = "Higher scores scores with higher parental education levels,\nsimilar distributions across father and mother education.",
+                  theme=theme(plot.title = element_text(hjust = 0),
+                              plot.subtitle = element_markdown(hjust = 0),
+                  plot.background = element_rect(fill="#f5f5f5", colour = "#f5f5f5"),
+                  panel.border = element_blank()))+
+  plot_layout(widths=c(1,1,1))
+
+```
+
+### 6.4.2 Occupational Status
+
+```{r}
+# Pivot parents occupational status data longer
+jobstatus_long <- 
+  stu_SG_more %>% 
+  pivot_longer(cols = starts_with("Occupation_Status_"),
+               names_to = "parent",
+               names_prefix="Occupation_Status_",
+               values_to="jobstatus") 
+
+means_parentsjobstat <- 
+  jobstatus_long %>% 
+  select(parent, jobstatus, Avg_Math, Avg_Reading, Avg_Sci) %>% 
+  group_by(parent, jobstatus) %>% 
+  summarise(mean_math = mean(Avg_Math),
+            mean_reading = mean(Avg_Reading),
+            mean_sci = mean(Avg_Sci),
+            .groups = 'drop')
+```
+
+```{r}
+#| code-fold: true
+#| code-summary: "Show the code"
+
+p_parentsjs_m <-
+ggplot(jobstatus_long, 
+       aes(x = Avg_Math, y = jobstatus,
+           fill = parent,
+           color=parent)) +
+  geom_density_ridges(
+    calc_ecdf = TRUE, 
+  # Reduce space between between education levels 
+    scale = 0.8,
+    alpha= 0.5,
+  rel_min_height = 0.01,
+  position = position_nudge(y=0.11)
+  ) +
+  # point for father's mean
+  geom_point(data = subset(means_parentsjobstat, parent=="Father"),
+             aes(x = mean_math, 
+                 y = jobstatus), 
+             shape = 21, size = 3, colour = "#73b2c4", fill = "#73b2c4") +
+  # point for mother's 
+  geom_point(data = subset(means_parentsjobstat, parent=="Mother"),
+             aes(x = mean_math, 
+                 y = jobstatus), shape = 23, size = 3, colour = "#f27279", fill = "#f27279", stroke = .5) +
+  scale_color_manual(name="Parent",
+                        values = c("Father" = "#73b2c4", 
+                               "Mother" = "#f27279")) +
+  scale_fill_manual(values = c("Father" = "#73b2c4", 
+                               "Mother" = "#f27279")) +
+  labs(
+    x = "Math", 
+  ) +
+  scale_y_discrete(expand = c(0, 0.1))+
+  guides(color="none") +
+  theme(
+    legend.direction = "horizontal",
+    legend.position = "bottom",
+    plot.title = element_text(size =12, face = "bold"),
+    plot.subtitle = element_text(size = rel(0.8)),
+    plot.caption = element_text(size = rel(0.8)),
+    axis.text.y = element_text(size = rel(0.9)),
+    axis.text.x = element_text(size = rel(0.9)),
+    axis.title.y = element_blank(),
+    plot.background=element_rect(fill="#f5f5f5",colour="#f5f5f5") ) 
+    
+
+p_parentsjs_r <-
+ggplot(jobstatus_long, 
+       aes(x = Avg_Reading, y = jobstatus,
+           fill = parent,
+           color=parent)) +
+  geom_density_ridges(
+    calc_ecdf = TRUE, 
+  # Reduce space between between education levels 
+    scale = 0.8,
+    alpha= 0.5,
+  rel_min_height = 0.01,
+  position = position_nudge(y=0.11)
+  ) +
+  # point for father's mean
+  geom_point(data = subset(means_parentsjobstat, parent=="Father"),
+             aes(x = mean_reading, 
+                 y = jobstatus), 
+             shape = 21, size = 3, colour = "#73b2c4", fill = "#73b2c4") +
+  # point for mother's 
+  geom_point(data = subset(means_parentsjobstat, parent=="Mother"),
+             aes(x = mean_reading, 
+                 y = jobstatus), shape = 23, size = 3, colour = "#f27279", fill = "#f27279", stroke = .5) +
+  scale_color_manual(name="Parent",
+                        values = c("Father" = "#73b2c4", 
+                               "Mother" = "#f27279")) +
+  scale_fill_manual(values = c("Father" = "#73b2c4", 
+                               "Mother" = "#f27279")) +
+  labs(
+    x = "Reading", 
+  ) +
+  scale_y_discrete(expand = c(0, 0.1))+
+  guides(color="none") +
+  theme(
+    legend.direction = "horizontal",
+    legend.position = "bottom",
+    plot.title = element_text(size =12, face = "bold"),
+    plot.subtitle = element_text(size = rel(0.8)),
+    plot.caption = element_text(size = rel(0.8)),
+    axis.text.x = element_text(size = rel(0.9)),
+    axis.title.y = element_blank(),
+    axis.text.y = element_blank(),
+    plot.background=element_rect(fill="#f5f5f5",colour="#f5f5f5") ) +
+  annotate(geom = "text", x = 0.08, y = 1.4, label = "Density plots almost\noverlap completely.", hjust = "left", size= 2)  
+  
+p_parentsjs_s <-
+ggplot(jobstatus_long, 
+       aes(x = Avg_Sci, y = jobstatus,
+           fill = parent,
+           color=parent)) +
+  geom_density_ridges(
+    calc_ecdf = TRUE, 
+  # Reduce space between between education levels 
+    scale = 0.8,
+    alpha= 0.5,
+  rel_min_height = 0.01,
+  position = position_nudge(y=0.11)
+  ) +
+  # point for father's mean
+  geom_point(data = subset(means_parentsjobstat, parent=="Father"),
+             aes(x = mean_sci, 
+                 y = jobstatus), 
+             shape = 21, size = 3, colour = "#73b2c4", fill = "#73b2c4") +
+  # point for mother's 
+  geom_point(data = subset(means_parentsjobstat, parent=="Mother"),
+             aes(x = mean_sci, 
+                 y = jobstatus), shape = 23, size = 3, colour = "#f27279", fill = "#f27279", stroke = .5) +
+  scale_color_manual(name="Parent",
+                        values = c("Father" = "#73b2c4", 
+                               "Mother" = "#f27279")) +
+  scale_fill_manual(values = c("Father" = "#73b2c4", 
+                               "Mother" = "#f27279")) +
+  labs(
+    x = "Science", 
+  ) +
+  scale_y_discrete(expand = c(0, 0.1))+
+  guides(color="none") +
+  theme(
+    legend.direction = "horizontal",
+    legend.position = "bottom",
+    plot.title = element_text(size =12, face = "bold"),
+    plot.subtitle = element_text(size = rel(0.8)),
+    plot.caption = element_text(size = rel(0.8)),
+    axis.text.x = element_text(size = rel(0.9)),
+    axis.title.y = element_blank(),
+    axis.text.y = element_blank(),
+    plot.background=element_rect(fill="#f5f5f5",colour="#f5f5f5") ) +
+  annotate(
+    geom = "curve", x = 280, y = 2.75
+    , xend = 470, yend = 2.80, 
+    curvature = -.3, arrow = arrow(length = unit(2, "mm"))
+  ) +
+  annotate(geom = "text", x = 0.08, y = 2.6, label = "Scores more\nright-skewed for\nstudents with\nunemployed\nfathers.", hjust = "left", size= 2)  
+  
+
+(p_parentsjs_m + p_parentsjs_r + p_parentsjs_s) +
+  plot_layout(guides = "collect") +
+  plot_annotation(title = "Higher scores when employed parents.",
+  subtitle="Students with unemployed <span style='color: #73b2c4;'>fathers</span> had better scores than those with unemployed <span style='color: #f27279;'>mothers</span>.",
+                  theme=theme(plot.title = element_markdown(hjust = 0),
+                              plot.subtitle = element_markdown(hjust = 0),
+                  plot.background = element_rect(fill="#f5f5f5", colour = "#f5f5f5"),
+                  panel.border = element_blank()))+
+  plot_layout(widths=c(1,1,1))
+
+```
+
+::: {.nursebox .nurse data-latex="nurse"}
+**Editor's Notes** - Plots of raw data helps with "sanity checking" and identify things like missing data or outliers, or cast doubt over the appropriateness of particular models. - Plots of density to help you assess the overall shape of your data. - Plots of aggregate or inferential statistics for things you couldn't reasonably be expected to visually estimate from the other plots, or estimate with enough precision for the tasks at hand.
+
+-   Notice how position_nudge() is used to make sure that the points, lines, and boxplots are side-by-side and not overlapping with each other.
+-   
+:::
+
+## 6.5 Comparing access to ICT
+
+```{r}
+#| code-fold: true
+#| code-summary: "Show the code"
+
+# Math
+rcp_com_m <- 
+  ggplot(stu_SG_more, aes(x = Have_Comp, 
+                          y = Avg_Math, 
+                          fill = Have_Comp)) +
+  
+  stat_halfeye(aes(fill = Have_Comp,
+                         justification = ifelse(Have_Comp == "No", 1.2, 0),
+                          side = ifelse(Have_Comp == "No", "left", "right")),
+                   position = position_nudge(x = .1, y = 0), 
+                   adjust = 1.2, 
+                   .width=0,
+                   trim = FALSE, 
+                   alpha = .5, 
+                   point_colour = NA,
+                   orientation = )+
+  
+  geom_point(aes(x = Have_Comp, 
+                 y = Avg_Math, 
+                 colour = Have_Comp),
+             position = position_jitter(width = .05), 
+             size = .25, 
+             shape = 20)+
+  
+  geom_boxplot(aes(x = Have_Comp, 
+                   y = Avg_Math, 
+                   fill = Have_Comp),
+               outlier.shape = NA, 
+               alpha = .5, 
+               width = .1, 
+               colour = "black")+
+  scale_color_manual(values = c("No" = "#73b2c4", 
+                               "Yes" = "#f27279")) +
+  scale_fill_manual(values = c("No" = "#73b2c4", 
+                               "Yes" = "#f27279")) +
+  labs(
+    x = "Computer", 
+  ) +
+  theme_minimal() +  
+  ylim(100, 920)+
+  theme(
+    legend.direction = "horizontal",
+    legend.position="none",
+    plot.title = element_text(size =12, face = "bold"),
+    plot.subtitle = element_text(size = rel(0.8)),
+    plot.caption = element_text(size = rel(0.8)),
+    axis.text.x = element_text(size = rel(0.9)),
+    axis.title.x = element_text(size = rel(0.9)),
+    axis.title.y = element_blank(),
+    axis.text.y = element_text(size = rel(0.8)),
+    plot.background=element_rect(fill="#f5f5f5",colour="#f5f5f5") )   
+
+rcp_sw_m <- 
+  ggplot(stu_SG_more, aes(x = Have_EduSW, 
+                          y = Avg_Math, 
+                          fill = Have_EduSW)) +
+  
+  stat_halfeye(aes(fill = Have_EduSW,
+                         justification = ifelse(Have_EduSW == "No", 1.2, 0),
+                          side = ifelse(Have_EduSW == "No", "left", "right")),
+                   position = position_nudge(x = .1, y = 0), 
+                   adjust = 1.2, 
+                   .width=0,
+                   trim = FALSE, 
+                   alpha = .5, 
+                   point_colour = NA,
+                   orientation = )+
+  
+  geom_point(aes(x = Have_EduSW, 
+                 y = Avg_Math, 
+                 colour = Have_EduSW),
+             position = position_jitter(width = .05), 
+             size = .25, 
+             shape = 20)+
+  
+  geom_boxplot(aes(x = Have_EduSW, 
+                   y = Avg_Math, 
+                   fill = Have_EduSW),
+               outlier.shape = NA, 
+               alpha = .5, 
+               width = .1, 
+               colour = "black")+
+  scale_color_manual(values = c("No" = "#73b2c4", 
+                               "Yes" = "#f27279")) +
+  scale_fill_manual(values = c("No" = "#73b2c4", 
+                               "Yes" = "#f27279")) +
+  labs(
+    x = "Educational Software", 
+  ) +
+  ylim(100, 920)+
+    theme_minimal() +  
+  theme(
+    legend.direction = "horizontal",
+    legend.position="none",
+    plot.title = element_text(size =12, face = "bold"),
+    plot.subtitle = element_text(size = rel(0.8)),
+    plot.caption = element_text(size = rel(0.8)),
+    axis.text.x = element_text(size = rel(0.9)),
+    axis.title.y = element_blank(),
+    axis.title.x = element_text(size = rel(0.9)),
+    axis.text.y = element_blank(),
+    plot.background=element_rect(fill="#f5f5f5",colour="#f5f5f5") )   
+
+rcp_int_m <- 
+  ggplot(stu_SG_more, aes(x = Have_Internet, 
+                          y = Avg_Math, 
+                          fill = Have_Internet)) +
+  
+  stat_halfeye(aes(fill = Have_Internet,
+                         justification = ifelse(Have_Internet == "No", 1.2, 0),
+                          side = ifelse(Have_Internet == "No", "left", "right")),
+                   position = position_nudge(x = .1, y = 0), 
+                   adjust = 1.2, 
+                   .width=0,
+                   trim = FALSE, 
+                   alpha = .5, 
+                   point_colour = NA,
+                   orientation = )+
+  
+  geom_point(aes(x = Have_Internet, 
+                 y = Avg_Math, 
+                 colour = Have_Internet),
+             position = position_jitter(width = .05), 
+             size = .25, 
+             shape = 20)+
+  
+  geom_boxplot(aes(x = Have_Internet, 
+                   y = Avg_Math, 
+                   fill = Have_Internet),
+               outlier.shape = NA, 
+               alpha = .5, 
+               width = .1, 
+               colour = "black")+
+  scale_color_manual(values = c("No" = "#73b2c4", 
+                               "Yes" = "#f27279")) +
+  scale_fill_manual(values = c("No" = "#73b2c4", 
+                               "Yes" = "#f27279")) +
+  labs(
+    x = "Internet", 
+  ) +
+  ylim(100, 920)+
+    theme_minimal() +  
+  theme(
+    legend.direction = "horizontal",
+    legend.position="none",
+    plot.title = element_text(size =12, face = "bold"),
+    plot.subtitle = element_text(size = rel(0.8)),
+    plot.caption = element_text(size = rel(0.8)),
+    axis.text.x = element_text(size = rel(0.9)),
+    axis.title.x = element_text(size = rel(0.9)),
+    axis.title.y = element_blank(),
+        axis.text.y = element_blank(),
+    plot.background=element_rect(fill="#f5f5f5",colour="#f5f5f5") )   
+
+rcp_m <-
+rcp_com_m + rcp_sw_m + rcp_int_m +
+  plot_layout(widths=c(1,1,1)) +
+  plot_annotation(title="Math", 
+                  theme=theme(plot.title = element_text(hjust = 0),
+                  plot.background = element_rect(fill="#f5f5f5", colour = "#f5f5f5"),
+                  panel.border = element_blank()))
+
+rcp_m
+
+```
+
+```{r}
+#| code-fold: true
+#| code-summary: "Show the code"
+
+# Reading
+rcp_com_r <- 
+  ggplot(stu_SG_more, aes(x = Have_Comp, 
+                          y = Avg_Reading, 
+                          fill = Have_Comp)) +
+  
+  stat_halfeye(aes(fill = Have_Comp,
+                         justification = ifelse(Have_Comp == "No", 1.2, 0),
+                          side = ifelse(Have_Comp == "No", "left", "right")),
+                   position = position_nudge(x = .1, y = 0), 
+                   adjust = 1.2, 
+                   .width=0,
+                   trim = FALSE, 
+                   alpha = .5, 
+                   point_colour = NA,
+                   orientation = )+
+  
+  geom_point(aes(x = Have_Comp, 
+                 y = Avg_Reading, 
+                 colour = Have_Comp),
+             position = position_jitter(width = .05), 
+             size = .25, 
+             shape = 20)+
+  
+  geom_boxplot(aes(x = Have_Comp, 
+                   y = Avg_Reading, 
+                   fill = Have_Comp),
+               outlier.shape = NA, 
+               alpha = .5, 
+               width = .1, 
+               colour = "black")+
+  scale_color_manual(values = c("No" = "#73b2c4", 
+                               "Yes" = "#f27279")) +
+  scale_fill_manual(values = c("No" = "#73b2c4", 
+                               "Yes" = "#f27279")) +
+  labs(
+    x = "Computer", 
+  ) +
+  ylim(100, 920)+
+    theme_minimal() +  
+  theme(
+    legend.direction = "horizontal",
+    legend.position="none",
+    plot.title = element_text(size =12, face = "bold"),
+    plot.subtitle = element_text(size = rel(0.8)),
+    plot.caption = element_text(size = rel(0.8)),
+    axis.text.x = element_text(size = rel(0.9)),
+    axis.title.x = element_text(size = rel(0.9)),
+    axis.title.y = element_blank(),
+    axis.text.y = element_text(size = rel(0.8)),
+    plot.background=element_rect(fill="#f5f5f5",colour="#f5f5f5") )   
+  
+
+rcp_sw_r <- 
+  ggplot(stu_SG_more, aes(x = Have_EduSW, 
+                          y = Avg_Reading, 
+                          fill = Have_EduSW)) +
+  
+  stat_halfeye(aes(fill = Have_EduSW,
+                         justification = ifelse(Have_EduSW == "No", 1.2, 0),
+                          side = ifelse(Have_EduSW == "No", "left", "right")),
+                   position = position_nudge(x = .1, y = 0), 
+                   adjust = 1.2, 
+                   .width=0,
+                   trim = FALSE, 
+                   alpha = .5, 
+                   point_colour = NA,
+                   orientation = )+
+  
+  geom_point(aes(x = Have_EduSW, 
+                 y = Avg_Reading, 
+                 colour = Have_EduSW),
+             position = position_jitter(width = .05), 
+             size = .25, 
+             shape = 20)+
+  
+  geom_boxplot(aes(x = Have_EduSW, 
+                   y = Avg_Reading, 
+                   fill = Have_EduSW),
+               outlier.shape = NA, 
+               alpha = .5, 
+               width = .1, 
+               colour = "black")+
+  scale_color_manual(values = c("No" = "#73b2c4", 
+                               "Yes" = "#f27279")) +
+  scale_fill_manual(values = c("No" = "#73b2c4", 
+                               "Yes" = "#f27279")) +
+  labs(
+    x = "Educational Software", 
+  ) +
+  ylim(100, 920)+
+    theme_minimal() +  
+  theme(
+    legend.direction = "horizontal",
+    legend.position="none",
+    plot.title = element_text(size =12, face = "bold"),
+    plot.subtitle = element_text(size = rel(0.8)),
+    plot.caption = element_text(size = rel(0.8)),
+    axis.text.x = element_text(size = rel(0.9)),
+    axis.title.x = element_text(size = rel(0.9)),
+    axis.title.y = element_blank(),
+        axis.text.y = element_blank(),
+    plot.background=element_rect(fill="#f5f5f5",colour="#f5f5f5") )   
+  
+
+rcp_int_r <- 
+  ggplot(stu_SG_more, aes(x = Have_Internet, 
+                          y = Avg_Reading, 
+                          fill = Have_Internet)) +
+  
+  stat_halfeye(aes(fill = Have_Internet,
+                         justification = ifelse(Have_Internet == "No", 1.2, 0),
+                          side = ifelse(Have_Internet == "No", "left", "right")),
+                   position = position_nudge(x = .1, y = 0), 
+                   adjust = 1.2, 
+                   .width=0,
+                   trim = FALSE, 
+                   alpha = .5, 
+                   point_colour = NA,
+                   orientation = )+
+  
+  geom_point(aes(x = Have_Internet, 
+                 y = Avg_Reading, 
+                 colour = Have_Internet),
+             position = position_jitter(width = .05), 
+             size = .25, 
+             shape = 20)+
+  
+  geom_boxplot(aes(x = Have_Internet, 
+                   y = Avg_Reading, 
+                   fill = Have_Internet),
+               outlier.shape = NA, 
+               alpha = .5, 
+               width = .1, 
+               colour = "black")+
+  scale_color_manual(values = c("No" = "#73b2c4", 
+                               "Yes" = "#f27279")) +
+  scale_fill_manual(values = c("No" = "#73b2c4", 
+                               "Yes" = "#f27279")) +
+  labs(
+    x = "Internet", 
+  ) +
+  ylim(100, 920)+
+    theme_minimal() +  
+  theme(
+    legend.direction = "horizontal",
+    legend.position="none",
+    plot.title = element_text(size =12, face = "bold"),
+    plot.subtitle = element_text(size = rel(0.8)),
+    plot.caption = element_text(size = rel(0.8)),
+    axis.text.x = element_text(size = rel(0.9)),
+    axis.title.x = element_text(size = rel(0.9)),
+    axis.title.y = element_blank(),
+        axis.text.y = element_blank(),
+    plot.background=element_rect(fill="#f5f5f5",colour="#f5f5f5") )   +
+  annotate(
+    geom = "curve", x = 0.3, y = 230, xend = 0.7, yend = 300, 
+    curvature = -.3, arrow = arrow(length = unit(2, "mm"))
+  ) +
+  annotate(geom = "text", x =0.02, y = 185, label = "Highly\nleft-skewed", hjust = "left", size= 3)  
+    
+
+
+rcp_r <-
+rcp_com_r + rcp_sw_r + rcp_int_r +
+  plot_layout(widths=c(1,1,1)) +
+  plot_annotation(title="Reading", 
+                  theme=theme(plot.title = element_text(hjust = 0),
+                  plot.background = element_rect(fill="#f5f5f5", colour = "#f5f5f5"),
+                  panel.border = element_blank()))
+
+rcp_r
+```
+
+```{r}
+#| code-fold: true
+#| code-summary: "Show the code"
+
+
+# Reading
+rcp_com_s <- 
+  ggplot(stu_SG_more, aes(x = Have_Comp, 
+                          y = Avg_Sci, 
+                          fill = Have_Comp)) +
+  
+  stat_halfeye(aes(fill = Have_Comp,
+                         justification = ifelse(Have_Comp == "No", 1.2, 0),
+                          side = ifelse(Have_Comp == "No", "left", "right")),
+                   position = position_nudge(x = .1, y = 0), 
+                   adjust = 1.2, 
+                   .width=0,
+                   trim = FALSE, 
+                   alpha = .5, 
+                   point_colour = NA,
+                   orientation = )+
+  
+  geom_point(aes(x = Have_Comp, 
+                 y = Avg_Sci, 
+                 colour = Have_Comp),
+             position = position_jitter(width = .05), 
+             size = .25, 
+             shape = 20)+
+  
+  geom_boxplot(aes(x = Have_Comp, 
+                   y = Avg_Sci, 
+                   fill = Have_Comp),
+               outlier.shape = NA, 
+               alpha = .5, 
+               width = .1, 
+               colour = "black")+
+  scale_color_manual(values = c("No" = "#73b2c4", 
+                               "Yes" = "#f27279")) +
+  scale_fill_manual(values = c("No" = "#73b2c4", 
+                               "Yes" = "#f27279")) +
+  labs(
+    x = "Computer", 
+  ) +
+  ylim(100, 920)+
+    theme_minimal() +  
+  theme(
+    legend.direction = "horizontal",
+    legend.position="none",
+    plot.title = element_text(size =12, face = "bold"),
+    plot.subtitle = element_text(size = rel(0.8)),
+    plot.caption = element_text(size = rel(0.8)),
+    axis.text.x = element_text(size = rel(0.9)),
+    axis.title.x = element_text(size = rel(0.9)),
+    axis.title.y = element_blank(),
+    axis.text.y = element_text(size = rel(0.8)),
+    plot.background=element_rect(fill="#f5f5f5",colour="#f5f5f5") )   
+  
+
+rcp_sw_s <- 
+  ggplot(stu_SG_more, aes(x = Have_EduSW, 
+                          y = Avg_Sci, 
+                          fill = Have_EduSW)) +
+  
+  stat_halfeye(aes(fill = Have_EduSW,
+                         justification = ifelse(Have_EduSW == "No", 1.2, 0),
+                          side = ifelse(Have_EduSW == "No", "left", "right")),
+                   position = position_nudge(x = .1, y = 0), 
+                   adjust = 1.2, 
+                   .width=0,
+                   trim = FALSE, 
+                   alpha = .5, 
+                   point_colour = NA,
+                   orientation = )+
+  
+  geom_point(aes(x = Have_EduSW, 
+                 y = Avg_Sci, 
+                 colour = Have_EduSW),
+             position = position_jitter(width = .05), 
+             size = .25, 
+             shape = 20)+
+  
+  geom_boxplot(aes(x = Have_EduSW, 
+                   y = Avg_Sci, 
+                   fill = Have_EduSW),
+               outlier.shape = NA, 
+               alpha = .5, 
+               width = .1, 
+               colour = "black")+
+  scale_color_manual(values = c("No" = "#73b2c4", 
+                               "Yes" = "#f27279")) +
+  scale_fill_manual(values = c("No" = "#73b2c4", 
+                               "Yes" = "#f27279")) +
+  labs(
+    x = "Educational Software", 
+  ) +
+  ylim(100, 920)+
+    theme_minimal() +  
+  theme(
+    legend.direction = "horizontal",
+    legend.position="none",
+    plot.title = element_text(size =12, face = "bold"),
+    plot.subtitle = element_text(size = rel(0.8)),
+    plot.caption = element_text(size = rel(0.8)),
+    axis.text.x = element_text(size = rel(0.9)),
+    axis.title.x = element_text(size = rel(0.9)),
+    axis.title.y = element_blank(),
+        axis.text.y = element_blank(),
+    plot.background=element_rect(fill="#f5f5f5",colour="#f5f5f5") )   
+  
+
+rcp_int_s <- 
+  ggplot(stu_SG_more, aes(x = Have_Internet, 
+                          y = Avg_Sci, 
+                          fill = Have_Internet)) +
+  
+  stat_halfeye(aes(fill = Have_Internet,
+                         justification = ifelse(Have_Internet == "No", 1.2, 0),
+                          side = ifelse(Have_Internet == "No", "left", "right")),
+                   position = position_nudge(x = .1, y = 0), 
+                   adjust = 1.2, 
+                   .width=0,
+                   trim = FALSE, 
+                   alpha = .5, 
+                   point_colour = NA,
+                   orientation = )+
+  
+  geom_point(aes(x = Have_Internet, 
+                 y = Avg_Sci, 
+                 colour = Have_Internet),
+             position = position_jitter(width = .05), 
+             size = .25, 
+             shape = 20)+
+  
+  geom_boxplot(aes(x = Have_Internet, 
+                   y = Avg_Sci, 
+                   fill = Have_Internet),
+               outlier.shape = NA, 
+               alpha = .5, 
+               width = .1, 
+               colour = "black")+
+  scale_color_manual(values = c("No" = "#73b2c4", 
+                               "Yes" = "#f27279")) +
+  scale_fill_manual(values = c("No" = "#73b2c4", 
+                               "Yes" = "#f27279")) +
+  labs(
+    x = "Internet", 
+  ) +
+  ylim(100, 920)+
+    theme_minimal() +  
+  theme(
+    legend.direction = "horizontal",
+    legend.position="none",
+    plot.title = element_text(size =12, face = "bold"),
+    plot.subtitle = element_text(size = rel(0.8)),
+    plot.caption = element_text(size = rel(0.8)),
+    axis.text.x = element_text(size = rel(0.9)),
+    axis.title.x = element_text(size = rel(0.9)),
+    axis.title.y = element_blank(),
+        axis.text.y = element_blank(),
+    plot.background=element_rect(fill="#f5f5f5",colour="#f5f5f5") )   
+
+
+rcp_s <-
+rcp_com_s + rcp_sw_s + rcp_int_s +
+  plot_layout(widths=c(1,1,1)) +
+  plot_annotation(title="Science", 
+                  theme=theme(plot.title = element_text(hjust = 0),
+                  plot.background = element_rect(fill="#f5f5f5", colour = "#f5f5f5"),
+                  panel.border = element_blank()))
+
+rcp_s
+```
+
+::: {.brainbox .brain data-latex="brain"}
+**Observations**
+:::
+
+## 6.6 Immigration
+
+```{r}
+#| code-fold: true
+#| code-summary: "Show the code"
+
+immig_m <-
+ggplot(stu_SG_more, aes(x = Immigration_Status, 
+                        y = Avg_Math, 
+                        color = Immigration_Status)) +
+    coord_flip() +
+  geom_jitter(size = 2, 
+              alpha = 0.25, 
+              width = 0.2) +
+  stat_summary(color="#595DE5",
+               fun = "median", 
+               geom = "point", 
+               size = 3, 
+               alpha = 0.8)  +
+  scale_y_continuous(
+    breaks = scales::pretty_breaks(n = 5)
+  ) +  
+  geom_hline(aes(yintercept = mean_math), 
+             linewidth=0.6,
+             linetype="dashed",
+             color = "red")+
+  annotate(
+      "text", 
+      x = 3.5, 
+      y = 690,
+      label = paste("Mean =\n", round(mean_math, 3)),
+      color = "red",
+      size = 3
+    ) +
+  theme_minimal() +
+  theme(legend.position = "none",
+          plot.title = element_markdown(size = 12, face = "bold"),
+          plot.subtitle = element_text(size = rel(0.8)),
+          plot.caption = element_text(size = rel(0.8)),
+          axis.text.y = element_text(size = rel(0.9)),
+          axis.text.x = element_text(size = rel(0.9)),
+          axis.title.x = element_text(size = rel(0.8)),
+          axis.title.y = element_text(size = rel(0.8)),
+          axis.ticks.y = element_blank(),
+          panel.grid = element_blank(),
+          axis.line.x=element_line(),
+          plot.background=element_rect(fill="#f5f5f5",colour="#f5f5f5")
+          ) +
+  guides(color = "none", fill = "none") + 
+  scale_color_manual(values=c("#f27279", "#f7af7a", "#73b2c4")) +
+  labs(x = NULL , y = "Math", title = "")
+
+immig_r <-
+ggplot(stu_SG_more, aes(x = Immigration_Status, 
+                        y = Avg_Reading, 
+                        color = Immigration_Status)) +
+    coord_flip() +
+  geom_jitter(size = 2, 
+              alpha = 0.25, 
+              width = 0.2) +
+  stat_summary(color="#595DE5",
+               fun = "median", 
+               geom = "point", 
+               size = 3, 
+               alpha = 0.8)  +
+  scale_y_continuous(
+    breaks = scales::pretty_breaks(n = 5)
+  ) +  
+  geom_hline(aes(yintercept = mean_reading), 
+             linewidth=0.6,
+             linetype="dashed",
+             color = "red")+
+  annotate(
+      "text", 
+      x = 3.5, 
+      y = 690,
+      label = paste("Mean =\n", round(mean_reading, 3)),
+      color = "red",
+      size = 3
+    ) +
+  theme_minimal() +
+  theme(legend.position = "none",
+          plot.title = element_markdown(size = 12, face = "bold"),
+          plot.subtitle = element_text(size = rel(0.8)),
+          plot.caption = element_text(size = rel(0.8)),
+          axis.text.y = element_blank(),
+          axis.text.x = element_text(size = rel(0.9)),
+          axis.title.x = element_text(size = rel(0.8)),
+          axis.title.y = element_text(size = rel(0.8)),
+          axis.ticks.y = element_blank(),
+          panel.grid = element_blank(),
+          axis.line.x=element_line(),
+          plot.background=element_rect(fill="#f5f5f5",colour="#f5f5f5")
+          ) +
+  guides(color = "none", fill = "none") + 
+  scale_color_manual(values=c("#f27279", "#f7af7a", "#73b2c4")) +
+  labs(x = NULL , y = "Reading", title = "")
+
+immig_s <-
+ggplot(stu_SG_more, aes(x = Immigration_Status, 
+                        y = Avg_Sci, 
+                        color = Immigration_Status)) +
+    coord_flip() +
+  geom_jitter(size = 2, 
+              alpha = 0.25, 
+              width = 0.2) +
+  stat_summary(color="#595DE5",
+               fun = "median", 
+               geom = "point", 
+               size = 3, 
+               alpha = 0.8)  +
+  scale_y_continuous(
+    breaks = scales::pretty_breaks(n = 5)
+  ) +  
+  geom_hline(aes(yintercept = mean_sci), 
+             linewidth=0.6,
+             linetype="dashed",
+             color = "red")+
+  annotate(
+      "text", 
+      x = 3.5, 
+      y = 690,
+      label = paste("Mean =\n", round(mean_sci, 3)),
+      color = "red",
+      size = 3
+    ) +
+  theme_minimal() +
+  theme(legend.position = "none",
+          plot.title = element_markdown(size = 12, face = "bold"),
+          plot.subtitle = element_text(size = rel(0.8)),
+          plot.caption = element_text(size = rel(0.8)),
+          axis.text.y = element_blank(),
+          axis.text.x = element_text(size = rel(0.9)),
+          axis.title.x = element_text(size = rel(0.8)),
+          axis.title.y = element_text(size = rel(0.8)),
+          axis.ticks.y = element_blank(),
+          panel.grid = element_blank(),
+          axis.line.x=element_line(),
+          plot.background=element_rect(fill="#f5f5f5",colour="#f5f5f5")
+          ) +
+  guides(color = "none", fill = "none") + 
+  scale_color_manual(values=c("#f27279", "#f7af7a", "#73b2c4")) +
+  labs(x = NULL , y = "Science", title = "")
+
+(immig_m | immig_r | immig_s) +
+    plot_annotation(title="Higher scores from <span style='color: #f7af7a;'>Second-gen immigrants</span> across all subjects.", 
+                  theme=theme(plot.title = element_markdown(hjust = 0),
+                              plot.subtitle = element_markdown(hjust = 0),
+                  plot.background = element_rect(fill="#f5f5f5", colour = "#f5f5f5"),
+                  panel.border = element_blank()))
+
+```
+
+# 7 Summary
+
+# 8 References
+
+https://www.cedricscherer.com/top/dataviz/
+
+https://urbandatapalette.com/post/2020-12-3dpn-quick-look/
+
+::: {.chatterbox .chatter data-latex="chatter"}
+**Visual Considerations**
+
+-   Raincloud plots are used to capture the density and range of values by expense, with dotplots beneath the half-density plots revealing patterns in consistency\
+-   Separate plots were coded for -ve and +ve transactions, with Education, Food & Recreation and Shelter separated as well. This is due to the wide scale of y-axis values, which made the narrower denIt extends ggplot2 with:
+    -   interactive `geom` functions: `geom_point_interactive()`, `geom_col_interactive`, etc.
+
+    -   interactive `scale` functions: `scale_color_continuous_interactive()`, `scale_fill_manual_interactive()`, etc.
+
+    -   interactive `facet` functions: `facet_wrap_interactive()` and `facet_grid_interactive()` that both work with `labeller_interactive()`.
+
+    -   interactive `guide` functions: `guide_colorbar_interactive()`, `guide_colourbar_interactive()`, `guide_legend_interactive()`.
+
+    -   interactive `theme` elements: `element_line_interactive()`, `element_rect_interactive()`, `element_text_interactive()`, `label_interactive`.sity plots too condensed for the distribution to be viewed in full.\
+-   `patchwork` package was used to group the plots together in a single figure, using `plot_layout(heights)` to configure height ratio of the overall patched plots
+:::
+
+::: {.brainbox .brain data-latex="brain"}
+**Initial Insights from Line Chart and Table**
+
+-   Expenditure on education is the lowest, and has remained constant \> probably refers to school fees, which is normally a fixed monthly amount
+-   Expenditure on recreation and food shows monthly variation, and have decreased from Apr 2022 to Feb 2023
+-   Expenditure on Shelter is significantly higher that other categories, and also remains constant \> probably refers to rent
+:::
+
+::: {.thunderbox .thunder data-latex="thunder"}
+These may be grouped together by percentile, and analysed as age groups instead to give a better overview of different demographics. Each band represents sequential 20th percentiles:
+
+-   **Lowest 20th Percentile: 18-26**
+-   **20-40th Percentile: 27-35**
+-   **40-60th Percentile: 36-44**
+-   **60-80th Percentile: 45-52**
+-   **Top 20th Percentile: 53-60**
+:::
+
+::: {.nursebox .nurse data-latex="nurse"}
+It extends ggplot2 with:
+
+-   interactive `geom` functions: `geom_point_interactive()`, `geom_col_interactive`, etc.
+
+-   interactive `scale` functions: `scale_color_continuous_interactive()`, `scale_fill_manual_interactive()`, etc.
+
+-   interactive `facet` functions: `facet_wrap_interactive()` and `facet_grid_interactive()` that both work with `labeller_interactive()`.
+
+-   interactive `guide` functions: `guide_colorbar_interactive()`, `guide_colourbar_interactive()`, `guide_legend_interactive()`.
+
+-   interactive `theme` elements: `element_line_interactive()`, `element_rect_interactive()`, `element_text_interactive()`, `label_interacte`.
+:::

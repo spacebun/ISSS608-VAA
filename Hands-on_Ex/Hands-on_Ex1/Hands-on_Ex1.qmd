@@ -96,7 +96,7 @@ There are two principles in Grammar of Graphics:
 The table below describes the seven grammars of `ggplot2`.
 
 |         Building Block | Description                                                                                  |
-|-----------------------:|----------------------------------------------------------------------------------------------|
+|-----------------:|------------------------------------------------------|
 |               **Data** | The dataset being plotted.                                                                   |
 |         **Aesthetics** | Map data attributes to visual properties like position, color, size, shape, and transparency |
 |          **Geometric** | Visual elements such as point / bar / line                                                   |
@@ -348,7 +348,7 @@ ggplot(data=exam_data,
   geom_point()            
 ```
 
-#### *geom* objects can be combined
+#### *xgeom* objects can be combined
 
 The code chunk below plots the data points on the violin plots by using both `geom_violin()` and `geom_point()`.
 

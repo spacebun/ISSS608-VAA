@@ -56,7 +56,6 @@ exam_data <- read_csv("data/Exam_data.csv")
 
 ## Annotation of plots
 
-
 ### Using Text geoms in `ggplot2`
 
 Annotation of statistical graphs can be done by using text geoms like `geom_text()` or `geom_label()` (has rectangle behind the text) as shown below.
@@ -89,7 +88,6 @@ ggplot(data=exam_data,
                   ylim=c(0,100)) +
   ggtitle("Science scores versus English scores")
 ```
-
 :::
 
 ::: panel-tabset
@@ -126,8 +124,6 @@ ggplot(data=exam_data,
 
 [`ggrepel`](https://ggrepel.slowkow.com/) helps to repel overlapping text. Simply replace `geom_text()` by `geom_text_repel()` and `geom_label()` by `geom_label_repel()`.
 
-
-
 ::: panel-tabset
 ## Plot with `geom_text_repel()`
 
@@ -156,7 +152,6 @@ ggplot(data=exam_data,
                   ylim=c(0,100)) +
   ggtitle("Science scores versus English scores")
 ```
-
 :::
 
 ::: panel-tabset
@@ -191,23 +186,20 @@ ggplot(data=exam_data,
 ```
 :::
 
-::: {.callout-warning}
-Note how when there are too many data points (320 in this case), the labels that overlap cannot be labeled. 
-Consider varying the number of overlaps allowed in the option for `max.overlaps`. The default value is 10. 
+::: callout-warning
+Note how when there are too many data points (320 in this case), the labels that overlap cannot be labeled. Consider varying the number of overlaps allowed in the option for `max.overlaps`. The default value is 10.
 :::
-
 
 ## Themes
 
 ### `ggplot2` themes
 
-As explored in Hands-on Exercise 1, there are several themes in `ggplot2`. Below is an example. 
+As explored in Hands-on Exercise 1, there are several themes in `ggplot2`. Below is an example.
 
 ::: panel-tabset
-### Plot 
+### Plot
 
 Using `theme_bw()` theme.
-
 
 ```{r}
 #| echo: false
@@ -230,7 +222,7 @@ ggplot(data=exam_data) +
                   ylim=c(0,100)) +
   ggtitle("Science scores versus English scores, with race perspective")
 ```
-::: 
+:::
 
 ### Using `ggthemes`
 
@@ -250,6 +242,7 @@ ggplot(data=exam_data) +
                   ylim=c(0,100)) +
   ggtitle("Science scores versus English scores, with race perspective")
 ```
+
 ### The code
 
 ```{r}
@@ -261,16 +254,15 @@ ggplot(data=exam_data) +
                   ylim=c(0,100)) +
   ggtitle("Science scores versus English scores, with race perspective")
 ```
-
-::: 
-
-### Using `hrbthemes` 
-
-With this package we can edit typographic elements such as placement of labels or fonts used. 
-
-::: panel-tabset
+:::
 
 ### Using `hrbthemes`
+
+With this package we can edit typographic elements such as placement of labels or fonts used.
+
+::: panel-tabset
+### Using `hrbthemes`
+
 ```{r}
 #| echo: false
 
@@ -284,6 +276,7 @@ ggplot(data=exam_data) +
                   ylim=c(0,100)) +
   ggtitle("Science scores versus English scores, with race perspective")
 ```
+
 ### The code
 
 ```{r}
@@ -297,9 +290,7 @@ ggplot(data=exam_data) +
               grid = "XY") +  # gridlines for X and Y axis
   ggtitle("Science scores versus English scores, with race perspective")
 ```
-
-
-::: 
+:::
 
 ## Beyond Single Graph
 
@@ -307,12 +298,11 @@ ggplot(data=exam_data) +
 
 We will create the following plots:
 
-1. Distribution of Science scores
-2. Distribution of English scores
-3. Scatterplot for Science score versus English score
+1.  Distribution of Science scores
+2.  Distribution of English scores
+3.  Scatterplot for Science score versus English score
 
 ::: panel-tabset
-
 ### Plot 1
 
 ```{r}
@@ -327,7 +317,6 @@ p1 <- ggplot(data=exam_data,
 
 p1
 ```
-
 
 ### Plot 2
 
@@ -360,7 +349,6 @@ p3
 ```
 :::
 
-
 ### Creating Composite Graphics: pathwork methods
 
 Patchwork package has a very simple syntax where we can create layouts super easily. Here’s the general syntax that combines:
@@ -370,8 +358,8 @@ Patchwork package has a very simple syntax where we can create layouts super eas
 -   Two-Row Layout using the Division Sign /
 
 ::: panel-tabset
-
 ### Combining two plots
+
 ```{r}
 p1+p2
 ```
@@ -381,6 +369,7 @@ p1+p2
 ```{r}
 (p1 / p2) | p3
 ```
+
 ### Adding tag
 
 Observe that the plots are now numbered by Roman numerals:
@@ -389,10 +378,10 @@ Observe that the plots are now numbered by Roman numerals:
 ((p1 / p2) | p3) + 
   plot_annotation(tag_levels = 'I')
 ```
+
 ### Use `inset_element()`
 
 To place plots freely on top or below of other plots.
-
 
 ```{r}
 p3 + inset_element(p2, 
@@ -403,6 +392,7 @@ p3 + inset_element(p2,
 ```
 
 ### Adding `ggthemes`
+
 ```{r}
 #| fig-width: 10
 #| fig-height: 5
@@ -410,8 +400,8 @@ patchwork <- (p1 / p2) | p3
 patchwork & theme_economist()
 
 ```
-
 :::
+
 ## References
 
 -   [**R for Visual Analytics: Beyond ggplot2 Fundamentals**](https://r4va.netlify.app/chap02#beyond-single-graph).

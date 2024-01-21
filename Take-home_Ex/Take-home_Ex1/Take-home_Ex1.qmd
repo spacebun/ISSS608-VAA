@@ -1,14 +1,11 @@
 ---
 title: "Take-home Exercise 1"
-subtitle: "ITake-home Exercise 1"
-date: January 10, 2024
+subtitle: "Creating data visualisation beyond default"
+date: January 15, 2024
 date-modified: "last-modified"
 format:
   html:
     toc: true
-    toc-depth: 4
-    toc-expand: 4
-    toc-font-size: 0.8em
     number-sections: true
     code-line-numbers: false
     
@@ -18,4 +15,845 @@ execute:
   warning: false  
 ---
 
-Nothing here yet
+## Overview
+
+### Setting the scene
+
+The PISA global education survey is the OECD's Programme for International Student Assessment, that measures 15-year-olds’ ability to use their reading, mathematics and science knowledge and skills to meet real-life challenges.
+
+### Our task
+
+In this exercise, Exploratory Data Analysis (EDA) methods and ggplot functions are used to explore:
+
+-   the distribution of Singapore students’ performance in mathematics, reading, and science, and
+-   the relationship between these performances with schools, gender and socioeconomic status of the students.
+
+## Getting started
+
+### Load packages
+
+We load the following R packages using the `pacman::p_load()` function:
+
+
+hrbrthemes: an R package provides typography-centric themes and theme components for ggplot2.
+
+-   **tidyverse**: Core collection of R packages designed for data science
+-   **haven**: To read in data formats such as SAS and SPSS
+-   **ggrepel**: to provides geoms for **ggplot2** to repel overlapping text labels
+-   **ggthemes**: to use additional themes for **ggplot2**
+-   **patchwork**: to prepare composite figure created using **ggplot2**
+-   **ggridges**: to plot ridgeline plots 
+-   **ggdist**: for visualizations of distributions and uncertainty
+-   **scales**: provides the internal scaling infrastructure used by **ggplot2**
+
+```{r}
+pacman::p_load(tidyverse, haven,
+               ggrepel, ggthemes,
+               ggridges, ggdist,
+               patchwork, scales)
+```
+
+### Import data
+
+The dataset (*data/stu_qqq_SG.rds*) used in the exercise is a subset of the original Student questionnaire data file retrieved from the [PISA 2022 database](https://www.oecd.org/pisa/data/2022database/). It has been filtered to include only the rows where the country code (CNT) matches 'Singapore' (SGP).
+
+We import this dataset as *stu_qqq_SG*.
+
+```{r}
+stu_qqq_SG <- read_rds("data/stu_qqq_SG.rds")
+```
+
+### Data pre-processing
+
+We first take a look at the data, and check if there are any duplicate entries.
+
+#### Glimpse of data
+
+Using the `glimpse()` function, we see that the dataset consists of 6,606 rows and 1,279 columns. It also shows the column names, column type, and the first few entries of each column.
+
+::: {style="height: 300px; overflow-y: scroll; border: 1px solid #ccc; padding: 10px;"}
+```{r}
+glimpse(stu_qqq_SG)
+```
+:::
+
+#### Check for duplicates
+
+Using the `duplicated` function, we see that there are no duplicate entries in the data.
+
+```{r}
+stu_qqq_SG[duplicated(stu_qqq_SG),]
+```
+
+::: {.callout-note icon="false" title="Insights"}
+[The data has 6,606 rows,]{.underline} corresponding to [this report](https://www.straitstimes.com/singapore/singapore-students-rank-top-in-maths-science-and-reading-in-oecd-study) that 6,606 students in Singapore participated in PISA 2022 .
+
+[The data 1279 columns]{.underline}, which are variables of the dataset for each student. These variables include characteristics of the student (such as age, gender), background (socioeconomic status, parental involvement, language spoken at home), proficiency (plausible values for each subject), individual responses to the questionnaire and so on.
+:::
+
+#### Filtering data for selected variables
+
+Next, we want to reduce the size of the dataset to focus on the variables that would be suitable for this exercise. I primarily referred to the [PISA Data Analysis Manual: SPSS and SAS, Second Edition](https://www.oecd.org/pisa/pisaproducts/pisadataanalysismanualspssandsassecondedition.htm) and the [Code Book](https://webfs.oecd.org/pisa2022/CY08MSP_CODEBOOK_5thDecember23.xlsx) to understand which variables might be helpful for this visualization exercise.
+
+The primary columns/variables that will be used in this exercise are:
+
++---------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+-----------------------+
+| Variable Name                   | Description                                                                                                                                                                                                                      | Type of Variable      |
++=================================+==================================================================================================================================================================================================================================+=======================+
+| **CNTSTUID**                    | Intl. Student ID. It also uniquely identifies each row.                                                                                                                                                                          | Nominal               |
++---------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+-----------------------+
+| **ST004D01T**                   | Student (standardized) gender.                                                                                                                                                                                                   | Categorical unordered |
+|                                 |                                                                                                                                                                                                                                  |                       |
+|                                 | -   **1**: Female                                                                                                                                                                                                                |                       |
+|                                 |                                                                                                                                                                                                                                  |                       |
+|                                 | -   **2**: Male                                                                                                                                                                                                                  |                       |
++---------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+-----------------------+
+| **STRATUM**                     | Classification of the students' school. For Singapore:                                                                                                                                                                           | Categorical unordered |
+|                                 |                                                                                                                                                                                                                                  |                       |
+|                                 | -   **SGP01**: Public secondary school                                                                                                                                                                                           |                       |
+|                                 |                                                                                                                                                                                                                                  |                       |
+|                                 | -   **SCP03**: Private secondary school                                                                                                                                                                                          |                       |
++---------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+-----------------------+
+| **IMMIG**                       | Index on immigrant background.                                                                                                                                                                                                   | Categorical unordered |
+|                                 |                                                                                                                                                                                                                                  |                       |
+|                                 | -   **1**: Native students                                                                                                                                                                                                       |                       |
+|                                 |                                                                                                                                                                                                                                  |                       |
+|                                 | -   **2**: Second-generation students                                                                                                                                                                                            |                       |
+|                                 |                                                                                                                                                                                                                                  |                       |
+|                                 | -   **3**: First-generation students                                                                                                                                                                                             |                       |
++---------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+-----------------------+
+| **ESCS**                        | The [PISA index of economic, social and cultural status](https://read.oecd-ilibrary.org/education/pisa-2022-results-volume-i_671f1935-en#page12) which is a composite score derived from variables related to family background. | Numerical continuous  |
++---------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+-----------------------+
+| -   **PV1MATH** to **PV10MATH** | Plausible values representing the students' performance in mathematics, reading and science. For each subject, there are 10 plausible values.                                                                                    | Numerical discrete    |
+| -   **PV1READ** to **PV10READ** |                                                                                                                                                                                                                                  |                       |
+| -   **PV1SCIE** to **PV10SCIE** | The higher the value, the better the indicative performance of the student in that subject.                                                                                                                                      |                       |
++---------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+-----------------------+
+
+We filter the *stu_qqq_SG* for the aforementioned variables into *stu_qqq_SG_filtered* in the code chunk below.
+
+```{r}
+stu_qqq_SG_filtered <- stu_qqq_SG %>%
+  select(CNTSTUID, ST004D01T, STRATUM, IMMIG, ESCS,
+         PV1MATH:PV10MATH, PV1READ:PV10READ, PV1SCIE:PV10SCIE)
+```
+
+We then perform some checks on the data:
+
+#### Check data structure
+
+Using the `str()` function, we observe that some variables may need to be re-casted. For example, **ST004D01T**, would be better classifed as categorical type `chr` than numeric type `num`.
+
+::: {style="height: 300px; overflow-y: scroll; border: 1px solid #ccc; padding: 10px;"}
+```{r}
+str(stu_qqq_SG_filtered)
+```
+:::
+
+##### Check and handle missing values
+
+```{r}
+for(column_name in names(stu_qqq_SG_filtered)) {
+  na_count <- sum(is.na(stu_qqq_SG_filtered[[column_name]]))
+
+  if (na_count > 0) {
+    message("Column '", column_name, "' has ", na_count, " NA values.")
+  }
+}
+```
+
+Column **ESCS** has 47 out of 6606 values missing. Since the percentage of missing values is less than 80%, we will impute the missing values with the mean value, and check that there are no more missing values in the *ESCS* column.
+
+```{r}
+stu_qqq_SG_filtered$ESCS[is.na(stu_qqq_SG_filtered$ESCS)] <- mean(stu_qqq_SG_filtered$ESCS, na.rm = TRUE)
+sum(is.na(stu_qqq_SG_filtered$ESCS))
+```
+
+Column **IMMIG** has 236 out of 6606 values missing. We will not remove the rows with these missing values, but will handle the missing values later when exploring relationships of subject performance with IMMIG.
+
+#### Recast, rename and recode variables
+
+After inspection, the variables are modified as follows:
+
+-   **CNTSTUID** is of type `num`, numeric data. As it should be nominal, it will be cast as `chr` class.
+-   **ST004D01T** is of type `num`, numeric data. As it should be categorical, it will be cast as `chr` class. We will also rename this variable to **GENDER**, and recode all values of *1* to *FEMALE* and all values of *2* to *MALE*.
+-   **STRATUM** is of type `chr`, character. We will also recode all values of *SGP01* to *PRIVATE* and all values of *SGP03* to *PUBLIC*.
+-   **IMMIG** is of type `num`, numeric data. As it should be categorical it will be cast as `chr` class. We will also recode all values of *1* to *NATIVE*, *2* to *2NDGEN*, *3* to *1STGEN*.
+
+```{r}
+# Update 'CNTSTUID'
+stu_qqq_SG_filtered <- stu_qqq_SG_filtered %>%
+  mutate(CNTSTUID = as.character(CNTSTUID))
+
+# Update 'ST004D01T'
+names(stu_qqq_SG_filtered)[names(stu_qqq_SG_filtered) == 'ST004D01T'] <- 'GENDER'
+stu_qqq_SG_filtered <- stu_qqq_SG_filtered %>%
+  mutate(GENDER = recode(as.character(GENDER), '1' = 'FEMALE', '2' = 'MALE'))
+
+# Update 'STRATUM'
+stu_qqq_SG_filtered <- stu_qqq_SG_filtered %>%
+  mutate(STRATUM = recode(STRATUM, 'SGP01' = 'PUBLIC', 'SGP03' = 'PRIVATE'))
+
+# Update 'STRATUM'
+stu_qqq_SG_filtered <- stu_qqq_SG_filtered %>%
+  mutate(IMMIG = recode(IMMIG, '1' = 'NATIVE', '2' = '2ND GEN', '3' = '1STGEN'))
+```
+
+### Create new variables
+
+We will create the following new columns:
+
+-   **SOCIOECONOMICSTATUS**: From the numerical continuous variables **ESCS**, we will order students from the most disadvantaged to the most advantaged to create four groups of students of equal size (each comprising 25% of the population). The creation of this four groups is as per recommended in the [PISA 2022 Results: Factsheets, Singapore](https://www.oecd.org/publication/pisa-2022-results/country-notes/singapore-2f72624e/).
+-   30 new columns mapping plausible values to proficiency levels as described in the [PISA 2022 Results: The State of Learning and Equity in Education](https://read.oecd-ilibrary.org/view/?ref=1235_1235421-gumq51fbgo&title=PISA-2022-Results-Volume-I) publication. This means that for each subject, we will create ten columns of proficiency levels, ranging from **PV1MATH_LEVEL** to **PV10MATH_LEVEL**, **PV1READ_LEVEL** to **PV10READ_LEVEL**, and **PV1SCIE_LEVEL** to **PV10SCIE_LEVEL**.
+
+```{r}
+# Create a new column, SOCIOECONOMICSTATUS
+stu_qqq_SG_filtered <- stu_qqq_SG_filtered %>%
+  mutate(SOCIOECONOMICSTATUS = ntile(ESCS, 4), .after = ESCS) %>%
+  mutate(SOCIOECONOMICSTATUS = recode(SOCIOECONOMICSTATUS,
+                                      `1` = "Most Disadvantaged",
+                                      `2` = "Disadvantaged",
+                                      `3` = "Advantaged",
+                                      `4` = "Most Advantaged")) %>%
+  mutate(SOCIOECONOMICSTATUS = factor(SOCIOECONOMICSTATUS, 
+                                      levels = c("Most Disadvantaged", "Disadvantaged", 
+                                                 "Advantaged", "Most Advantaged"),
+                                      ordered = TRUE))
+
+# Create new columns for MATH
+breaks <- c(0, 233, 295, 358, 420, 482, 545, 607, 669, Inf)
+level_labels <- c("Level 0", "Level 1c", "Level 1b", "Level 1a", "Level 2", "Level 3", "Level 4", "Level 5", "Level 6")
+for(i in 1:10) {
+  pv_col_name <- paste0("PV", i, "MATH")
+  level_col_name <- paste0(pv_col_name, "_LEVEL")
+
+  stu_qqq_SG_filtered[[level_col_name]] <- cut(stu_qqq_SG_filtered[[pv_col_name]], breaks = breaks, labels = level_labels, right = FALSE)
+}
+
+# Create new columns for READ
+breaks <- c(0, 189, 262, 335, 407, 480, 553, 626, 698, Inf)
+level_labels <- c("Level 0", "Level 1c", "Level 1b", "Level 1a", "Level 2", "Level 3", "Level 4", "Level 5", "Level 6")
+for(i in 1:10) {
+  pv_col_name <- paste0("PV", i, "READ")
+  level_col_name <- paste0(pv_col_name, "_LEVEL")
+
+  stu_qqq_SG_filtered[[level_col_name]] <- cut(stu_qqq_SG_filtered[[pv_col_name]], breaks = breaks, labels = level_labels, right = FALSE)
+}
+
+# Create new columns for SCIE
+breaks <- c(0, 261, 335, 410, 484, 559, 633, 708, Inf)
+level_labels <- c("Level 0", "Level 1b", "Level 1a", "Level 2", "Level 3", "Level 4", "Level 5", "Level 6")
+for(i in 1:10) {
+  pv_col_name <- paste0("PV", i, "SCIE")
+  level_col_name <- paste0(pv_col_name, "_LEVEL")
+
+  stu_qqq_SG_filtered[[level_col_name]] <- cut(stu_qqq_SG_filtered[[pv_col_name]], breaks = breaks, labels = level_labels, right = FALSE)
+}
+```
+
+### Preview pre-processed dataframe
+
+We use the function `head()` to preview the first few rows of the pre-processed dataframe:
+
+```{r}
+head(stu_qqq_SG_filtered, 200)
+```
+
+Using `str()`, we observed that our preprocessed dataset now consists of 66 columns.
+
+::: {style="height: 300px; overflow-y: scroll; border: 1px solid #ccc; padding: 10px;"}
+```{r}
+str(stu_qqq_SG_filtered)
+```
+:::
+
+Now that data pre-processing is complete, we proceed to share 5 key visualizations performed from the exploratory data analysis of this dataset.
+
+
+## EDA 1: Distribution of students performance
+
+To visualize the distribution Singapore students’ performance in mathematics, reading, and science, we use the plausible value (PV) for performance. While there are 10 PVs, using 1 PV can be sufficient for exploratory data analysis [(PISA Data Analysis Manual: SPSS and SAS, Second Edition)](https://www.oecd.org/pisa/pisaproducts/pisadataanalysismanualspssandsassecondedition.htm).
+
+We first plot a ridge plot that shows the density distribution of scores for each subject, and boxplot showing summary of the distribution. The line within each density plot and each box indicates the median score in red, providing a measure of the central tendency for each subject. We also ensure that both plots have the same scale to provide a more accurate visual representation of the distributions.
+
+::: panel-tabset
+### The Plot
+
+```{r}
+#| echo: false
+#| fig-width: 10
+#| fig-height: 4
+# Reshape the data to long format
+stu_qqq_SG_filtered_long <- stu_qqq_SG_filtered %>% 
+  mutate(PV1MATH_copied = PV1MATH,
+         PV1READ_copied = PV1READ,
+         PV1SCIE_copied = PV1SCIE) %>%
+  pivot_longer(
+    cols = c("PV1MATH_copied", "PV1READ_copied", "PV1SCIE_copied"),
+    names_to = "Subject",
+    values_to = "PV1"
+  ) %>%
+  mutate(Subject = recode(Subject, 
+                          "PV1MATH_copied" = "MATH", 
+                          "PV1READ_copied" = "READING", 
+                          "PV1SCIE_copied" = "SCIENCE"))
+
+# Create the ridge plot
+PV_ridgeplot <- ggplot(stu_qqq_SG_filtered_long, aes(x = PV1, y = Subject, fill = Subject)) +
+  geom_density_ridges(alpha = 0.5, quantile_lines=TRUE, quantile_fun = function(y, ...) quantile(y, probs = 0.5, na.rm = TRUE)) +
+  ylab("") +
+  xlab("PV1") +
+  scale_x_continuous(limits = c(0,1000)) + 
+  labs(title = "Distributions of performance of students in Singapore for Science, Reading and Math") +
+  theme_minimal() +
+  scale_fill_brewer(palette = "Set1") +
+  theme(legend.position = "none",  # Hides the legend
+        axis.title.x = element_blank(),  # Hides the x-axis title
+        axis.text.x = element_blank(),  # Hides the x-axis text/numbers
+        axis.ticks.x = element_blank(), # Hides the x-axis ticks
+        plot.title = element_text(face = "bold", size = 12), plot.subtitle = element_text(size = 8))  
+
+# Calculate mean, median, and whisker positions for each subject. Retaining code although not all are used.
+stats <- stu_qqq_SG_filtered %>%
+  summarise(
+    Mean_MATH = mean(PV1MATH, na.rm = TRUE),
+    Median_MATH = median(PV1MATH, na.rm = TRUE),
+    WhiskerLow_MATH = max(min(PV1MATH, na.rm = TRUE), quantile(PV1MATH, 0.25, na.rm = TRUE) - 1.5 * IQR(PV1MATH, na.rm = TRUE)),
+    WhiskerHigh_MATH = min(max(PV1MATH, na.rm = TRUE), quantile(PV1MATH, 0.75, na.rm = TRUE) + 1.5 * IQR(PV1MATH, na.rm = TRUE)),
+
+    Mean_READ = mean(PV1READ, na.rm = TRUE),
+    Median_READ = median(PV1READ, na.rm = TRUE),
+    WhiskerLow_READ = max(min(PV1READ, na.rm = TRUE), quantile(PV1READ, 0.25, na.rm = TRUE) - 1.5 * IQR(PV1READ, na.rm = TRUE)),
+    WhiskerHigh_READ = min(max(PV1READ, na.rm = TRUE), quantile(PV1READ, 0.75, na.rm = TRUE) + 1.5 * IQR(PV1READ, na.rm = TRUE)),
+
+    Mean_SCIE = mean(PV1SCIE, na.rm = TRUE),
+    Median_SCIE = median(PV1SCIE, na.rm = TRUE),
+    WhiskerLow_SCIE = max(min(PV1SCIE, na.rm = TRUE), quantile(PV1SCIE, 0.25, na.rm = TRUE) - 1.5 * IQR(PV1SCIE, na.rm = TRUE)),
+    WhiskerHigh_SCIE = min(max(PV1SCIE, na.rm = TRUE), quantile(PV1SCIE, 0.75, na.rm = TRUE) + 1.5 * IQR(PV1SCIE, na.rm = TRUE))
+  )
+
+# Create boxplot
+PV_boxplot <- ggplot(data = stu_qqq_SG_filtered) +
+  geom_boxplot(aes(y = PV1READ, x = "READING")) +
+  geom_boxplot(aes(y = PV1MATH, x = "MATH")) +
+  geom_boxplot(aes(y = PV1SCIE, x = "SCIENCE")) +
+  geom_text(data = stats, aes(y = Mean_READ, x = "READING", label = round(Median_READ, 1)), color = "red", hjust = 0.9) +
+  geom_text(data = stats, aes(y = Mean_MATH, x = "MATH", label = round(Median_MATH, 1)), color = "red", hjust = 0.9) +
+  geom_text(data = stats, aes(y = Mean_SCIE, x = "SCIENCE", label = round(Median_SCIE, 1)), color = "red", hjust = 0.9) +
+  ylab("Plausible Value 1") +
+  xlab("") +
+  scale_y_continuous(limits = c(0,1000))+ 
+  coord_flip() +
+  theme(axis.title.y = element_text(size = 8)) 
+
+PV_ridgeplot / PV_boxplot
+```
+
+### The Code Chunk
+
+```{r}
+#| eval: false
+# Reshape the data to long format
+stu_qqq_SG_filtered_long <- stu_qqq_SG_filtered %>% 
+  mutate(PV1MATH_copied = PV1MATH,
+         PV1READ_copied = PV1READ,
+         PV1SCIE_copied = PV1SCIE) %>%
+  pivot_longer(
+    cols = c("PV1MATH_copied", "PV1READ_copied", "PV1SCIE_copied"),
+    names_to = "Subject",
+    values_to = "PV1"
+  ) %>%
+  mutate(Subject = recode(Subject, 
+                          "PV1MATH_copied" = "MATH", 
+                          "PV1READ_copied" = "READING", 
+                          "PV1SCIE_copied" = "SCIENCE"))
+
+# Create the ridge plot
+PV_ridgeplot <- ggplot(stu_qqq_SG_filtered_long, aes(x = PV1, y = Subject, fill = Subject)) +
+  geom_density_ridges(alpha = 0.5, quantile_lines=TRUE, quantile_fun = function(y, ...) quantile(y, probs = 0.5, na.rm = TRUE)) +
+  ylab("") +
+  xlab("PV1") +
+  scale_x_continuous(limits = c(0,1000)) + 
+  labs(title = "Distributions of performance of students in Singapore for Science, Reading and Math") +
+  theme_minimal() +
+  scale_fill_brewer(palette = "Set1") +
+  theme(legend.position = "none",  # Hides the legend
+        axis.title.x = element_blank(),  # Hides the x-axis title
+        axis.text.x = element_blank(),  # Hides the x-axis text/numbers
+        axis.ticks.x = element_blank(), # Hides the x-axis ticks
+        plot.title = element_text(face = "bold", size = 12), plot.subtitle = element_text(size = 8))  
+
+# Calculate mean, median, and whisker positions for each subject. Retaining code although not all are used.
+stats <- stu_qqq_SG_filtered %>%
+  summarise(
+    Mean_MATH = mean(PV1MATH, na.rm = TRUE),
+    Median_MATH = median(PV1MATH, na.rm = TRUE),
+    WhiskerLow_MATH = max(min(PV1MATH, na.rm = TRUE), quantile(PV1MATH, 0.25, na.rm = TRUE) - 1.5 * IQR(PV1MATH, na.rm = TRUE)),
+    WhiskerHigh_MATH = min(max(PV1MATH, na.rm = TRUE), quantile(PV1MATH, 0.75, na.rm = TRUE) + 1.5 * IQR(PV1MATH, na.rm = TRUE)),
+
+    Mean_READ = mean(PV1READ, na.rm = TRUE),
+    Median_READ = median(PV1READ, na.rm = TRUE),
+    WhiskerLow_READ = max(min(PV1READ, na.rm = TRUE), quantile(PV1READ, 0.25, na.rm = TRUE) - 1.5 * IQR(PV1READ, na.rm = TRUE)),
+    WhiskerHigh_READ = min(max(PV1READ, na.rm = TRUE), quantile(PV1READ, 0.75, na.rm = TRUE) + 1.5 * IQR(PV1READ, na.rm = TRUE)),
+
+    Mean_SCIE = mean(PV1SCIE, na.rm = TRUE),
+    Median_SCIE = median(PV1SCIE, na.rm = TRUE),
+    WhiskerLow_SCIE = max(min(PV1SCIE, na.rm = TRUE), quantile(PV1SCIE, 0.25, na.rm = TRUE) - 1.5 * IQR(PV1SCIE, na.rm = TRUE)),
+    WhiskerHigh_SCIE = min(max(PV1SCIE, na.rm = TRUE), quantile(PV1SCIE, 0.75, na.rm = TRUE) + 1.5 * IQR(PV1SCIE, na.rm = TRUE))
+  )
+
+# Create boxplot
+PV_boxplot <- ggplot(data = stu_qqq_SG_filtered) +
+  geom_boxplot(aes(y = PV1READ, x = "READING")) +
+  geom_boxplot(aes(y = PV1MATH, x = "MATH")) +
+  geom_boxplot(aes(y = PV1SCIE, x = "SCIENCE")) +
+  geom_text(data = stats, aes(y = Mean_READ, x = "READING", label = round(Median_READ, 1)), color = "red", hjust = 0.9) +
+  geom_text(data = stats, aes(y = Mean_MATH, x = "MATH", label = round(Median_MATH, 1)), color = "red", hjust = 0.9) +
+  geom_text(data = stats, aes(y = Mean_SCIE, x = "SCIENCE", label = round(Median_SCIE, 1)), color = "red", hjust = 0.9) +
+  ylab("Plausible Value 1") +
+  xlab("") +
+  scale_y_continuous(limits = c(0,1000))+ 
+  coord_flip() +
+  theme(axis.title.y = element_text(size = 8)) 
+
+PV_ridgeplot / PV_boxplot
+```
+:::
+
+::: {.callout-note icon="false" title="Insights"}
+## Insights
+
+-   The bell-shaped density curves of the ridge plot show at a glance that the distributions of PV1 values are approximately normal for each subject.
+-   The median of performance in Math is the highest, followed by Science, then Reading. Statistical testing should be done to analyse if students did indeed perform the best in Math
+-   From the box plots, we also observe a higher number of outliers that had lower scores for all three subjects.
+:::
+
+## EDA 2: Exploring relationship between performance and gender.
+
+We next explore if there are significant differences in performance across the subjects based on the gender of the student. Given that **GENDER** is a non-ordered categorical variable while plausible values are numerical values, I decided to look at distribution of performance for each gender. Similar to the first EDA, I used density curves and boxplots to give different details of the distribution.
+
+::: panel-tabset
+### The Plot
+
+```{r}
+#| echo: false
+#| fig-width: 10
+#| fig-height: 4
+# Create the faceted density plot
+genderPV_densityplot <- ggplot(data = stu_qqq_SG_filtered_long, aes(x = PV1, fill = GENDER)) +    
+  geom_density(alpha = 0.3) + 
+  facet_wrap(~ Subject, scales = "free_y", nrow = 3) +  # Added '+' here
+  labs(x = "Plausible Value", y = "Density", title = "Male and Female students perfom similarly across all subjects", subtitle = "Density plot of PV1, coloured by gender") +
+  theme_minimal() +
+  scale_fill_brewer(palette = "Set1") +
+  theme(legend.position = "none", plot.title = element_text(face = "bold", size = 12), plot.subtitle = element_text(size = 8), axis.title.y = element_text(size = 8), axis.title.x = element_text(size = 8))
+
+# Create the boxplot
+genderPV_boxplot <- ggplot(stu_qqq_SG_filtered_long, aes(x = Subject, y = PV1, fill = GENDER)) +
+  geom_boxplot(position = position_dodge(0.8)) +
+  coord_cartesian(ylim = c(0, 1000)) +
+  theme_minimal() +
+  labs(y = "Plausible Value 1",  subtitle = "Box plots of PV1, coloured by gender") +
+  theme(axis.title.x = element_blank(), legend.title = element_text(face = "bold", size = 8), plot.subtitle = element_text(size = 8), axis.title.y = element_text(size = 8))
+  scale_fill_manual(values = c("FEMALE" = "#F7BBBB", "MALE" = "#C3D9EA"))
+
+# Combine the plots
+genderPV_densityplot + genderPV_boxplot
+```
+
+### The Code Chunk
+
+```{r}
+#| eval: false
+
+# Create the faceted density plot
+genderPV_densityplot <- ggplot(data = stu_qqq_SG_filtered_long, aes(x = PV1, fill = GENDER)) +    
+  geom_density(alpha = 0.3) + 
+  facet_wrap(~ Subject, scales = "free_y", nrow = 3) +  # Added '+' here
+  labs(x = "Plausible Value", y = "Density", title = "Male and Female students perfom similarly across all subjects", subtitle = "Density plot of PV1, coloured by gender") +
+  theme_minimal() +
+  scale_fill_brewer(palette = "Set1") +
+  theme(legend.position = "none", plot.title = element_text(face = "bold", size = 12), plot.subtitle = element_text(size = 8), axis.title.y = element_text(size = 8), axis.title.x = element_text(size = 8))
+
+# Create the boxplot
+genderPV_boxplot <- ggplot(stu_qqq_SG_filtered_long, aes(x = Subject, y = PV1, fill = GENDER)) +
+  geom_boxplot(position = position_dodge(0.8)) +
+  coord_cartesian(ylim = c(0, 1000)) +
+  theme_minimal() +
+  labs(y = "Plausible Value 1",  subtitle = "Box plots of PV1, coloured by gender") +
+  theme(axis.title.x = element_blank(), legend.title = element_text(face = "bold", size = 8), plot.subtitle = element_text(size = 8), axis.title.y = element_text(size = 8))
+  scale_fill_manual(values = c("FEMALE" = "#F7BBBB", "MALE" = "#C3D9EA"))
+
+# Combine the plots
+genderPV_densityplot + genderPV_boxplot
+```
+:::
+
+::: {.callout-note icon="false" title="Insights"}
+## Insights
+
+-   Both genders appear to perform similarly across all subjects, given that the density distributions are very similar for both genders
+-   From the boxplot:
+    -   Males appear to perform better than females in Math, with a higher median of PV
+    -   Females appear to perform better than males in Reading, with a higher median of PV
+    -   For Science, there is larger variation in the performance of males than females
+-   The relationship between gender and performance for each subject does not seem to be very strong, as there are no evident trends that suggest one gender consistently outperforms the other across the subjects
+:::
+
+## EDA 3: Exploring relationship of performance with school type
+
+This dataset is based on the performance of students from 149 secondary schools (public schools) and 15 private schools in Singapore, including international schools and madrasahs. Using the **STRATUM** column, schools were classified as private or public schools. The majority of students in dataset are from public schools.
+
+To explore if there were differences in performance between the two types of school I opted to observe the distributions as a boxplot first.
+
+I wanted to see if we could find a relationship between proficiency levels and school type, and also experiment with other types of visualizations. I hence tried using the `geom_tile()` function to plot a heat map. First, I reclassified students' proficiency levels in mathematics, reading, and science into broader categories (Low Proficiency, Moderate Proficiency, High Proficiency) based on their original detailed levels. I then calculated the proportion of students in each category for public and private schools, and used `geom_tile()` to create a heatmap to visualize these proportions across different proficiency levels.
+
+::: panel-tabset
+### The Plot
+
+```{r}
+#| fig-width: 10
+#| fig-height: 5
+#| echo: false
+
+# Boxplot to show distribution comparison between schools
+STRATUM_boxplot <- ggplot(stu_qqq_SG_filtered_long, aes(x = Subject, y = PV1, fill = STRATUM)) +
+  geom_boxplot(position = position_dodge(0.8)) +
+  coord_cartesian(ylim = c(0, 1000)) +
+  theme_minimal() +
+  labs(y = "Plausible Value 1", x = "Subject", title = "Public schools have greater variation in performance", subtitle = "Boxplot comparing distribution of school type") +
+  scale_fill_manual(values = c("PUBLIC" = "steelblue", "PRIVATE" = "#ff7f0e")) +
+  theme(legend.position="bottom", 
+        axis.title.x = element_text(size = 8),
+        axis.title.y = element_text(size = 8),
+        plot.title = element_text(size = 12, face = "bold"),
+        axis.text.x = element_text(size = 8),
+        plot.subtitle = element_text(size = 8),
+        legend.text = element_text(size = 8),
+        legend.title = element_text(size = 8)
+        )
+
+
+# Heat map with geom_tile()
+# Reclassify proficiency levels
+stu_qqq_SG_filtered <- stu_qqq_SG_filtered %>%
+  mutate(
+    PV1MATH_PROFICIENCY = factor(case_when(
+      PV1MATH_LEVEL %in% c("Level 5", "Level 6") ~ "High",
+      PV1MATH_LEVEL %in% c("Level 3", "Level 4") ~ "Moderate",
+      TRUE ~ "Low"
+    ), levels = c("Low", "Moderate", "High")),
+    PV1READ_PROFICIENCY = factor(case_when(
+      PV1READ_LEVEL %in% c("Level 5", "Level 6") ~ "High",
+      PV1READ_LEVEL %in% c("Level 3", "Level 4") ~ "Moderate",
+      TRUE ~ "Low"
+    ), levels = c("Low", "Moderate", "High")),
+    PV1SCIE_PROFICIENCY = factor(case_when(
+      PV1SCIE_LEVEL %in% c("Level 5", "Level 6") ~ "High",
+      PV1SCIE_LEVEL %in% c("Level 3", "Level 4") ~ "Moderate",
+      TRUE ~ "Low"
+    ), levels = c("Low", "Moderate", "High"))
+  )
+
+# Calculate proportions across proficiency levels by STRATUM
+proportions <- stu_qqq_SG_filtered %>%
+  gather(key = "Proficiency_Level", value = "Value", PV1MATH_PROFICIENCY, PV1READ_PROFICIENCY, PV1SCIE_PROFICIENCY) %>%
+  count(STRATUM, Proficiency_Level, Value) %>%
+  group_by(STRATUM, Proficiency_Level) %>%
+  mutate(Proportion = n / sum(n),
+         Value = factor(Value, levels = c("Low", "Moderate", "High")),
+         Proficiency_Level = recode(Proficiency_Level, PV1MATH_PROFICIENCY = "Math", PV1READ_PROFICIENCY = "Reading", PV1SCIE_PROFICIENCY = "Science")) %>%
+  ungroup()
+
+
+# Create the heatmap
+STRATUM_heatmap <- ggplot(proportions, aes(x = STRATUM, y = factor(Value), fill = Proportion)) +
+  geom_tile() +
+  scale_fill_gradient(low = "white", high = "steelblue", labels = percent_format()) +
+  facet_wrap(~ Proficiency_Level, scales = "free_x") +
+  labs(x = "School Type",
+       y = "Proficiency Level",
+       fill = "Proportion",
+       subtitle = "Heatmap of variation in proficiency between schools") +
+  theme_minimal() +
+  theme(panel.background = element_rect(fill = "white", colour = NA),
+    axis.text.x = element_text(size = 8), 
+    axis.text.y = element_text(angle = 45, size = 8),
+    axis.title.x = element_text(size = 8),
+    axis.title.y = element_text(size = 8), 
+    legend.text = element_text(size = 8),
+    legend.title = element_text(size = 8),
+    plot.subtitle = element_text(size = 8)
+  )
+
+STRATUM_boxplot + STRATUM_heatmap
+
+```
+
+### The Code Chunk
+
+```{r}
+#| echo: false
+# Boxplot to show distribution comparison between schools
+STRATUM_boxplot <- ggplot(stu_qqq_SG_filtered_long, aes(x = Subject, y = PV1, fill = STRATUM)) +
+  geom_boxplot(position = position_dodge(0.8)) +
+  coord_cartesian(ylim = c(0, 1000)) +
+  theme_minimal() +
+  labs(y = "Plausible Value 1", x = "Subject", title = "Public schools have greater variation in performance", subtitle = "Boxplot comparing distribution of school type") +
+  scale_fill_manual(values = c("PUBLIC" = "steelblue", "PRIVATE" = "#ff7f0e")) +
+  theme(legend.position="bottom", 
+        axis.title.x = element_text(size = 8),
+        axis.title.y = element_text(size = 8),
+        plot.title = element_text(size = 12, face = "bold"),
+        axis.text.x = element_text(size = 8),
+        plot.subtitle = element_text(size = 8),
+        legend.text = element_text(size = 8),
+        legend.title = element_text(size = 8)
+        )
+
+
+# Heat map with geom_tile()
+# Reclassify proficiency levels
+stu_qqq_SG_filtered <- stu_qqq_SG_filtered %>%
+  mutate(
+    PV1MATH_PROFICIENCY = factor(case_when(
+      PV1MATH_LEVEL %in% c("Level 5", "Level 6") ~ "High",
+      PV1MATH_LEVEL %in% c("Level 3", "Level 4") ~ "Moderate",
+      TRUE ~ "Low"
+    ), levels = c("Low", "Moderate", "High")),
+    PV1READ_PROFICIENCY = factor(case_when(
+      PV1READ_LEVEL %in% c("Level 5", "Level 6") ~ "High",
+      PV1READ_LEVEL %in% c("Level 3", "Level 4") ~ "Moderate",
+      TRUE ~ "Low"
+    ), levels = c("Low", "Moderate", "High")),
+    PV1SCIE_PROFICIENCY = factor(case_when(
+      PV1SCIE_LEVEL %in% c("Level 5", "Level 6") ~ "High",
+      PV1SCIE_LEVEL %in% c("Level 3", "Level 4") ~ "Moderate",
+      TRUE ~ "Low"
+    ), levels = c("Low", "Moderate", "High"))
+  )
+
+# Calculate proportions across proficiency levels by STRATUM
+proportions <- stu_qqq_SG_filtered %>%
+  gather(key = "Proficiency_Level", value = "Value", PV1MATH_PROFICIENCY, PV1READ_PROFICIENCY, PV1SCIE_PROFICIENCY) %>%
+  count(STRATUM, Proficiency_Level, Value) %>%
+  group_by(STRATUM, Proficiency_Level) %>%
+  mutate(Proportion = n / sum(n),
+         Value = factor(Value, levels = c("Low", "Moderate", "High")),
+         Proficiency_Level = recode(Proficiency_Level, PV1MATH_PROFICIENCY = "Math", PV1READ_PROFICIENCY = "Reading", PV1SCIE_PROFICIENCY = "Science")) %>%
+  ungroup()
+
+
+# Create the heatmap
+STRATUM_heatmap <- ggplot(proportions, aes(x = STRATUM, y = factor(Value), fill = Proportion)) +
+  geom_tile() +
+  scale_fill_gradient(low = "white", high = "steelblue", labels = percent_format()) +
+  facet_wrap(~ Proficiency_Level, scales = "free_x") +
+  labs(x = "School Type",
+       y = "Proficiency Level",
+       fill = "Proportion",
+       subtitle = "Heatmap of variation in proficiency between schools") +
+  theme_minimal() +
+  theme(panel.background = element_rect(fill = "white", colour = NA),
+    axis.text.x = element_text(size = 8), 
+    axis.text.y = element_text(angle = 45, size = 8),
+    axis.title.x = element_text(size = 8),
+    axis.title.y = element_text(size = 8), 
+    legend.text = element_text(size = 8),
+    legend.title = element_text(size = 8),
+    plot.subtitle = element_text(size = 8)
+  )
+
+STRATUM_boxplot + STRATUM_heatmap
+```
+:::
+
+::: {.callout-note icon="false" title="Insights"}
+## Insights
+
+-   From the boxplot it is observed that public schools exhibit a wider range of performance scores in all three subjects compared to private schools, indicated by the larger spread in interquartile range.
+
+-   This finding somewhat corroborates with the heatmap. The darker a tile on the heat map, the high the proportion of students with that proficiency level. From the heatmap, private schools have darker shades in the ‘Moderate proficiency’, compared to public schools where the proportion of students is more evenly spread out across the 3 defined proficiency levels. 
+
+-   Admittedly, a heatmap would be better if data was in matrix form or across two continuous variables. It was an interesting exercise to explore `geom_tiles()` for this purpose, to represent proportion with intensity of colour. 
+
+:::
+
+## EDA 4: Exploring relationship of performance with socioeconomic status
+
+The variables representing socioeconomic status are the continuous variable **ESCS** and the derived categorical variable **SOCIOECONOMICSTATUS**. 
+
+Initial attempts to plot scatterplots to explore correlation between **ESCS** and plausible value 1 for each of the subjects is not shown due to the scatter plots not exhibiting any discernible trend. This could mean that the relationship could be weak or variation could be high.
+
+Hence, we explore the relationship of socioeconomic status with the derived variable **SOCIOECONOMICSTATUS** instead. To recap , **SOCIOECONOMICSTATUS** was obtained by ordering students from the most disadvantaged to the most advantaged and creating four groups of students of equal size (each comprising 25% of the population). 
+
+
+We will use a ridgeplot to visualize this relationship.
+
+::: panel-tabset
+### The Plot
+
+
+```{r}
+#| fig-width: 12
+#| fig-height: 4
+#| echo: false
+# Create the ridge plot
+SES_ridgeplot <- ggplot(stu_qqq_SG_filtered_long, aes(x = PV1, y = SOCIOECONOMICSTATUS, fill = 0.5 - abs(0.5 - after_stat(ecdf)))) +
+  stat_density_ridges(geom = "density_ridges_gradient", calc_ecdf = TRUE) +
+  scale_fill_viridis_c(name = "Tail probability", direction = -1) +
+  facet_wrap(~ Subject, scales = "free_x") + # Faceting by subject
+  labs(title = "Students with more advantageous socioeconomic status tend to perform better",
+       subtitle = "Density plots of performance stratified by socioeconomic status",
+       x = "Plausible value 1") +
+  scale_x_continuous(limits = c(0, 1000)) + 
+  theme_minimal() +
+  theme(legend.position = "none", # Hides the legend
+        plot.title = element_text(face = "bold", size = 12),
+        plot.subtitle = element_text(size = 8),
+        axis.title.y = element_blank())
+
+
+SES_ridgeplot
+```
+### The Code Chunk
+
+```{r}
+#| eval: false
+# Create the ridge plot
+SES_ridgeplot <- ggplot(stu_qqq_SG_filtered_long, aes(x = PV1, y = SOCIOECONOMICSTATUS, fill = 0.5 - abs(0.5 - stat(ecdf)))) +
+  stat_density_ridges(geom = "density_ridges_gradient", calc_ecdf = TRUE) +
+  scale_fill_viridis_c(name = "Tail probability", direction = -1) +
+  facet_wrap(~ Subject, scales = "free_x") + # Faceting by subject
+  labs(title = "Students with more advantageous socioeconomic status tend to perform better",
+       subtitle = "Density plots of performance stratified by socioeconomic status",
+       x = "Score") +
+  scale_x_continuous(limits = c(0, 1000)) + 
+  theme_minimal() +
+  theme(legend.position = "none", # Hides the legend
+        axis.title.x = element_blank(), # Hides the x-axis title
+        axis.title.y = element_blank(),
+        axis.text.x = element_blank(), # Hides the x-axis text/numbers
+        axis.ticks.x = element_blank(), # Hides the x-axis ticks
+        plot.title = element_text(face = "bold", size = 12),
+        plot.subtitle = element_text(size = 8))
+
+
+SES_ridgeplot
+```   
+
+:::
+
+::: {.callout-note icon="false" title="Insights"}
+## Insights
+
+-   Across all three subjects, the density curves show that students from more advantaged socioeconomic backgrounds tend to have higher performance scores. 
+-   Given this consistent trend, there could be a strong relationship between socioeconomic status and performance. 
+
+:::
+
+
+## EDA 5: Exploring relationship of performance with immigrant status
+
+
+Earlier, it was found that **IMMIG** has 236 out of 6606 values missing. We will remove the rows with these missing values, before performing EDA. 
+
+
+```{r}
+stu_qqq_SG_filtered_long_IMMIG <- stu_qqq_SG_filtered_long %>%
+  filter(!is.na(IMMIG))
+```
+
+
+To compare the perfomances across the immigrant statuses, we will use distributions in the form of density plots and boxplots. 
+
+::: panel-tabset
+### The Plot
+
+```{r}
+#| fig-width: 12
+#| fig-height: 5
+#| echo: false
+ggplot(stu_qqq_SG_filtered_long_IMMIG,
+       aes(x = IMMIG, 
+           y = PV1,
+           fill = IMMIG)) +
+  stat_halfeye(adjust = 0.5,
+               justification = -0.2,
+               .width = 0,
+               point_colour = NA) +
+  geom_boxplot(width = .10,
+               outlier.shape = NA,
+               alpha = 0.2) + 
+  facet_wrap(~ Subject, scales = "free_x") + # Faceting by subject
+  theme_minimal() +
+  labs(title = "2nd Generation Immigrant Students tend to perform better",
+       subtitle = "Density and boxplots stratified by immigrant status showing plausible value for all subjects") +
+  coord_flip() +
+  theme(legend.position = "none", # Hides the legend
+        plot.title = element_text(face = "bold", size = 12),
+        plot.subtitle = element_text(size = 8),
+        axis.title.x =element_text(size = 8),
+        axis.title.y = element_text(size = 8),
+        axis.text.x = element_text(size = 8),
+        plot.margin = unit(c(0.25, 0.5, 0.25, 0.5), 
+                                "inches"))
+```   
+
+### The Code Chunk
+
+```{r}
+#| eval: false
+ggplot(stu_qqq_SG_filtered_long_IMMIG,
+       aes(x = IMMIG, 
+           y = PV1,
+           fill = IMMIG)) +
+  stat_halfeye(adjust = 0.5,
+               justification = -0.2,
+               .width = 0,
+               point_colour = NA) +
+  geom_boxplot(width = .10,
+               outlier.shape = NA,
+               alpha = 0.2) + 
+  facet_wrap(~ Subject, scales = "free_x") + # Faceting by subject
+  theme_minimal() +
+  labs(title = "2nd Generation Immigrant Students tend to perform better",
+       subtitle = "Density and boxplots stratified by immigrant status showing plausible value for all subjects") +
+  coord_flip() +
+  theme(legend.position = "none", # Hides the legend
+        plot.title = element_text(face = "bold", size = 12),
+        plot.subtitle = element_text(size = 8),
+        axis.title.x =element_text(size = 8),
+        axis.title.y = element_text(size = 8),
+        axis.text.x = element_text(size = 8),
+        plot.margin = unit(c(0.25, 0.5, 0.25, 0.5), 
+                                "inches"))
+```   
+
+:::
+
+::: {.callout-note icon="false" title="Insights"}
+## Insights
+
+-   2nd generation students consistently performed better across all subjects, followed by 1st generation and then native students. 
+-   Observing the shape of the density plots, while most resemble normal distribution, there are some variations. For example, for 1st generation students, there is some fluctuation in the subject of science. 
+
+:::
+
+## Summary and conclusion
+In this exercise, we performed data cleaning and visualization of the data to examine the relationship of performance with factors such as gender, school, socioeconomic status and immigrant status. The key findings are:
+
+-   Students in Singapore performed slightly better in Mathematics over all oversubjects. 
+-   Male students performed slightly better in Math while female students performed slightly better in Reading.
+-   Public schools exhibit a wider range of performance scores in all three subjects compared to private schools.
+-   Students who are more socioeconomically advantaged tend to perform better than their peers, across all subjects.
+-   2nd-generation students generally perform better than other students across all subjects.
+
+To conclude with recommendations, Since this exercise focused solely on visuals, it's important to use statistical tests to support all the findings. Furthermore, it's worth noting that the original dataset contained numerous unexplored variables, and some of these variables are quite complex, as they are derived from the values of others. It may be worthwhile to explore the relationships between these variables to uncover more insights of the dataset. Lastly, this exercise has been a good practice of ggplot fundamentals; but the plot quality can be improved by making more extensive use of other features.
+
+
+Overall, this exercise was a helpful way to practice presenting data effectively in various ways to convey a clear message. 
+## References
+
+-   [Code Book](https://webfs.oecd.org/pisa2022/CY08MSP_CODEBOOK_5thDecember23.xlsx)
+-   [How to prepare and analyse the PISA database](https://www.oecd.org/pisa/data/httpoecdorgpisadatabase-instructions.htm)
+-   [PISA Data Analysis Manual: SPSS and SAS, Second Edition](https://www.oecd.org/pisa/pisaproducts/pisadataanalysismanualspssandsassecondedition.htm)

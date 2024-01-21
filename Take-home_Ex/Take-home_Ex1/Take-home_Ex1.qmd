@@ -2,11 +2,11 @@
 title: "Take-home Exercise 1"
 subtitle: "Creating data visualisation beyond default"
 date: January 15, 2024
-date-modified: "last-modified"
+date-modified:  January 21, 2024
 format:
   html:
     toc: true
-    number-sections: true
+    number-sections: false
     code-line-numbers: false
     
 execute: 
@@ -34,8 +34,6 @@ In this exercise, Exploratory Data Analysis (EDA) methods and ggplot functions a
 
 We load the following R packages using the `pacman::p_load()` function:
 
-
-hrbrthemes: an R package provides typography-centric themes and theme components for ggplot2.
 
 -   **tidyverse**: Core collection of R packages designed for data science
 -   **haven**: To read in data formats such as SAS and SPSS
@@ -67,7 +65,7 @@ stu_qqq_SG <- read_rds("data/stu_qqq_SG.rds")
 
 We first take a look at the data, and check if there are any duplicate entries.
 
-#### Glimpse of data
+#### **Glimpse of data**
 
 Using the `glimpse()` function, we see that the dataset consists of 6,606 rows and 1,279 columns. It also shows the column names, column type, and the first few entries of each column.
 
@@ -77,7 +75,7 @@ glimpse(stu_qqq_SG)
 ```
 :::
 
-#### Check for duplicates
+#### **Check for duplicates**
 
 Using the `duplicated` function, we see that there are no duplicate entries in the data.
 
@@ -91,7 +89,7 @@ stu_qqq_SG[duplicated(stu_qqq_SG),]
 [The data 1279 columns]{.underline}, which are variables of the dataset for each student. These variables include characteristics of the student (such as age, gender), background (socioeconomic status, parental involvement, language spoken at home), proficiency (plausible values for each subject), individual responses to the questionnaire and so on.
 :::
 
-#### Filtering data for selected variables
+#### **Filtering data for selected variables**
 
 Next, we want to reduce the size of the dataset to focus on the variables that would be suitable for this exercise. I primarily referred to the [PISA Data Analysis Manual: SPSS and SAS, Second Edition](https://www.oecd.org/pisa/pisaproducts/pisadataanalysismanualspssandsassecondedition.htm) and the [Code Book](https://webfs.oecd.org/pisa2022/CY08MSP_CODEBOOK_5thDecember23.xlsx) to understand which variables might be helpful for this visualization exercise.
 
@@ -139,7 +137,7 @@ stu_qqq_SG_filtered <- stu_qqq_SG %>%
 
 We then perform some checks on the data:
 
-#### Check data structure
+#### **Check data structure**
 
 Using the `str()` function, we observe that some variables may need to be re-casted. For example, **ST004D01T**, would be better classifed as categorical type `chr` than numeric type `num`.
 
@@ -149,7 +147,8 @@ str(stu_qqq_SG_filtered)
 ```
 :::
 
-##### Check and handle missing values
+
+##### **Check and handle missing values**
 
 ```{r}
 for(column_name in names(stu_qqq_SG_filtered)) {
@@ -170,7 +169,8 @@ sum(is.na(stu_qqq_SG_filtered$ESCS))
 
 Column **IMMIG** has 236 out of 6606 values missing. We will not remove the rows with these missing values, but will handle the missing values later when exploring relationships of subject performance with IMMIG.
 
-#### Recast, rename and recode variables
+
+#### **Recast, rename and recode variables**
 
 After inspection, the variables are modified as follows:
 
@@ -197,6 +197,7 @@ stu_qqq_SG_filtered <- stu_qqq_SG_filtered %>%
 stu_qqq_SG_filtered <- stu_qqq_SG_filtered %>%
   mutate(IMMIG = recode(IMMIG, '1' = 'NATIVE', '2' = '2ND GEN', '3' = '1STGEN'))
 ```
+
 
 ### Create new variables
 
@@ -453,7 +454,7 @@ genderPV_boxplot <- ggplot(stu_qqq_SG_filtered_long, aes(x = Subject, y = PV1, f
   coord_cartesian(ylim = c(0, 1000)) +
   theme_minimal() +
   labs(y = "Plausible Value 1",  subtitle = "Box plots of PV1, coloured by gender") +
-  theme(axis.title.x = element_blank(), legend.title = element_text(face = "bold", size = 8), plot.subtitle = element_text(size = 8), axis.title.y = element_text(size = 8))
+  theme(axis.title.x = element_blank(), legend.title = element_text(face = "bold", size = 8), plot.subtitle = element_text(size = 8), axis.title.y = element_text(size = 8)) +
   scale_fill_manual(values = c("FEMALE" = "#F7BBBB", "MALE" = "#C3D9EA"))
 
 # Combine the plots
@@ -464,7 +465,6 @@ genderPV_densityplot + genderPV_boxplot
 
 ```{r}
 #| eval: false
-
 # Create the faceted density plot
 genderPV_densityplot <- ggplot(data = stu_qqq_SG_filtered_long, aes(x = PV1, fill = GENDER)) +    
   geom_density(alpha = 0.3) + 
@@ -480,7 +480,7 @@ genderPV_boxplot <- ggplot(stu_qqq_SG_filtered_long, aes(x = Subject, y = PV1, f
   coord_cartesian(ylim = c(0, 1000)) +
   theme_minimal() +
   labs(y = "Plausible Value 1",  subtitle = "Box plots of PV1, coloured by gender") +
-  theme(axis.title.x = element_blank(), legend.title = element_text(face = "bold", size = 8), plot.subtitle = element_text(size = 8), axis.title.y = element_text(size = 8))
+  theme(axis.title.x = element_blank(), legend.title = element_text(face = "bold", size = 8), plot.subtitle = element_text(size = 8), axis.title.y = element_text(size = 8)) +
   scale_fill_manual(values = c("FEMALE" = "#F7BBBB", "MALE" = "#C3D9EA"))
 
 # Combine the plots
@@ -592,7 +592,7 @@ STRATUM_boxplot + STRATUM_heatmap
 ### The Code Chunk
 
 ```{r}
-#| echo: false
+#| eval: false
 # Boxplot to show distribution comparison between schools
 STRATUM_boxplot <- ggplot(stu_qqq_SG_filtered_long, aes(x = Subject, y = PV1, fill = STRATUM)) +
   geom_boxplot(position = position_dodge(0.8)) +
@@ -852,6 +852,7 @@ To conclude with recommendations, Since this exercise focused solely on visuals,
 
 
 Overall, this exercise was a helpful way to practice presenting data effectively in various ways to convey a clear message. 
+
 ## References
 
 -   [Code Book](https://webfs.oecd.org/pisa2022/CY08MSP_CODEBOOK_5thDecember23.xlsx)

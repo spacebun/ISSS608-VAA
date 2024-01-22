@@ -6,9 +6,9 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
-<meta name="dcterms.date" content="2024-01-13">
+<meta name="dcterms.date" content="2024-01-22">
 
-<title>spacebun - In-class Exercise 1</title>
+<title>spacebun - Hands-on Exercise 3</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -207,8 +207,26 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
     <h2 id="toc-title">On this page</h2>
    
   <ul>
-  <li><a href="#loading-r-packages" id="toc-loading-r-packages" class="nav-link active" data-scroll-target="#loading-r-packages"><span class="toc-section-number">1</span>  Loading R packages</a></li>
-  <li><a href="#importing-pisa-data" id="toc-importing-pisa-data" class="nav-link" data-scroll-target="#importing-pisa-data"><span class="toc-section-number">2</span>  Importing PISA data</a></li>
+  <li><a href="#programming-interactive-data-visualisation-with-r" id="toc-programming-interactive-data-visualisation-with-r" class="nav-link active" data-scroll-target="#programming-interactive-data-visualisation-with-r"><span class="toc-section-number">1</span>  Programming Interactive Data Visualisation with R</a>
+  <ul class="collapse">
+  <li><a href="#overview" id="toc-overview" class="nav-link" data-scroll-target="#overview"><span class="toc-section-number">1.1</span>  Overview</a></li>
+  <li><a href="#getting-started" id="toc-getting-started" class="nav-link" data-scroll-target="#getting-started"><span class="toc-section-number">1.2</span>  Getting started</a>
+  <ul class="collapse">
+  <li><a href="#loading-libraries" id="toc-loading-libraries" class="nav-link" data-scroll-target="#loading-libraries"><span class="toc-section-number">1.2.1</span>  Loading libraries</a></li>
+  <li><a href="#importing-data" id="toc-importing-data" class="nav-link" data-scroll-target="#importing-data"><span class="toc-section-number">1.2.2</span>  Importing data</a></li>
+  </ul></li>
+  <li><a href="#interactive-data-visualisation---ggiraph-methods" id="toc-interactive-data-visualisation---ggiraph-methods" class="nav-link" data-scroll-target="#interactive-data-visualisation---ggiraph-methods"><span class="toc-section-number">1.3</span>  Interactive Data Visualisation - ggiraph methods</a></li>
+  </ul></li>
+  <li><a href="#programming-animated-statistical-graphics-with-r" id="toc-programming-animated-statistical-graphics-with-r" class="nav-link" data-scroll-target="#programming-animated-statistical-graphics-with-r"><span class="toc-section-number">2</span>  Programming Animated Statistical Graphics with R</a>
+  <ul class="collapse">
+  <li><a href="#overview-1" id="toc-overview-1" class="nav-link" data-scroll-target="#overview-1"><span class="toc-section-number">2.1</span>  Overview</a></li>
+  <li><a href="#getting-started-1" id="toc-getting-started-1" class="nav-link" data-scroll-target="#getting-started-1"><span class="toc-section-number">2.2</span>  Getting Started</a></li>
+  <li><a href="#loading-libraries-1" id="toc-loading-libraries-1" class="nav-link" data-scroll-target="#loading-libraries-1"><span class="toc-section-number">2.3</span>  Loading libraries</a>
+  <ul class="collapse">
+  <li><a href="#importing-data-1" id="toc-importing-data-1" class="nav-link" data-scroll-target="#importing-data-1"><span class="toc-section-number">2.3.1</span>  Importing data</a></li>
+  </ul></li>
+  <li><a href="#references" id="toc-references" class="nav-link" data-scroll-target="#references"><span class="toc-section-number">2.4</span>  References</a></li>
+  </ul></li>
   </ul>
 </nav>
     </div>
@@ -217,8 +235,8 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 
 <header id="title-block-header" class="quarto-title-block default">
 <div class="quarto-title">
-<h1 class="title">In-class Exercise 1</h1>
-<p class="subtitle lead">Now You See It</p>
+<h1 class="title">Hands-on Exercise 3</h1>
+<p class="subtitle lead">[In-Progress] Interactivity in Visual Analytics: Principles and Methods</p>
 </div>
 
 
@@ -229,14 +247,14 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
     <div>
     <div class="quarto-title-meta-heading">Published</div>
     <div class="quarto-title-meta-contents">
-      <p class="date">January 13, 2024</p>
+      <p class="date">January 22, 2024</p>
     </div>
   </div>
   
     <div>
     <div class="quarto-title-meta-heading">Modified</div>
     <div class="quarto-title-meta-contents">
-      <p class="date-modified">January 17, 2024</p>
+      <p class="date-modified">January 22, 2024</p>
     </div>
   </div>
     
@@ -245,52 +263,85 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 
 </header>
 
-<section id="loading-r-packages" class="level2" data-number="1">
-<h2 data-number="1" class="anchored" data-anchor-id="loading-r-packages"><span class="header-section-number">1</span> Loading R packages</h2>
-<p>In this hands-on exercise, two R packages will be used. They are:</p>
+<section id="programming-interactive-data-visualisation-with-r" class="level1" data-number="1">
+<h1 data-number="1"><span class="header-section-number">1</span> Programming Interactive Data Visualisation with R</h1>
+<section id="overview" class="level2" data-number="1.1">
+<h2 data-number="1.1" class="anchored" data-anchor-id="overview"><span class="header-section-number">1.1</span> Overview</h2>
+<p>In this exercises I will learn how to create interactive data visualisation by using functions provided by <strong>ggiraph</strong> and <strong>plotlyr</strong> packages.</p>
+</section>
+<section id="getting-started" class="level2" data-number="1.2">
+<h2 data-number="1.2" class="anchored" data-anchor-id="getting-started"><span class="header-section-number">1.2</span> Getting started</h2>
+<section id="loading-libraries" class="level3" data-number="1.2.1">
+<h3 data-number="1.2.1" class="anchored" data-anchor-id="loading-libraries"><span class="header-section-number">1.2.1</span> Loading libraries</h3>
+<p>The following libraries will be used:</p>
 <ul>
-<li><a href="https://www.tidyverse.org/">tidyverse</a>, and</li>
-<li><a href="https://haven.tidyverse.org/">haven</a></li>
+<li><a href="https://davidgohel.github.io/ggiraph/"><strong>ggiraph</strong></a> for making ‘ggplot’ graphics interactive.</li>
+<li><a href="https://plotly.com/r/"><strong>plotly</strong></a>, R library for plotting interactive statistical graphs.</li>
+<li><a href="https://rstudio.github.io/DT/"><strong>DT</strong></a> provides an R interface to the JavaScript library <a href="https://datatables.net/">DataTables</a> that create interactive table on html page.</li>
+<li><a href="https://www.tidyverse.org/"><strong>tidyverse</strong></a>, a family of modern R packages specially designed to support data science, analysis and communication task including creating static statistical graphs.</li>
+<li><a href="https://patchwork.data-imaginist.com/"><strong>patchwork</strong></a> for combining multiple ggplot2 graphs into one figure.</li>
 </ul>
-<p>The code chunk used is as follows:</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>pacman<span class="sc">::</span><span class="fu">p_load</span>(tidyverse, haven)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-</div>
-<div class="callout-note callout callout-style-default callout-captioned">
-<div class="callout-header d-flex align-content-center">
-<div class="callout-icon-container">
-<i class="callout-icon"></i>
-</div>
-<div class="callout-caption-container flex-fill">
-Note
-</div>
-</div>
-<div class="callout-body-container callout-body">
-<p><code>pacman::p_load(tidyverse, haven)</code> is calling the <code>pacman</code> package, since we have not yet loaded this package. If <code>pacman</code> package was already loaded, we can load <code>tidyverse</code> and <code>haven</code> with <code>p_load(tidyverse, haven)</code>.</p>
-</div>
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>pacman<span class="sc">::</span><span class="fu">p_load</span>(ggiraph, plotly, </span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>               patchwork, DT, tidyverse) </span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 </section>
-<section id="importing-pisa-data" class="level2" data-number="2">
-<h2 data-number="2" class="anchored" data-anchor-id="importing-pisa-data"><span class="header-section-number">2</span> Importing PISA data</h2>
-<p>The code chunk below uses <a href="https://haven.tidyverse.org/reference/read_sas.html"><code>read_sas()</code></a> of <a href="https://haven.tidyverse.org/reference/index.html"><code>haven</code></a> to import PISA data into R environment.</p>
+<section id="importing-data" class="level3" data-number="1.2.2">
+<h3 data-number="1.2.2" class="anchored" data-anchor-id="importing-data"><span class="header-section-number">1.2.2</span> Importing data</h3>
+<p>The data used is the year end examination grades of a cohort of primary 3 students from a local school. From Hands-On Exercise 1, we know that the data has:</p>
+<ul>
+<li>Four categorical attributes: ID, CLASS, GENDER, RACE</li>
+<li>Three continuous attributes: MATHS, ENGLISH, SCIENCE</li>
+</ul>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>stu_qqq <span class="ot">&lt;-</span> <span class="fu">read_sas</span>(<span class="st">"data/cy08msp_stu_qqq.sas7bdat"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>exam_data <span class="ot">&lt;-</span> <span class="fu">read_csv</span>(<span class="st">"data/Exam_data.csv"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<p>The code chunk below filters the data where country code (CNT) is Singapore (SGP).</p>
+</section>
+</section>
+<section id="interactive-data-visualisation---ggiraph-methods" class="level2" data-number="1.3">
+<h2 data-number="1.3" class="anchored" data-anchor-id="interactive-data-visualisation---ggiraph-methods"><span class="header-section-number">1.3</span> Interactive Data Visualisation - ggiraph methods</h2>
+<p><a href="https://davidgohel.github.io/ggiraph/"><strong>ggiraph</strong></a> is a html widget and ggplot2 extension, that allows ggplot graphics to be interactive:</p>
+<ul>
+<li><strong>Tooltip</strong>: a column of data-sets that contain tooltips to be displayed when the mouse is over elements.</li>
+<li><strong>Onclick</strong>: a column of data-sets that contain a JavaScript function to be executed when elements are clicked.</li>
+<li><strong>Data_id</strong>: a column of data-sets that contain an id to be associated with elements.</li>
+</ul>
+</section>
+</section>
+<section id="programming-animated-statistical-graphics-with-r" class="level1" data-number="2">
+<h1 data-number="2"><span class="header-section-number">2</span> Programming Animated Statistical Graphics with R</h1>
+<section id="overview-1" class="level2" data-number="2.1">
+<h2 data-number="2.1" class="anchored" data-anchor-id="overview-1"><span class="header-section-number">2.1</span> Overview</h2>
+<p>In this exercise I will learn - how to create animated data visualisation by using <strong>gganimate</strong> and <strong>plotly</strong>. - how to reshape data by using <strong>tidyr</strong> package - how to process, wrangle and transform data by using <strong>dplyr</strong> package.</p>
+</section>
+<section id="getting-started-1" class="level2" data-number="2.2">
+<h2 data-number="2.2" class="anchored" data-anchor-id="getting-started-1"><span class="header-section-number">2.2</span> Getting Started</h2>
+</section>
+<section id="loading-libraries-1" class="level2" data-number="2.3">
+<h2 data-number="2.3" class="anchored" data-anchor-id="loading-libraries-1"><span class="header-section-number">2.3</span> Loading libraries</h2>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>stu_qqq_SG <span class="ot">&lt;-</span> stu_qqq <span class="sc">%&gt;%</span> </span>
-<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(CNT <span class="sc">==</span> <span class="st">"SGP"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>pacman<span class="sc">::</span><span class="fu">p_load</span>(readxl, gifski, gapminder,</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>               plotly, gganimate, tidyverse)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<p>The code chunk below then saves this filtered data as an RData file. This smaller file can be used in the future.</p>
+<section id="importing-data-1" class="level3" data-number="2.3.1">
+<h3 data-number="2.3.1" class="anchored" data-anchor-id="importing-data-1"><span class="header-section-number">2.3.1</span> Importing data</h3>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">write_rds</span>(stu_qqq_SG, <span class="st">"data/stu_qqq_SG.rds"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>col <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"Country"</span>, <span class="st">"Continent"</span>)</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>globalPop <span class="ot">&lt;-</span> <span class="fu">read_xls</span>(<span class="st">"data/GlobalPopulation.xls"</span>,</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>                      <span class="at">sheet=</span><span class="st">"Data"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate_each_</span>(<span class="fu">funs</span>(<span class="fu">factor</span>(.)), col) <span class="sc">%&gt;%</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">Year =</span> <span class="fu">as.integer</span>(Year))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<p>To load this file in the future, follow the code in the code chunk below.</p>
-<div class="cell">
-<div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>stu_qqq_SG <span class="ot">&lt;-</span> <span class="fu">read_rds</span>(<span class="st">"data/stu_qqq_SG.rds"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-</div>
+</section>
+</section>
+<section id="references" class="level2" data-number="2.4">
+<h2 data-number="2.4" class="anchored" data-anchor-id="references"><span class="header-section-number">2.4</span> References</h2>
+<ul>
+<li><a href="https://r4va.netlify.app/chap03"><strong>R for Visual Analytics: Programming Interactive Data Visualisation with R</strong></a>.</li>
+</ul>
 
 
+</section>
 </section>
 
 </main> <!-- /main -->

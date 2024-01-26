@@ -1,5 +1,5 @@
 ---
-title: "Hands-on Exercise 3 [In-Progress] "
+title: "Hands-on Exercise 3"
 subtitle: "Interactivity in Visual Analytics: Principles and Methods"
 date: January 22, 2024
 date-modified: "last-modified"

@@ -701,19 +701,374 @@ Below we explore a basic way to plot an interactive plot.
 ## The Plot
 ```{r}
 #| echo: false
-
+plot_ly(data = exam_data, 
+        x = ~SCIENCE, 
+        y = ~MATHS,
+        type = 'scatter',
+        mode = 'markers') 
 ```
 
 ## The Code Chunk
 
 ```{r}
 #| eval: false
-
+plot_ly(data = exam_data, 
+        x = ~SCIENCE, 
+        y = ~MATHS,
+        type = 'scatter',
+        mode = 'markers') 
 ```
 
 :::
 
+#### Working with visual variable
+
+In the code chunk below, *color* argument is mapped to a qualitative visual variable (i.e. RACE).
+
+::: panel-tabset
+
+## The Plot
+```{r}
+#| echo: false
+plot_ly(data = exam_data, 
+        x = ~SCIENCE, 
+        y = ~MATHS, 
+        color = ~RACE,
+        type = 'scatter',
+        mode = 'markers')
+```
+
+## The Code Chunk
+
+```{r}
+#| eval: false
+plot_ly(data = exam_data, 
+        x = ~SCIENCE, 
+        y = ~MATHS, 
+        color = ~RACE,
+        type = 'scatter',
+        mode = 'markers')
+```
+
+:::
+
+
+Here is another example for a bar chart. In this example we first preprocess the data to get the counts of students.
+
+::: panel-tabset
+
+## The Plot
+```{r}
+#| echo: false
+# Preprocess the data to get counts per Race and Gender
+processed_data <- exam_data %>%
+  group_by(RACE, GENDER) %>%
+  summarise(Count = n(), .groups = 'drop')
+
+plot_ly(data = processed_data, 
+             x = ~RACE, 
+             y = ~Count, 
+             type = 'bar',
+             color = ~GENDER,
+             hoverinfo = 'x+y') %>%
+  layout(yaxis = list(title = 'Count of Students'),
+         barmode = 'group',
+         xaxis = list(title = 'Race'))
+```
+
+## The Code Chunk
+
+```{r}
+#| eval: false
+# Preprocess the data to get counts per Race and Gender
+processed_data <- exam_data %>%
+  group_by(RACE, GENDER) %>%
+  summarise(Count = n(), .groups = 'drop')
+
+plot_ly(data = processed_data, 
+             x = ~RACE, 
+             y = ~Count, 
+             type = 'bar',
+             color = ~GENDER,
+             hoverinfo = 'x+y') %>%
+  layout(yaxis = list(title = 'Count of Students'),
+         barmode = 'group',
+         xaxis = list(title = 'Race'))
+```
+
+:::
+
+### Using `ggplotly()` to create interactive charts
+
+We replicate the bar chart using `ggplotly()`.
+
+::: panel-tabset
+## The Plot
+```{r}
+#| echo: false
+# Preprocess the data to get counts per Race and Gender
+processed_data <- exam_data %>%
+  group_by(RACE, GENDER) %>%
+  summarise(Count = n(), .groups = 'drop')
+
+# Create the bar chart with ggplot2
+p <- ggplot(processed_data, aes(x = RACE, y = Count, fill = GENDER)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(y = "Count of Students", x = "Race") +
+  theme_minimal()
+
+# Convert the ggplot2 chart to an interactive plotly chart
+ggplotly(p)
+```
+
+## The Code Chunk
+
+```{r}
+#| eval: false
+# Preprocess the data to get counts per Race and Gender
+processed_data <- exam_data %>%
+  group_by(RACE, GENDER) %>%
+  summarise(Count = n(), .groups = 'drop')
+
+# Create the bar chart with ggplot2
+p <- ggplot(processed_data, aes(x = RACE, y = Count, fill = GENDER)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(y = "Count of Students", x = "Race") +
+  theme_minimal()
+
+# Convert the ggplot2 chart to an interactive plotly chart
+ggplotly(p)
+```
+:::
+
+### Coordinated Multiple Views with `plotly`
+
+The creation of a coordinated linked plot by using plotly involves three steps:
+
+-   highlight_key() of plotly package is used as shared data.
+-   two scatterplots will be created by using ggplot2 functions.
+-   lastly, subplot() of plotly package is used to place them next to each other side-by-side.
+
+
+::: panel-tabset
+## The Plot
+```{r}
+#| echo: false
+d <- highlight_key(exam_data)
+p1 <- ggplot(data=d, 
+            aes(x = MATHS,
+                y = ENGLISH)) +
+  geom_point(size=1) +
+  coord_cartesian(xlim=c(0,100),
+                  ylim=c(0,100))
+
+p2 <- ggplot(data=d, 
+            aes(x = MATHS,
+                y = SCIENCE)) +
+  geom_point(size=1) +
+  coord_cartesian(xlim=c(0,100),
+                  ylim=c(0,100))
+
+# Create object for margins
+mrg <- list(l = 80, r = 30,
+          b = 50, t = 100,
+          pad =15)
+
+subplot(ggplotly(p1), ggplotly(p2), 
+        nrows = 1, margin = 0.07,
+        titleY = TRUE,
+        titleX = TRUE) %>%
+  layout(title = paste("Linear relationship between Math scores and other scores", 
+                       "<br><sub>Scatter Plots Showing Relationship between Math Scores and English or Science Scores</sub>"),
+         margin = mrg)
+```
+
+## The Code Chunk
+
+```{r}
+#| eval: false
+d <- highlight_key(exam_data)
+p1 <- ggplot(data=d, 
+            aes(x = MATHS,
+                y = ENGLISH)) +
+  geom_point(size=1) +
+  coord_cartesian(xlim=c(0,100),
+                  ylim=c(0,100))
+
+p2 <- ggplot(data=d, 
+            aes(x = MATHS,
+                y = SCIENCE)) +
+  geom_point(size=1) +
+  coord_cartesian(xlim=c(0,100),
+                  ylim=c(0,100))
+
+# Create object for margins
+mrg <- list(l = 80, r = 30,
+          b = 50, t = 100,
+          pad =15)
+
+subplot(ggplotly(p1), ggplotly(p2), 
+        nrows = 1, margin = 0.07,
+        titleY = TRUE,
+        titleX = TRUE) %>%
+  layout(title = paste("Linear relationship between Math scores and other scores", 
+                       "<br><sub>Scatter Plots Showing Relationship between Math Scores and English or Science Scores</sub>"),
+         margin = mrg)
+```
+:::
+
+Below is another attempt to create multiple views of plots that are not linked. 
+
+::: panel-tabset
+
+## The Plot
+
+```{r}
+#| echo: false
+
+p1 <- ggplot(data=exam_data, 
+            aes(x = MATHS,
+                y = ENGLISH,
+                fill = RACE)) +
+  geom_point(size=3) +
+  coord_cartesian(xlim=c(0,NA),
+                  ylim=c(0,NA)) +
+  labs(y = "English Scores", x = "Math Scores")
+
+processed_data <- exam_data %>%
+  group_by(RACE, GENDER) %>%
+  summarise(Count = n(), .groups = 'drop')
+
+p2 <- ggplot(processed_data, aes(x = GENDER, y = Count, fill = RACE)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(y = "Count of Students", x = "Race") +
+  theme_minimal()
+
+# Combine the plots into a single interactive display
+combined_plot <- subplot(ggplotly(p1), ggplotly(p2), 
+                         nrows = 1, margin = 0.07, 
+                         shareX = TRUE, shareY = FALSE, 
+                         titleX = TRUE, titleY = TRUE)
+
+# Create object for margins
+mrg <- list(l = 80, r = 30,
+          b = 50, t = 100,
+          pad =15)
+
+
+# Add a title and a subtitle using HTML for formatting
+combined_plot %>%
+  layout(title = paste("Multiple plots", 
+                       "<br><sub>Scatter Plot of English and Math Scores and Bar Plot of Count of Students by Race and Gender</sub>"),
+         margin = mrg)
+```
+
+## The Code Chunk
+
+```{r}
+#| eval: FALSE
+p1 <- ggplot(data=exam_data, 
+            aes(x = MATHS,
+                y = ENGLISH,
+                fill = RACE)) +
+  geom_point(size=3) +
+  coord_cartesian(xlim=c(0,NA),
+                  ylim=c(0,NA)) +
+  labs(y = "English Scores", x = "Math Scores")
+
+processed_data <- exam_data %>%
+  group_by(RACE, GENDER) %>%
+  summarise(Count = n(), .groups = 'drop')
+
+p2 <- ggplot(processed_data, aes(x = GENDER, y = Count, fill = RACE)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(y = "Count of Students", x = "Race") +
+  theme_minimal()
+
+# Combine the plots into a single interactive display
+combined_plot <- subplot(ggplotly(p1), ggplotly(p2), 
+                         nrows = 1, margin = 0.07, 
+                         shareX = TRUE, shareY = FALSE, 
+                         titleX = TRUE, titleY = TRUE)
+
+# Create object for margins
+mrg <- list(l = 80, r = 30,
+          b = 50, t = 100,
+          pad =15)
+
+
+# Add a title and a subtitle using HTML for formatting
+combined_plot %>%
+  layout(title = paste("Multiple plots", 
+                       "<br><sub>Scatter Plot of English and Math Scores and Bar Plot of Count of Students by Race and Gender</sub>"),
+         margin = mrg)
+```
+:::
+
+## Interactive Data Visualisation - crosstalk methods!
+
+Crosstalk is an add-on to the htmlwidgets package. It extends htmlwidgets with a set of classes, functions, and conventions for implementing cross-widget interactions (currently, linked brushing and filtering).
+
+
+### Interactive Data Table: DT package
+```{r}
+DT::datatable(exam_data, class= "compact")
+```
+
+### Linked brushing: crosstalk method
+
+Besides placing plots with the datatable, we also demo the usage of `highlight_key()`,which simply creates an object of class [crosstalk::SharedData](https://rdrr.io/cran/crosstalk/man/SharedData.html).
+
+::: panel-tabset
+
+## The Plot
+
+```{r}
+#| echo: false
+d <- highlight_key(exam_data) 
+p <- ggplot(d, 
+            aes(ENGLISH, 
+                MATHS)) + 
+  geom_point(size=1) +
+  coord_cartesian(xlim=c(0,100),
+                  ylim=c(0,100))
+
+gg <- highlight(ggplotly(p), on = "plotly_selected", off = "plotly_deselect")
+ 
+
+crosstalk::bscols(gg,               
+                  DT::datatable(d), 
+                  widths = 5)  
+```
+
+## The Code Chunk
+
+```{r}
+#| eval: false
+d <- highlight_key(exam_data) 
+p <- ggplot(d, 
+            aes(ENGLISH, 
+                MATHS)) + 
+  geom_point(size=1) +
+  coord_cartesian(xlim=c(0,100),
+                  ylim=c(0,100))
+
+gg <- highlight(ggplotly(p), on = "plotly_selected", off = "plotly_deselect")
+ 
+
+crosstalk::bscols(gg,               
+                  DT::datatable(d), 
+                  widths = 5) 
+```
+:::
+Things to learn from the above code chunk:
+
+-   `highlight()` is a function of plotly package. It sets a variety of options for brushing (i.e., highlighting) multiple plots. These options are primarily designed for linking multiple plotly graphs, and may not behave as expected when linking plotly to another htmlwidget package via crosstalk. In some cases, other htmlwidgets will respect these options, such as persistent selection in leaflet.
+-   `bscols()` is a helper function of crosstalk package. It makes it easy to put HTML elements side by side. It can be called directly from the console but is especially designed to work in an R Markdown document. Warning: This will bring in all of Bootstrap!.
+
 # Programming Animated Statistical Graphics with R
+
+
 
 ## Overview
 

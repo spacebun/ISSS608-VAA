@@ -1068,15 +1068,17 @@ Things to learn from the above code chunk:
 
 # Programming Animated Statistical Graphics with R
 
-
-
 ## Overview
 
-In this exercise I will learn - how to create animated data visualisation by using **gganimate** and **plotly**. - how to reshape data by using **tidyr** package - how to process, wrangle and transform data by using **dplyr** package.
+In this exercise I will learn 
+
+-   how to create animated data visualisation by using **gganimate** and **plotly**
+-   how to reshape data by using **tidyr** 
+-   how to process, wrangle and transform data by using **dplyr** 
 
 ## Getting Started
 
-## Loading libraries
+### Loading libraries
 
 ```{r}
 pacman::p_load(readxl, gifski, gapminder,
@@ -1085,14 +1087,241 @@ pacman::p_load(readxl, gifski, gapminder,
 
 ### Importing data
 
+In this hands-on exercise, the *Data* worksheet from *GlobalPopulation* Excel workbook will be used.
+
 ```{r}
 col <- c("Country", "Continent")
 globalPop <- read_xls("data/GlobalPopulation.xls",
                       sheet="Data") %>%
-  mutate_each_(funs(factor(.)), col) %>%
+  mutate(across(all_of(col), as.factor)) %>% 
   mutate(Year = as.integer(Year))
 ```
 
-## References
+## Animated Data Visualisation: gganimate methods
+
+`gganimate()` provides a range of new grammar classes that can be added to the plot object in order to customise how it should animate by changing with time.
+
+-   `transition_*()` defines how the data should be spread out and how it relates to itself across time.
+-   `view_*()` defines how the positional scales should change along the animation.
+-   `shadow_*()` defines how data from other points in time should be presented in the given point in time.
+-   `enter_*()/exit_*()` defines how new data should appear and how old data should disappear during the course of the animation.
+-   `ease_aes()` defines how different aesthetics should be eased during transitions.
+
+### Building a static plot
+
+We first build a static line chart showing the population for all countries in Asia for the year of 2020. . 
+
+::: panel-tabset
+
+## The Plot
+
+```{r}
+#| echo: false
+#| fig-width: 12
+#| fig-height: 10
+ggplot(filter(globalPop, Year == 2020, Continent == "Asia"), aes(x = reorder(Country, Population), y = Population)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  coord_flip() +
+  labs(title = 'Population by Country in 2020', x = 'Country', y = 'Population')
+
+```
+
+## The Code Chunk
+
+```{r}
+#| eval: false
+#| fig-width: 12
+#| fig-height: 10
+ggplot(filter(globalPop, Year == 2020, Continent == "Asia"), aes(x = reorder(Country, Population), y = Population)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  coord_flip() +
+  labs(title = 'Population by Country in 2020', x = 'Country', y = 'Population')
+```
+:::
+
+### Building the animated bar plot
+
+::: panel-tabset
+
+## The Plot
+
+```{r}
+#| echo: false
+ggplot(filter(globalPop, Continent == "Asia"), aes(x = reorder(Country, Population), y = Population, fill = Country)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +  # Flip coordinates to make the country names horizontal
+  labs(title = 'Population by Country in Asia, Year: {frame_time}', x = '', y = 'Population') +
+  theme_minimal() +
+  theme(legend.position = "none")  +
+  transition_time(Year) +       
+  ease_aes('linear') 
+```
+
+## The Code Chunk
+
+```{r}
+#| eval: false
+ggplot(filter(globalPop, Continent == "Asia"), aes(x = reorder(Country, Population), y = Population, fill = Country)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +  # Flip coordinates to make the country names horizontal
+  labs(title = 'Population by Country in Asia, Year: {frame_time}', x = '', y = 'Population') +
+  theme_minimal() +
+  theme(legend.position = "none")  +
+  transition_time(Year) +       
+  ease_aes('linear') 
+```
+:::
+
+You can further customize the animation:
+
+
+::: panel-tabset
+
+## The Plot
+
+```{r}
+#| echo: false
+# Build the plot
+p <- ggplot(filter(globalPop, Continent == "Asia"), aes(x = reorder(Country, Population), y = Population, fill = Country)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +  # Flip coordinates to make the country names horizontal
+  labs(title = 'Population by Country in Asia, Year: {frame_time}', x = '', y = 'Population') +
+  theme_minimal() +
+  theme(legend.position = "none")  +
+  transition_time(Year) +       
+  ease_aes('linear')
+
+# Animate the plot
+anim <- p + transition_time(Year) +
+  ease_aes('linear')
+
+# Render the animation
+animate(anim, nframes = 100, height = 600, width = 1000, fps = 5)
+```
+
+## The Code Chunk
+
+```{r}
+#| eval: false
+# Build the plot
+p <- ggplot(filter(globalPop, Continent == "Asia"), aes(x = reorder(Country, Population), y = Population, fill = Country)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +  # Flip coordinates to make the country names horizontal
+  labs(title = 'Population by Country in Asia, Year: {frame_time}', x = '', y = 'Population') +
+  theme_minimal() +
+  theme(legend.position = "none")  +
+  transition_time(Year) +       
+  ease_aes('linear')
+
+# Animate the plot
+anim <- p + transition_time(Year) +
+  ease_aes('linear')
+
+# Render the animation
+animate(anim, nframes = 100, height = 600, width = 1000, fps = 5)
+```
+:::
+
+## Animated Data Visualisation: plotly
+
+### Building an animated bubble plot: `ggplotly()` method
+
+::: panel-tabset
+
+## The Plot
+
+```{r}
+#| echo: false
+gg <- ggplot(filter(globalPop, Continent == "Asia"),
+       aes(x = Old, 
+           y = Young, 
+           size = Population, 
+           colour = Country)) +
+  geom_point(aes(size = Population,
+                 frame = Year),
+             alpha = 0.7) +
+  scale_colour_manual(values = country_colors) +
+  scale_size(range = c(2, 12)) +
+  labs(x = '% Aged', 
+       y = '% Young') +
+  theme(legend.position='none')
+
+ggplotly(gg)
+```
+
+## The Code Chunk
+
+```{r}
+#| eval: false
+gg <- ggplot(filter(globalPop, Continent == "Asia"),
+       aes(x = Old, 
+           y = Young, 
+           size = Population, 
+           colour = Country)) +
+  geom_point(aes(size = Population,
+                 frame = Year),
+             alpha = 0.7) +
+  scale_colour_manual(values = country_colors) +
+  scale_size(range = c(2, 12)) +
+  labs(x = '% Aged', 
+       y = '% Young') +
+  theme(legend.position='none')
+
+ggplotly(gg)
+```
+:::
+
+
+### Building an animated bubble plot: `plot_ly()` method
+
+::: panel-tabset
+
+## The Plot
+
+```{r}
+#| echo: false
+#| warning: false
+bp <- globalPop %>%
+  plot_ly(x = ~Old, 
+          y = ~Young, 
+          size = ~Population, 
+          color = ~Continent,
+          sizes = c(2, 100),
+          frame = ~Year, 
+          text = ~Country, 
+          hoverinfo = "text",
+          type = 'scatter',
+          mode = 'markers'
+          ) %>%
+  layout(showlegend = FALSE)
+bp
+
+```
+
+## The Code Chunk
+
+```{r}
+#| eval: false
+#| warning: false
+bp <- globalPop %>%
+  plot_ly(x = ~Old, 
+          y = ~Young, 
+          size = ~Population, 
+          color = ~Continent,
+          sizes = c(2, 100),
+          frame = ~Year, 
+          text = ~Country, 
+          hoverinfo = "text",
+          type = 'scatter',
+          mode = 'markers'
+          ) %>%
+  layout(showlegend = FALSE)
+bp
+```
+:::
+
+
+# References
 
 -   [**R for Visual Analytics: Programming Interactive Data Visualisation with R**](https://r4va.netlify.app/chap03).
+-   [**R for Visual Analytics: Programming Animated Statistical Graphics with R**](https://r4va.netlify.app/chap04).

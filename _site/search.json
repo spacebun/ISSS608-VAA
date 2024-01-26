@@ -102,14 +102,14 @@
     "href": "Hands-on_Ex/Hands-on_Ex3/Hands-on_Ex3.html#overview-1",
     "title": "Hands-on Exercise 3 [In-Progress]",
     "section": "2.1 Overview",
-    "text": "2.1 Overview\nIn this exercise I will learn - how to create animated data visualisation by using gganimate and plotly. - how to reshape data by using tidyr package - how to process, wrangle and transform data by using dplyr package."
+    "text": "2.1 Overview\nIn this exercise I will learn\n\nhow to create animated data visualisation by using gganimate and plotly\nhow to reshape data by using tidyr\nhow to process, wrangle and transform data by using dplyr"
   },
   {
     "objectID": "Hands-on_Ex/Hands-on_Ex3/Hands-on_Ex3.html#getting-started-1",
     "href": "Hands-on_Ex/Hands-on_Ex3/Hands-on_Ex3.html#getting-started-1",
     "title": "Hands-on Exercise 3 [In-Progress]",
     "section": "2.2 Getting Started",
-    "text": "2.2 Getting Started"
+    "text": "2.2 Getting Started\n\n2.2.1 Loading libraries\n\npacman::p_load(readxl, gifski, gapminder,\n               plotly, gganimate, tidyverse)\n\n\n\n2.2.2 Importing data\nIn this hands-on exercise, the Data worksheet from GlobalPopulation Excel workbook will be used.\n\ncol <- c(\"Country\", \"Continent\")\nglobalPop <- read_xls(\"data/GlobalPopulation.xls\",\n                      sheet=\"Data\") %>%\n  mutate(across(all_of(col), as.factor)) %>% \n  mutate(Year = as.integer(Year))"
   },
   {
     "objectID": "Hands-on_Ex/Hands-on_Ex3/Hands-on_Ex3.html#loading-libraries-1",
@@ -250,5 +250,19 @@
     "title": "Take-home Exercise 2 (Work in Progress)",
     "section": "Visualization 4: Relationship b/w socioeconomic status and performance",
     "text": "Visualization 4: Relationship b/w socioeconomic status and performance\n\nOriginal Design\n\n\n\nCritique\n\nClarity\n\nGeneric plot title: The plot title is generic. A more descriptive and meaningful title, supported by a sub-title, would make the message or insight of the visualization clearer.\nX-axis labeling: The order of the categorical variables is not intuitive or sorted,since it goes from High -> Low -> Lower-Middle -> Upper-Middle. Ordering these variables will not only make the plot more intuitive for a viewer but also help to clearly communicate the key trend in this visualization.\nY-axis scale: The scale for Y-axis is inconsistent across the plots. This makes comparing across the subjects inaccurate.\n\n\n\nAesthetics\n\nSize and formatting of title: The plot title seems to be the same size as the axes label. It would be more beautiful if the title was differentiated perhaps by increased size or by making it bolded.\nY-axis title orientation: The Y-axis titles are written in vertical direction, which makes it difficult to read for a viewer.\nX-axis title position: The X-axis title is flushed to the left of the plot. It would be more aesthetic if the title is centered.\n\n\n\n\nAlternative Design\n\n\nRemake"
+  },
+  {
+    "objectID": "Hands-on_Ex/Hands-on_Ex3/Hands-on_Ex3.html#animated-data-visualisation-gganimate-methods",
+    "href": "Hands-on_Ex/Hands-on_Ex3/Hands-on_Ex3.html#animated-data-visualisation-gganimate-methods",
+    "title": "Hands-on Exercise 3 [In-Progress]",
+    "section": "2.3 Animated Data Visualisation: gganimate methods",
+    "text": "2.3 Animated Data Visualisation: gganimate methods\ngganimate() provides a range of new grammar classes that can be added to the plot object in order to customise how it should animate by changing with time.\n\ntransition_*() defines how the data should be spread out and how it relates to itself across time.\nview_*() defines how the positional scales should change along the animation.\nshadow_*() defines how data from other points in time should be presented in the given point in time.\nenter_*()/exit_*() defines how new data should appear and how old data should disappear during the course of the animation.\nease_aes() defines how different aesthetics should be eased during transitions.\n\n\n2.3.1 Building a static plot\nWe first build a static line chart showing the population for all countries in Asia for the year of 2020. .\n\nThe PlotThe Code Chunk\n\n\n\n\n\n\n\n\n\n\nggplot(filter(globalPop, Year == 2020, Continent == \"Asia\"), aes(x = reorder(Country, Population), y = Population)) +\n  geom_bar(stat = \"identity\", fill = \"steelblue\") +\n  coord_flip() +\n  labs(title = 'Population by Country in 2020', x = 'Country', y = 'Population')\n\n\n\n\n\n\n2.3.2 Building the animated bar plot\n\nThe PlotThe Code Chunk\n\n\n\n\n\n\n\n\n\n\nggplot(filter(globalPop, Continent == \"Asia\"), aes(x = reorder(Country, Population), y = Population, fill = Country)) +\n  geom_bar(stat = \"identity\") +\n  coord_flip() +  # Flip coordinates to make the country names horizontal\n  labs(title = 'Population by Country in Asia, Year: {frame_time}', x = '', y = 'Population') +\n  theme_minimal() +\n  theme(legend.position = \"none\")  +\n  transition_time(Year) +       \n  ease_aes('linear') \n\n\n\n\nYou can further customize the animation:\n\nThe PlotThe Code Chunk\n\n\n\n\n\n\n\n\n\n\n# Build the plot\np <- ggplot(filter(globalPop, Continent == \"Asia\"), aes(x = reorder(Country, Population), y = Population, fill = Country)) +\n  geom_bar(stat = \"identity\") +\n  coord_flip() +  # Flip coordinates to make the country names horizontal\n  labs(title = 'Population by Country in Asia, Year: {frame_time}', x = '', y = 'Population') +\n  theme_minimal() +\n  theme(legend.position = \"none\")  +\n  transition_time(Year) +       \n  ease_aes('linear')\n\n# Animate the plot\nanim <- p + transition_time(Year) +\n  ease_aes('linear')\n\n# Render the animation\nanimate(anim, nframes = 100, height = 600, width = 1000, fps = 5)"
+  },
+  {
+    "objectID": "Hands-on_Ex/Hands-on_Ex3/Hands-on_Ex3.html#animated-data-visualisation-plotly",
+    "href": "Hands-on_Ex/Hands-on_Ex3/Hands-on_Ex3.html#animated-data-visualisation-plotly",
+    "title": "Hands-on Exercise 3 [In-Progress]",
+    "section": "2.4 Animated Data Visualisation: plotly",
+    "text": "2.4 Animated Data Visualisation: plotly\n\n2.4.1 Building an animated bubble plot: ggplotly() method\n\nThe PlotThe Code Chunk\n\n\n\n\n\n\n\n\n\n\n\ngg <- ggplot(filter(globalPop, Continent == \"Asia\"),\n       aes(x = Old, \n           y = Young, \n           size = Population, \n           colour = Country)) +\n  geom_point(aes(size = Population,\n                 frame = Year),\n             alpha = 0.7) +\n  scale_colour_manual(values = country_colors) +\n  scale_size(range = c(2, 12)) +\n  labs(x = '% Aged', \n       y = '% Young') +\n  theme(legend.position='none')\n\nggplotly(gg)\n\n\n\n\n\n\n2.4.2 Building an animated bubble plot: plot_ly() method\n\nThe PlotThe Code Chunk\n\n\n\n\n\n\n\n\n\n\n\nbp <- globalPop %>%\n  plot_ly(x = ~Old, \n          y = ~Young, \n          size = ~Population, \n          color = ~Continent,\n          sizes = c(2, 100),\n          frame = ~Year, \n          text = ~Country, \n          hoverinfo = \"text\",\n          type = 'scatter',\n          mode = 'markers'\n          ) %>%\n  layout(showlegend = FALSE)\nbp"
   }
 ]

@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.2.313">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="dcterms.date" content="2024-01-28">
+
+<title>spacebun - Hands-on Exercise 4 [In-Progress]</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1.6em;
+  vertical-align: middle;
+}
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+    color: #aaaaaa;
+  }
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+code span.at { color: #7d9029; } /* Attribute */
+code span.bn { color: #40a070; } /* BaseN */
+code span.bu { color: #008000; } /* BuiltIn */
+code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+code span.ch { color: #4070a0; } /* Char */
+code span.cn { color: #880000; } /* Constant */
+code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+code span.dt { color: #902000; } /* DataType */
+code span.dv { color: #40a070; } /* DecVal */
+code span.er { color: #ff0000; font-weight: bold; } /* Error */
+code span.ex { } /* Extension */
+code span.fl { color: #40a070; } /* Float */
+code span.fu { color: #06287e; } /* Function */
+code span.im { color: #008000; font-weight: bold; } /* Import */
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+code span.op { color: #666666; } /* Operator */
+code span.ot { color: #007020; } /* Other */
+code span.pp { color: #bc7a00; } /* Preprocessor */
+code span.sc { color: #4070a0; } /* SpecialChar */
+code span.ss { color: #bb6688; } /* SpecialString */
+code span.st { color: #4070a0; } /* String */
+code span.va { color: #19177c; } /* Variable */
+code span.vs { color: #4070a0; } /* VerbatimString */
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+</style>
+
+
+<script src="../../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../../">
+<link href="../../images/spacebunny.svg" rel="icon" type="image/svg+xml">
+<script src="../../site_libs/quarto-html/quarto.js"></script>
+<script src="../../site_libs/quarto-html/popper.min.js"></script>
+<script src="../../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../../site_libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../../site_libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
+<script src="../../site_libs/quarto-contrib/iconify-1.0.8/iconify-icon.min.js"></script>
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 20,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit"
+  }
+}</script>
+
+
+<link rel="stylesheet" href="../../styles.css">
+</head>
+
+<body class="nav-fixed">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg navbar-dark ">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container">
+    <a href="../../index.html" class="navbar-brand navbar-brand-logo">
+    <img src="../../images/spacebunny-banner.png" alt="" class="navbar-logo">
+    </a>
+  </div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll me-auto">
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-iconify-fxemoji-leftwritinghand--hands-on-exercises" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text"><iconify-icon inline="" icon="fxemoji:leftwritinghand"></iconify-icon> Hands-on Exercises</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-iconify-fxemoji-leftwritinghand--hands-on-exercises">    
+        <li>
+    <a class="dropdown-item" href="../../Hands-on_Ex/Hands-on_Ex1/Hands-on_Ex1.html">
+ <span class="dropdown-text">Hands-on Exercise 1</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../Hands-on_Ex/Hands-on_Ex2/Hands-on_Ex2.html">
+ <span class="dropdown-text">Hands-on Exercise 2</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../Hands-on_Ex/Hands-on_Ex3/Hands-on_Ex3.html">
+ <span class="dropdown-text">Hands-on Exercise 3</span></a>
+  </li>  
+    </ul>
+  </li>
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-iconify-fxemoji-redapple--in-class-exercises" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text"><iconify-icon inline="" icon="fxemoji:redapple"></iconify-icon> In-class Exercises</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-iconify-fxemoji-redapple--in-class-exercises">    
+        <li>
+    <a class="dropdown-item" href="../../In-class_Ex/In-class_Ex1/In-class_Ex1.html">
+ <span class="dropdown-text">In-class Exercise 1</span></a>
+  </li>  
+    </ul>
+  </li>
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-iconify-fxemoji-schoolsatchel--take-home-exercises" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text"><iconify-icon inline="" icon="fxemoji:schoolsatchel"></iconify-icon> Take-home Exercises</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-iconify-fxemoji-schoolsatchel--take-home-exercises">    
+        <li>
+    <a class="dropdown-item" href="../../Take-home_Ex/Take-home_Ex1/Take-home_Ex1.html">
+ <span class="dropdown-text">Take-home Exercise 1</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../Take-home_Ex/Take-home_Ex2/Take-home_Ex2.html">
+ <span class="dropdown-text">Take-home Exercise 2</span></a>
+  </li>  
+    </ul>
+  </li>
+</ul>
+            <ul class="navbar-nav navbar-nav-scroll ms-auto">
+  <li class="nav-item">
+    <a class="nav-link" href="../../">
+ <span class="menu-text"><iconify-icon inline="" icon="fxemoji:housebuilding"></iconify-icon></span></a>
+  </li>  
+</ul>
+              <div id="quarto-search" class="" title="Search"></div>
+          </div> <!-- /navcollapse -->
+      </div> <!-- /container-fluid -->
+    </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#visualising-distribution" id="toc-visualising-distribution" class="nav-link active" data-scroll-target="#visualising-distribution"><span class="toc-section-number">1</span>  <strong>Visualising Distribution</strong></a>
+  <ul class="collapse">
+  <li><a href="#overview" id="toc-overview" class="nav-link" data-scroll-target="#overview"><span class="toc-section-number">1.1</span>  Overview</a></li>
+  <li><a href="#getting-started" id="toc-getting-started" class="nav-link" data-scroll-target="#getting-started"><span class="toc-section-number">1.2</span>  Getting started</a>
+  <ul class="collapse">
+  <li><a href="#loading-libraries" id="toc-loading-libraries" class="nav-link" data-scroll-target="#loading-libraries"><span class="toc-section-number">1.2.1</span>  Loading libraries</a></li>
+  <li><a href="#importing-data" id="toc-importing-data" class="nav-link" data-scroll-target="#importing-data"><span class="toc-section-number">1.2.2</span>  Importing data</a></li>
+  </ul></li>
+  <li><a href="#visualising-distribution-with-ridgeline-plot" id="toc-visualising-distribution-with-ridgeline-plot" class="nav-link" data-scroll-target="#visualising-distribution-with-ridgeline-plot"><span class="toc-section-number">1.3</span>  <strong>Visualising Distribution with Ridgeline Plot</strong></a>
+  <ul class="collapse">
+  <li><a href="#plotting-ridgeline-graph-ggridges-method" id="toc-plotting-ridgeline-graph-ggridges-method" class="nav-link" data-scroll-target="#plotting-ridgeline-graph-ggridges-method"><span class="toc-section-number">1.3.1</span>  <strong>Plotting ridgeline graph: <code>ggridges</code> method</strong></a></li>
+  <li><a href="#varying-fill-colors-along-the-x-axis" id="toc-varying-fill-colors-along-the-x-axis" class="nav-link" data-scroll-target="#varying-fill-colors-along-the-x-axis"><span class="toc-section-number">1.3.2</span>  <strong>Varying fill colors along the x axis</strong></a></li>
+  <li><a href="#mapping-the-probabilities-directly-onto-colour" id="toc-mapping-the-probabilities-directly-onto-colour" class="nav-link" data-scroll-target="#mapping-the-probabilities-directly-onto-colour"><span class="toc-section-number">1.3.3</span>  Mapping the probabilities directly onto colour</a></li>
+  </ul></li>
+  </ul></li>
+  <li><a href="#references" id="toc-references" class="nav-link" data-scroll-target="#references"><span class="toc-section-number">2</span>  References</a></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Hands-on Exercise 4 [In-Progress]</h1>
+<p class="subtitle lead">Fundamentals of Visual Analytics</p>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+    <div>
+    <div class="quarto-title-meta-heading">Published</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">January 28, 2024</p>
+    </div>
+  </div>
+  
+    <div>
+    <div class="quarto-title-meta-heading">Modified</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date-modified">January 27, 2024</p>
+    </div>
+  </div>
+    
+  </div>
+  
+
+</header>
+
+<section id="visualising-distribution" class="level1" data-number="1">
+<h1 data-number="1"><span class="header-section-number">1</span> <strong>Visualising Distribution</strong></h1>
+<section id="overview" class="level2" data-number="1.1">
+<h2 data-number="1.1" class="anchored" data-anchor-id="overview"><span class="header-section-number">1.1</span> Overview</h2>
+<p>In this exercises I will practice visualising distribution using ridgeline plot and raincloud plot.</p>
+</section>
+<section id="getting-started" class="level2" data-number="1.2">
+<h2 data-number="1.2" class="anchored" data-anchor-id="getting-started"><span class="header-section-number">1.2</span> Getting started</h2>
+<section id="loading-libraries" class="level3" data-number="1.2.1">
+<h3 data-number="1.2.1" class="anchored" data-anchor-id="loading-libraries"><span class="header-section-number">1.2.1</span> Loading libraries</h3>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1"></a>pacman<span class="sc">::</span><span class="fu">p_load</span>(ggdist, ggridges, ggthemes,</span>
+<span id="cb1-2"><a href="#cb1-2"></a>               colorspace, tidyverse)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+<section id="importing-data" class="level3" data-number="1.2.2">
+<h3 data-number="1.2.2" class="anchored" data-anchor-id="importing-data"><span class="header-section-number">1.2.2</span> Importing data</h3>
+<p>The data used is the year end examination grades of a cohort of primary 3 students from a local school. From Hands-On Exercise 1, we know that the data has:</p>
+<ul>
+<li>Four categorical attributes: ID, CLASS, GENDER, RACE</li>
+<li>Three continuous attributes: MATHS, ENGLISH, SCIENCE</li>
+</ul>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1"></a>exam_data <span class="ot">&lt;-</span> <span class="fu">read_csv</span>(<span class="st">"data/Exam_data.csv"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+</section>
+<section id="visualising-distribution-with-ridgeline-plot" class="level2" data-number="1.3">
+<h2 data-number="1.3" class="anchored" data-anchor-id="visualising-distribution-with-ridgeline-plot"><span class="header-section-number">1.3</span> <strong>Visualising Distribution with Ridgeline Plot</strong></h2>
+<ul>
+<li><p>Ridgeline plots make sense when the number of group to represent is medium to high, and thus a classic window separation would take to much space. Indeed, the fact that groups overlap each other allows to use space more efficiently. If you have less than 5 groups, dealing with other distribution plots is probably better.</p></li>
+<li><p>It works well when there is a clear pattern in the result, like if there is an obvious ranking in groups. Otherwise group will tend to overlap each other, leading to a messy plot not providing any insight.sthetic</p></li>
+</ul>
+<p>Let’s first demonstrate how we can make some graphs interactive with a tooltip.</p>
+<section id="plotting-ridgeline-graph-ggridges-method" class="level3" data-number="1.3.1">
+<h3 data-number="1.3.1" class="anchored" data-anchor-id="plotting-ridgeline-graph-ggridges-method"><span class="header-section-number">1.3.1</span> <strong>Plotting ridgeline graph: <code>ggridges</code> method</strong></h3>
+<p>ggridges package provides two main geom to plot gridgeline plots, they are:&nbsp;<a href="https://wilkelab.org/ggridges/reference/geom_ridgeline.html"><code>geom_ridgeline()</code></a>&nbsp;and&nbsp;<a href="https://wilkelab.org/ggridges/reference/geom_density_ridges.html"><code>geom_density_ridges()</code></a>. The former takes height values directly to draw the ridgelines, and the latter first estimates data densities and then draws those using ridgelines.</p>
+<div class="panel-tabset">
+<ul class="nav nav-tabs" role="tablist"><li class="nav-item" role="presentation"><a class="nav-link active" id="tabset-1-1-tab" data-bs-toggle="tab" data-bs-target="#tabset-1-1" role="tab" aria-controls="tabset-1-1" aria-selected="true">Using </a><a href="https://wilkelab.org/ggridges/reference/geom_density_ridges.html"><code>geom_density_ridges()</code></a></li><li class="nav-item" role="presentation"><a class="nav-link" id="tabset-1-2-tab" data-bs-toggle="tab" data-bs-target="#tabset-1-2" role="tab" aria-controls="tabset-1-2" aria-selected="false">The Code Chunk</a></li></ul>
+<div class="tab-content">
+<div id="tabset-1-1" class="tab-pane active" role="tabpanel" aria-labelledby="tabset-1-1-tab">
+<div class="cell">
+<div class="cell-output-display">
+<p><img src="Hands-on_Ex4_files/figure-html/unnamed-chunk-3-1.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+</div>
+<div id="tabset-1-2" class="tab-pane" role="tabpanel" aria-labelledby="tabset-1-2-tab">
+<div class="cell">
+<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1"></a><span class="fu">ggplot</span>(exam_data, </span>
+<span id="cb3-2"><a href="#cb3-2"></a>       <span class="fu">aes</span>(<span class="at">x =</span> SCIENCE, </span>
+<span id="cb3-3"><a href="#cb3-3"></a>           <span class="at">y =</span> CLASS)) <span class="sc">+</span></span>
+<span id="cb3-4"><a href="#cb3-4"></a>  <span class="fu">geom_density_ridges</span>(</span>
+<span id="cb3-5"><a href="#cb3-5"></a>    <span class="at">scale =</span> <span class="dv">3</span>, <span class="co"># set amount of overlap between the ridges</span></span>
+<span id="cb3-6"><a href="#cb3-6"></a>    <span class="at">rel_min_height =</span> <span class="fl">0.01</span>, <span class="co"># Lines with heights below this cutoff will be removed.</span></span>
+<span id="cb3-7"><a href="#cb3-7"></a>    <span class="at">bandwidth =</span> <span class="fl">3.4</span>,</span>
+<span id="cb3-8"><a href="#cb3-8"></a>    <span class="at">fill =</span> <span class="st">"#93c7c2"</span>, <span class="co"># change the fill colour</span></span>
+<span id="cb3-9"><a href="#cb3-9"></a>    <span class="at">color =</span> <span class="st">"white"</span>, <span class="co"># color of outline</span></span>
+<span id="cb3-10"><a href="#cb3-10"></a>    <span class="at">alpha =</span> <span class="fl">0.8</span>, <span class="co"># transparency of fill</span></span>
+<span id="cb3-11"><a href="#cb3-11"></a>    <span class="at">linewidth =</span> <span class="fl">0.4</span></span>
+<span id="cb3-12"><a href="#cb3-12"></a>  ) <span class="sc">+</span></span>
+<span id="cb3-13"><a href="#cb3-13"></a>  <span class="fu">scale_x_continuous</span>(<span class="at">expand =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">0</span>)) <span class="sc">+</span></span>
+<span id="cb3-14"><a href="#cb3-14"></a>  <span class="fu">scale_y_discrete</span>(<span class="at">expand =</span> <span class="fu">expansion</span>(<span class="at">add =</span> <span class="fu">c</span>(<span class="fl">0.2</span>, <span class="fl">2.6</span>))) <span class="sc">+</span></span>
+<span id="cb3-15"><a href="#cb3-15"></a>  <span class="fu">theme_ridges</span>() <span class="sc">+</span></span>
+<span id="cb3-16"><a href="#cb3-16"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"Science scores generall improve across classes"</span>,</span>
+<span id="cb3-17"><a href="#cb3-17"></a>       <span class="at">subtitle =</span> <span class="st">"Distributions of Science scores across the various classes"</span>,</span>
+<span id="cb3-18"><a href="#cb3-18"></a>       <span class="at">x =</span> <span class="st">"Science scores"</span>,</span>
+<span id="cb3-19"><a href="#cb3-19"></a>       <span class="at">y =</span> <span class="st">"Classes"</span>) <span class="sc">+</span></span>
+<span id="cb3-20"><a href="#cb3-20"></a>  <span class="fu">theme</span>(<span class="at">plot.title =</span> <span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">12</span>),</span>
+<span id="cb3-21"><a href="#cb3-21"></a>        <span class="at">plot.subtitle =</span> <span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">10</span>),</span>
+<span id="cb3-22"><a href="#cb3-22"></a>        <span class="at">axis.title.x =</span> <span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">8</span>),</span>
+<span id="cb3-23"><a href="#cb3-23"></a>        <span class="at">axis.title.y =</span> <span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">8</span>, <span class="at">angle =</span> <span class="dv">360</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<section id="varying-fill-colors-along-the-x-axis" class="level3" data-number="1.3.2">
+<h3 data-number="1.3.2" class="anchored" data-anchor-id="varying-fill-colors-along-the-x-axis"><span class="header-section-number">1.3.2</span> <strong>Varying fill colors along the x axis</strong></h3>
+<p>Note that we can only change either fill colors or transparency, but not both.</p>
+<div class="panel-tabset">
+<ul class="nav nav-tabs" role="tablist"><li class="nav-item" role="presentation"><a class="nav-link active" id="tabset-2-1-tab" data-bs-toggle="tab" data-bs-target="#tabset-2-1" role="tab" aria-controls="tabset-2-1" aria-selected="true">The Plot</a></li><li class="nav-item" role="presentation"><a class="nav-link" id="tabset-2-2-tab" data-bs-toggle="tab" data-bs-target="#tabset-2-2" role="tab" aria-controls="tabset-2-2" aria-selected="false">The Code Chunk</a></li></ul>
+<div class="tab-content">
+<div id="tabset-2-1" class="tab-pane active" role="tabpanel" aria-labelledby="tabset-2-1-tab">
+<div class="cell">
+<div class="cell-output-display">
+<p><img src="Hands-on_Ex4_files/figure-html/unnamed-chunk-5-1.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+</div>
+<div id="tabset-2-2" class="tab-pane" role="tabpanel" aria-labelledby="tabset-2-2-tab">
+<div class="cell">
+<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1"></a><span class="fu">ggplot</span>(exam_data, <span class="fu">aes</span>(<span class="at">x =</span> SCIENCE, <span class="at">y =</span> CLASS, <span class="at">fill =</span> <span class="fu">stat</span>(x))) <span class="sc">+</span></span>
+<span id="cb4-2"><a href="#cb4-2"></a>  <span class="fu">geom_density_ridges_gradient</span>(</span>
+<span id="cb4-3"><a href="#cb4-3"></a>    <span class="at">scale =</span> <span class="dv">3</span>, <span class="co"># set amount of overlap between the ridges</span></span>
+<span id="cb4-4"><a href="#cb4-4"></a>    <span class="at">rel_min_height =</span> <span class="fl">0.01</span>, <span class="co"># Lines with heights below this cutoff will be removed.</span></span>
+<span id="cb4-5"><a href="#cb4-5"></a></span>
+<span id="cb4-6"><a href="#cb4-6"></a>  ) <span class="sc">+</span> </span>
+<span id="cb4-7"><a href="#cb4-7"></a>  <span class="fu">scale_fill_viridis_c</span>(<span class="at">name =</span> <span class="st">"Temp. [F]"</span>,</span>
+<span id="cb4-8"><a href="#cb4-8"></a>                       <span class="at">option =</span> <span class="st">"cividis"</span>) <span class="sc">+</span></span>
+<span id="cb4-9"><a href="#cb4-9"></a>  <span class="fu">scale_x_continuous</span>(<span class="at">expand =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">0</span>)) <span class="sc">+</span></span>
+<span id="cb4-10"><a href="#cb4-10"></a>  <span class="fu">scale_y_discrete</span>(<span class="at">expand =</span> <span class="fu">expansion</span>(<span class="at">add =</span> <span class="fu">c</span>(<span class="fl">0.2</span>, <span class="fl">2.6</span>))) <span class="sc">+</span></span>
+<span id="cb4-11"><a href="#cb4-11"></a>  <span class="fu">theme_ridges</span>() <span class="sc">+</span></span>
+<span id="cb4-12"><a href="#cb4-12"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"Science scores generall improve across classes"</span>,</span>
+<span id="cb4-13"><a href="#cb4-13"></a>       <span class="at">subtitle =</span> <span class="st">"Distributions of Science scores across the various classes"</span>,</span>
+<span id="cb4-14"><a href="#cb4-14"></a>       <span class="at">x =</span> <span class="st">"Science scores"</span>,</span>
+<span id="cb4-15"><a href="#cb4-15"></a>       <span class="at">y =</span> <span class="st">"Classes"</span>) <span class="sc">+</span></span>
+<span id="cb4-16"><a href="#cb4-16"></a>  <span class="fu">theme</span>(<span class="at">plot.title =</span> <span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">12</span>),</span>
+<span id="cb4-17"><a href="#cb4-17"></a>        <span class="at">plot.subtitle =</span> <span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">10</span>),</span>
+<span id="cb4-18"><a href="#cb4-18"></a>        <span class="at">axis.title.x =</span> <span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">8</span>),</span>
+<span id="cb4-19"><a href="#cb4-19"></a>        <span class="at">axis.title.y =</span> <span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">8</span>, <span class="at">angle =</span> <span class="dv">360</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<section id="mapping-the-probabilities-directly-onto-colour" class="level3" data-number="1.3.3">
+<h3 data-number="1.3.3" class="anchored" data-anchor-id="mapping-the-probabilities-directly-onto-colour"><span class="header-section-number">1.3.3</span> Mapping the probabilities directly onto colour</h3>
+<div class="panel-tabset">
+<ul class="nav nav-tabs" role="tablist"><li class="nav-item" role="presentation"><a class="nav-link active" id="tabset-3-1-tab" data-bs-toggle="tab" data-bs-target="#tabset-3-1" role="tab" aria-controls="tabset-3-1" aria-selected="true">The Plot</a></li><li class="nav-item" role="presentation"><a class="nav-link" id="tabset-3-2-tab" data-bs-toggle="tab" data-bs-target="#tabset-3-2" role="tab" aria-controls="tabset-3-2" aria-selected="false">The Code Chunk</a></li></ul>
+<div class="tab-content">
+<div id="tabset-3-1" class="tab-pane active" role="tabpanel" aria-labelledby="tabset-3-1-tab">
+<div class="cell">
+<div class="cell-output-display">
+<p><img src="Hands-on_Ex4_files/figure-html/unnamed-chunk-7-1.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+</div>
+<div id="tabset-3-2" class="tab-pane" role="tabpanel" aria-labelledby="tabset-3-2-tab">
+<div class="cell">
+<div class="sourceCode cell-code" id="cb5"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1"></a><span class="fu">ggplot</span>(exam_data, <span class="fu">aes</span>(<span class="at">x =</span> SCIENCE, <span class="at">y =</span> CLASS, <span class="at">fill =</span> <span class="fu">stat</span>(x))) <span class="sc">+</span></span>
+<span id="cb5-2"><a href="#cb5-2"></a>  <span class="fu">geom_density_ridges_gradient</span>(</span>
+<span id="cb5-3"><a href="#cb5-3"></a>    <span class="at">scale =</span> <span class="dv">3</span>, <span class="co"># set amount of overlap between the ridges</span></span>
+<span id="cb5-4"><a href="#cb5-4"></a>    <span class="at">rel_min_height =</span> <span class="fl">0.01</span>, <span class="co"># Lines with heights below this cutoff will be removed.</span></span>
+<span id="cb5-5"><a href="#cb5-5"></a></span>
+<span id="cb5-6"><a href="#cb5-6"></a>  ) <span class="sc">+</span> </span>
+<span id="cb5-7"><a href="#cb5-7"></a>  <span class="fu">scale_fill_viridis_c</span>(<span class="at">name =</span> <span class="st">"Temp. [F]"</span>,</span>
+<span id="cb5-8"><a href="#cb5-8"></a>                       <span class="at">option =</span> <span class="st">"cividis"</span>) <span class="sc">+</span></span>
+<span id="cb5-9"><a href="#cb5-9"></a>  <span class="fu">scale_x_continuous</span>(<span class="at">expand =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">0</span>)) <span class="sc">+</span></span>
+<span id="cb5-10"><a href="#cb5-10"></a>  <span class="fu">scale_y_discrete</span>(<span class="at">expand =</span> <span class="fu">expansion</span>(<span class="at">add =</span> <span class="fu">c</span>(<span class="fl">0.2</span>, <span class="fl">2.6</span>))) <span class="sc">+</span></span>
+<span id="cb5-11"><a href="#cb5-11"></a>  <span class="fu">theme_ridges</span>() <span class="sc">+</span></span>
+<span id="cb5-12"><a href="#cb5-12"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"Science scores generall improve across classes"</span>,</span>
+<span id="cb5-13"><a href="#cb5-13"></a>       <span class="at">subtitle =</span> <span class="st">"Distributions of Science scores across the various classes"</span>,</span>
+<span id="cb5-14"><a href="#cb5-14"></a>       <span class="at">x =</span> <span class="st">"Science scores"</span>,</span>
+<span id="cb5-15"><a href="#cb5-15"></a>       <span class="at">y =</span> <span class="st">"Classes"</span>) <span class="sc">+</span></span>
+<span id="cb5-16"><a href="#cb5-16"></a>  <span class="fu">theme</span>(<span class="at">plot.title =</span> <span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">12</span>),</span>
+<span id="cb5-17"><a href="#cb5-17"></a>        <span class="at">plot.subtitle =</span> <span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">10</span>),</span>
+<span id="cb5-18"><a href="#cb5-18"></a>        <span class="at">axis.title.x =</span> <span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">8</span>),</span>
+<span id="cb5-19"><a href="#cb5-19"></a>        <span class="at">axis.title.y =</span> <span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">8</span>, <span class="at">angle =</span> <span class="dv">360</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</div>
+</div>
+</div>
+</section>
+</section>
+</section>
+<section id="references" class="level1" data-number="2">
+<h1 data-number="2"><span class="header-section-number">2</span> References</h1>
+<ul>
+<li><a href="https://r4va.netlify.app/chap09"><strong>R for Visual Analytics: Visualising Distribution</strong></a>.</li>
+<li><a href="https://r4va.netlify.app/chap10"><strong>R for Visual Analytics: Visual Statistical Analysis</strong></a>.</li>
+<li><a href="https://r4va.netlify.app/chap11"><strong>R for Visual Analytics: Visualising Uncertainty</strong></a>.</li>
+<li><a href="https://r4va.netlify.app/chap12"><strong>R for Visual Analytics: Funnel Plots for Fair Comparisons</strong></a>.</li>
+</ul>
+
+
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
+    }
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();  
+  const icon = "";
+  const anchorJS = new window.AnchorJS();
+  anchorJS.options = {
+    placement: 'right',
+    icon: icon
+  };
+  anchorJS.add('.anchored');
+  const clipboard = new window.ClipboardJS('.code-copy-button', {
+    target: function(trigger) {
+      return trigger.previousElementSibling;
+    }
+  });
+  clipboard.on('success', function(e) {
+    // button target
+    const button = e.trigger;
+    // don't keep focus
+    button.blur();
+    // flash "checked"
+    button.classList.add('code-copy-button-checked');
+    var currentTitle = button.getAttribute("title");
+    button.setAttribute("title", "Copied!");
+    let tooltip;
+    if (window.bootstrap) {
+      button.setAttribute("data-bs-toggle", "tooltip");
+      button.setAttribute("data-bs-placement", "left");
+      button.setAttribute("data-bs-title", "Copied!");
+      tooltip = new bootstrap.Tooltip(button, 
+        { trigger: "manual", 
+          customClass: "code-copy-button-tooltip",
+          offset: [0, -8]});
+      tooltip.show();    
+    }
+    setTimeout(function() {
+      if (tooltip) {
+        tooltip.hide();
+        button.removeAttribute("data-bs-title");
+        button.removeAttribute("data-bs-toggle");
+        button.removeAttribute("data-bs-placement");
+      }
+      button.setAttribute("title", currentTitle);
+      button.classList.remove('code-copy-button-checked');
+    }, 1000);
+    // clear code selection
+    e.clearSelection();
+  });
+  function tippyHover(el, contentFn) {
+    const config = {
+      allowHTML: true,
+      content: contentFn,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'quarto',
+      placement: 'bottom-start'
+    };
+    window.tippy(el, config); 
+  }
+  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+  for (var i=0; i<noterefs.length; i++) {
+    const ref = noterefs[i];
+    tippyHover(ref, function() {
+      // use id or data attribute instead here
+      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+      try { href = new URL(href).hash; } catch {}
+      const id = href.replace(/^#\/?/, "");
+      const note = window.document.getElementById(id);
+      return note.innerHTML;
+    });
+  }
+  const findCites = (el) => {
+    const parentEl = el.parentElement;
+    if (parentEl) {
+      const cites = parentEl.dataset.cites;
+      if (cites) {
+        return {
+          el,
+          cites: cites.split(' ')
+        };
+      } else {
+        return findCites(el.parentElement)
+      }
+    } else {
+      return undefined;
+    }
+  };
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const citeInfo = findCites(ref);
+    if (citeInfo) {
+      tippyHover(citeInfo.el, function() {
+        var popup = window.document.createElement('div');
+        citeInfo.cites.forEach(function(cite) {
+          var citeDiv = window.document.createElement('div');
+          citeDiv.classList.add('hanging-indent');
+          citeDiv.classList.add('csl-entry');
+          var biblioDiv = window.document.getElementById('ref-' + cite);
+          if (biblioDiv) {
+            citeDiv.innerHTML = biblioDiv.innerHTML;
+          }
+          popup.appendChild(citeDiv);
+        });
+        return popup.innerHTML;
+      });
+    }
+  }
+});
+</script>
+</div> <!-- /content -->
+
+
+
+</body></html>

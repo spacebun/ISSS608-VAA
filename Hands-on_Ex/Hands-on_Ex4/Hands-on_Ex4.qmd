@@ -1,0 +1,233 @@
+---
+title: "Hands-on Exercise 4 [In-Progress]"
+subtitle: "Fundamentals of Visual Analytics"
+date: January 28, 2024
+date-modified: "last-modified"
+format:
+  html:
+    toc: true
+    number-sections: true
+    code-line-numbers: true
+    
+execute: 
+  eval: true
+  echo: true
+  warning: false  
+---
+
+# **Visualising Distribution**
+
+## Overview
+
+In this exercises I will practice visualising distribution using ridgeline plot and raincloud plot.
+
+## Getting started
+
+### Loading libraries
+
+```{r}
+pacman::p_load(ggdist, ggridges, ggthemes,
+               colorspace, tidyverse)
+```
+
+### Importing data
+
+The data used is the year end examination grades of a cohort of primary 3 students from a local school. From Hands-On Exercise 1, we know that the data has:
+
+-   Four categorical attributes: ID, CLASS, GENDER, RACE
+-   Three continuous attributes: MATHS, ENGLISH, SCIENCE
+
+```{r}
+exam_data <- read_csv("data/Exam_data.csv")
+```
+
+## **Visualising Distribution with Ridgeline Plot**
+
+-   Ridgeline plots make sense when the number of group to represent is medium to high, and thus a classic window separation would take to much space. Indeed, the fact that groups overlap each other allows to use space more efficiently. If you have less than 5 groups, dealing with other distribution plots is probably better.
+
+-   It works well when there is a clear pattern in the result, like if there is an obvious ranking in groups. Otherwise group will tend to overlap each other, leading to a messy plot not providing any insight.sthetic
+
+Let's first demonstrate how we can make some graphs interactive with a tooltip.
+
+### **Plotting ridgeline graph: `ggridges` method**
+
+ggridges package provides two main geom to plot gridgeline plots, they are: [`geom_ridgeline()`](https://wilkelab.org/ggridges/reference/geom_ridgeline.html) and [`geom_density_ridges()`](https://wilkelab.org/ggridges/reference/geom_density_ridges.html). The former takes height values directly to draw the ridgelines, and the latter first estimates data densities and then draws those using ridgelines.
+
+::: panel-tabset
+## Using [`geom_density_ridges()`](https://wilkelab.org/ggridges/reference/geom_density_ridges.html)
+
+```{r}
+#| echo: False
+ggplot(exam_data, 
+       aes(x = SCIENCE, 
+           y = CLASS)) +
+  geom_density_ridges(
+    scale = 3, # set amount of overlap between the ridges
+    rel_min_height = 0.01, # Lines with heights below this cutoff will be removed.
+    bandwidth = 3.4,
+    fill = "#93c7c2", # change the fill colour
+    color = "white", # color of outline
+    alpha = 0.8, # transparency of fill
+    linewidth = 0.4
+  ) +
+  scale_x_continuous(expand = c(0, 0)) +
+  scale_y_discrete(expand = expansion(add = c(0.2, 2.6))) +
+  theme_ridges() +
+  labs(title = "Science scores generall improve across classes",
+       subtitle = "Distributions of Science scores across the various classes",
+       x = "Science scores",
+       y = "Classes") +
+  theme(plot.title = element_text(size = 12),
+        plot.subtitle = element_text(size = 10),
+        axis.title.x = element_text(size = 8),
+        axis.title.y = element_text(size = 8, angle = 360))
+
+```
+
+## The Code Chunk
+
+```{r}
+#| eval: False
+ggplot(exam_data, 
+       aes(x = SCIENCE, 
+           y = CLASS)) +
+  geom_density_ridges(
+    scale = 3, # set amount of overlap between the ridges
+    rel_min_height = 0.01, # Lines with heights below this cutoff will be removed.
+    bandwidth = 3.4,
+    fill = "#93c7c2", # change the fill colour
+    color = "white", # color of outline
+    alpha = 0.8, # transparency of fill
+    linewidth = 0.4
+  ) +
+  scale_x_continuous(expand = c(0, 0)) +
+  scale_y_discrete(expand = expansion(add = c(0.2, 2.6))) +
+  theme_ridges() +
+  labs(title = "Science scores generall improve across classes",
+       subtitle = "Distributions of Science scores across the various classes",
+       x = "Science scores",
+       y = "Classes") +
+  theme(plot.title = element_text(size = 12),
+        plot.subtitle = element_text(size = 10),
+        axis.title.x = element_text(size = 8),
+        axis.title.y = element_text(size = 8, angle = 360))
+```
+:::
+
+### **Varying fill colors along the x axis**
+
+Note that we can only change either fill colors or transparency, but not both. 
+
+::: panel-tabset
+## The Plot
+
+```{r}
+#| echo: False
+ggplot(exam_data, aes(x = SCIENCE, y = CLASS, fill = stat(x))) +
+  geom_density_ridges_gradient(
+    scale = 3, # set amount of overlap between the ridges
+    rel_min_height = 0.01, # Lines with heights below this cutoff will be removed.
+
+  ) + 
+  scale_fill_viridis_c(name = "Temp. [F]",
+                       option = "cividis") +
+  scale_x_continuous(expand = c(0, 0)) +
+  scale_y_discrete(expand = expansion(add = c(0.2, 2.6))) +
+  theme_ridges() +
+  labs(title = "Science scores generall improve across classes",
+       subtitle = "Distributions of Science scores across the various classes",
+       x = "Science scores",
+       y = "Classes") +
+  theme(plot.title = element_text(size = 12),
+        plot.subtitle = element_text(size = 10),
+        axis.title.x = element_text(size = 8),
+        axis.title.y = element_text(size = 8, angle = 360))
+```
+
+## The Code Chunk
+
+```{r}
+#| eval: False
+ggplot(exam_data, aes(x = SCIENCE, y = CLASS, fill = stat(x))) +
+  geom_density_ridges_gradient(
+    scale = 3, # set amount of overlap between the ridges
+    rel_min_height = 0.01, # Lines with heights below this cutoff will be removed.
+
+  ) + 
+  scale_fill_viridis_c(name = "Temp. [F]",
+                       option = "cividis") +
+  scale_x_continuous(expand = c(0, 0)) +
+  scale_y_discrete(expand = expansion(add = c(0.2, 2.6))) +
+  theme_ridges() +
+  labs(title = "Science scores generall improve across classes",
+       subtitle = "Distributions of Science scores across the various classes",
+       x = "Science scores",
+       y = "Classes") +
+  theme(plot.title = element_text(size = 12),
+        plot.subtitle = element_text(size = 10),
+        axis.title.x = element_text(size = 8),
+        axis.title.y = element_text(size = 8, angle = 360))
+```
+:::
+
+### Mapping the probabilities directly onto colour
+
+::: panel-tabset
+## The Plot
+
+```{r}
+#| echo: False
+ggplot(exam_data, aes(x = SCIENCE, y = CLASS, fill = stat(x))) +
+  geom_density_ridges_gradient(
+    scale = 3, # set amount of overlap between the ridges
+    rel_min_height = 0.01, # Lines with heights below this cutoff will be removed.
+
+  ) + 
+  scale_fill_viridis_c(name = "Temp. [F]",
+                       option = "cividis") +
+  scale_x_continuous(expand = c(0, 0)) +
+  scale_y_discrete(expand = expansion(add = c(0.2, 2.6))) +
+  theme_ridges() +
+  labs(title = "Science scores generall improve across classes",
+       subtitle = "Distributions of Science scores across the various classes",
+       x = "Science scores",
+       y = "Classes") +
+  theme(plot.title = element_text(size = 12),
+        plot.subtitle = element_text(size = 10),
+        axis.title.x = element_text(size = 8),
+        axis.title.y = element_text(size = 8, angle = 360))
+```
+
+## The Code Chunk
+
+```{r}
+#| eval: False
+ggplot(exam_data, aes(x = SCIENCE, y = CLASS, fill = stat(x))) +
+  geom_density_ridges_gradient(
+    scale = 3, # set amount of overlap between the ridges
+    rel_min_height = 0.01, # Lines with heights below this cutoff will be removed.
+
+  ) + 
+  scale_fill_viridis_c(name = "Temp. [F]",
+                       option = "cividis") +
+  scale_x_continuous(expand = c(0, 0)) +
+  scale_y_discrete(expand = expansion(add = c(0.2, 2.6))) +
+  theme_ridges() +
+  labs(title = "Science scores generall improve across classes",
+       subtitle = "Distributions of Science scores across the various classes",
+       x = "Science scores",
+       y = "Classes") +
+  theme(plot.title = element_text(size = 12),
+        plot.subtitle = element_text(size = 10),
+        axis.title.x = element_text(size = 8),
+        axis.title.y = element_text(size = 8, angle = 360))
+```
+:::
+
+
+# References
+
+-   [**R for Visual Analytics: Visualising Distribution**](https://r4va.netlify.app/chap09).
+-   [**R for Visual Analytics: Visual Statistical Analysis**](https://r4va.netlify.app/chap10).
+-   [**R for Visual Analytics: Visualising Uncertainty**](https://r4va.netlify.app/chap11).
+-   [**R for Visual Analytics: Funnel Plots for Fair Comparisons**](https://r4va.netlify.app/chap12).

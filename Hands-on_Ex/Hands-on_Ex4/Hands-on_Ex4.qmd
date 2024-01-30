@@ -1,5 +1,5 @@
 ---
-title: "Hands-on Exercise 4 [In-Progress]"
+title: "Hands-on Exercise 4"
 subtitle: "Fundamentals of Visual Analytics"
 date: January 28, 2024
 date-modified: "last-modified"
@@ -15,11 +15,11 @@ execute:
   warning: false  
 ---
 
-# **Visualising Distribution**
+# Visualising Distribution
 
 ## Overview
 
-In this exercises I will practice visualising distribution using ridgeline plot and raincloud plot.
+In this exercise, I will practice visualising distributions using ridgeline plots and raincloud plots.
 
 ## Getting started
 
@@ -41,7 +41,7 @@ The data used is the year end examination grades of a cohort of primary 3 studen
 exam_data <- read_csv("data/Exam_data.csv")
 ```
 
-## **Visualising Distribution with Ridgeline Plot**
+## Visualising Distribution with Ridgeline Plot
 
 -   Ridgeline plots make sense when the number of group to represent is medium to high, and thus a classic window separation would take to much space. Indeed, the fact that groups overlap each other allows to use space more efficiently. If you have less than 5 groups, dealing with other distribution plots is probably better.
 
@@ -49,12 +49,14 @@ exam_data <- read_csv("data/Exam_data.csv")
 
 Let's first demonstrate how we can make some graphs interactive with a tooltip.
 
-### **Plotting ridgeline graph: `ggridges` method**
+### Plotting ridgeline graph: `ggridges` method
 
 ggridges package provides two main geom to plot gridgeline plots, they are: [`geom_ridgeline()`](https://wilkelab.org/ggridges/reference/geom_ridgeline.html) and [`geom_density_ridges()`](https://wilkelab.org/ggridges/reference/geom_density_ridges.html). The former takes height values directly to draw the ridgelines, and the latter first estimates data densities and then draws those using ridgelines.
 
+We demonstrate a plot using `geom_density_ridges()` :
+
 ::: panel-tabset
-## Using [`geom_density_ridges()`](https://wilkelab.org/ggridges/reference/geom_density_ridges.html)
+## The Plot
 
 ```{r}
 #| echo: False
@@ -73,7 +75,7 @@ ggplot(exam_data,
   scale_x_continuous(expand = c(0, 0)) +
   scale_y_discrete(expand = expansion(add = c(0.2, 2.6))) +
   theme_ridges() +
-  labs(title = "Science scores generall improve across classes",
+  labs(title = "Science scores generally improve across classes",
        subtitle = "Distributions of Science scores across the various classes",
        x = "Science scores",
        y = "Classes") +
@@ -103,7 +105,7 @@ ggplot(exam_data,
   scale_x_continuous(expand = c(0, 0)) +
   scale_y_discrete(expand = expansion(add = c(0.2, 2.6))) +
   theme_ridges() +
-  labs(title = "Science scores generall improve across classes",
+  labs(title = "Science scores generally improve across classes",
        subtitle = "Distributions of Science scores across the various classes",
        x = "Science scores",
        y = "Classes") +
@@ -114,9 +116,9 @@ ggplot(exam_data,
 ```
 :::
 
-### **Varying fill colors along the x axis**
+### Varying fill colors along the x axis, using `geom_density_ridges_gradient()`
 
-Note that we can only change either fill colors or transparency, but not both. 
+Besides `geom_density_ridges_gradient()`, `geom_ridgeline_gradient()` can also be used to achieve this effect. Note that we can only change either fill colors or transparency, but not both.
 
 ::: panel-tabset
 ## The Plot
@@ -134,7 +136,7 @@ ggplot(exam_data, aes(x = SCIENCE, y = CLASS, fill = stat(x))) +
   scale_x_continuous(expand = c(0, 0)) +
   scale_y_discrete(expand = expansion(add = c(0.2, 2.6))) +
   theme_ridges() +
-  labs(title = "Science scores generall improve across classes",
+  labs(title = "Science scores generally improve across classes",
        subtitle = "Distributions of Science scores across the various classes",
        x = "Science scores",
        y = "Classes") +
@@ -159,7 +161,7 @@ ggplot(exam_data, aes(x = SCIENCE, y = CLASS, fill = stat(x))) +
   scale_x_continuous(expand = c(0, 0)) +
   scale_y_discrete(expand = expansion(add = c(0.2, 2.6))) +
   theme_ridges() +
-  labs(title = "Science scores generall improve across classes",
+  labs(title = "Science scores generally improve across classes",
        subtitle = "Distributions of Science scores across the various classes",
        x = "Science scores",
        y = "Classes") +
@@ -170,25 +172,25 @@ ggplot(exam_data, aes(x = SCIENCE, y = CLASS, fill = stat(x))) +
 ```
 :::
 
-### Mapping the probabilities directly onto colour
+### Mapping the probabilities directly onto colour, using `stat_density_ridges()`
+
+We map the probabilities calculated by using `stat(ecdf)`, which represent the empirical cumulative density function for the distribution of Science scores.
 
 ::: panel-tabset
 ## The Plot
 
 ```{r}
 #| echo: False
-ggplot(exam_data, aes(x = SCIENCE, y = CLASS, fill = stat(x))) +
-  geom_density_ridges_gradient(
-    scale = 3, # set amount of overlap between the ridges
-    rel_min_height = 0.01, # Lines with heights below this cutoff will be removed.
-
-  ) + 
-  scale_fill_viridis_c(name = "Temp. [F]",
+ggplot(exam_data, aes(x = SCIENCE, y = CLASS, fill = 0.5 - abs(0.5-stat(ecdf)))) +
+  stat_density_ridges(geom = "density_ridges_gradient", 
+                      calc_ecdf = TRUE) + 
+  scale_fill_viridis_c(name = "Tail probability",
+                       direction = -1,
                        option = "cividis") +
   scale_x_continuous(expand = c(0, 0)) +
   scale_y_discrete(expand = expansion(add = c(0.2, 2.6))) +
   theme_ridges() +
-  labs(title = "Science scores generall improve across classes",
+  labs(title = "Science scores generally improve across classes",
        subtitle = "Distributions of Science scores across the various classes",
        x = "Science scores",
        y = "Classes") +
@@ -202,18 +204,16 @@ ggplot(exam_data, aes(x = SCIENCE, y = CLASS, fill = stat(x))) +
 
 ```{r}
 #| eval: False
-ggplot(exam_data, aes(x = SCIENCE, y = CLASS, fill = stat(x))) +
-  geom_density_ridges_gradient(
-    scale = 3, # set amount of overlap between the ridges
-    rel_min_height = 0.01, # Lines with heights below this cutoff will be removed.
-
-  ) + 
-  scale_fill_viridis_c(name = "Temp. [F]",
+ggplot(exam_data, aes(x = SCIENCE, y = CLASS, fill = 0.5 - abs(0.5-stat(ecdf)))) +
+  stat_density_ridges(geom = "density_ridges_gradient", 
+                      calc_ecdf = TRUE) + 
+  scale_fill_viridis_c(name = "Tail probability",
+                       direction = -1,
                        option = "cividis") +
   scale_x_continuous(expand = c(0, 0)) +
   scale_y_discrete(expand = expansion(add = c(0.2, 2.6))) +
   theme_ridges() +
-  labs(title = "Science scores generall improve across classes",
+  labs(title = "Science scores generally improve across classes",
        subtitle = "Distributions of Science scores across the various classes",
        x = "Science scores",
        y = "Classes") +
@@ -224,6 +224,1021 @@ ggplot(exam_data, aes(x = SCIENCE, y = CLASS, fill = stat(x))) +
 ```
 :::
 
+### Ridgeline plots with quantile lines
+
+By using `geom_density_ridges_gradient()`, we can colour the ridgeline plot by quantile, via the calculated `stat(quantile)` aesthetic as shown below.
+
+::: panel-tabset
+## The Plot
+
+```{r}
+#| echo: False 
+ggplot(exam_data, aes(x = SCIENCE, y = CLASS, fill = factor(stat(quantile)))) +
+  stat_density_ridges(geom = "density_ridges_gradient", 
+                      calc_ecdf = TRUE,
+                      quantiles = 4, # Add quantiles
+                      quantile_lines = TRUE) + # Add quantile lines
+  scale_fill_viridis_d(name = "Quartiles") +  # change fill to scale_fill_viridis_d and name to Quartiles
+  scale_x_continuous(expand = c(0, 0)) +
+  scale_y_discrete(expand = expansion(add = c(0.2, 2.6))) +
+  theme_ridges() +
+  labs(title = "Science scores generally improve across classes",
+       subtitle = "Distributions of Science scores across the various classes",
+       x = "Science scores",
+       y = "Classes") +
+  theme(plot.title = element_text(size = 12),
+        plot.subtitle = element_text(size = 10),
+        axis.title.x = element_text(size = 8),
+        axis.title.y = element_text(size = 8, angle = 360))
+```
+
+## The Code Chunk
+
+```{r}
+#| eval: False 
+ggplot(exam_data, aes(x = SCIENCE, y = CLASS, fill = factor(stat(quantile)))) +
+  stat_density_ridges(geom = "density_ridges_gradient", 
+                      calc_ecdf = TRUE,
+                      quantiles = 4, # Add quantiles
+                      quantile_lines = TRUE) + # Add quantile lines
+  scale_fill_viridis_d(name = "Quartiles") +  # change fill to scale_fill_viridis_d and name to Quartiles
+  scale_x_continuous(expand = c(0, 0)) +
+  scale_y_discrete(expand = expansion(add = c(0.2, 2.6))) +
+  theme_ridges() +
+  labs(title = "Science scores generally improve across classes",
+       subtitle = "Distributions of Science scores across the various classes",
+       x = "Science scores",
+       y = "Classes") +
+  theme(plot.title = element_text(size = 12),
+        plot.subtitle = element_text(size = 10),
+        axis.title.x = element_text(size = 8),
+        axis.title.y = element_text(size = 8, angle = 360))
+```
+:::
+
+Instead of using number to define the quantiles, we can also specify quantiles by cut points such as 2.5% and 97.5% tails to colour the ridgeline plot as shown in the figure below.
+
+::: panel-tabset
+## The Plot
+
+```{r}
+#| echo: False 
+ggplot(exam_data, aes(x = SCIENCE, y = CLASS, fill = factor(stat(quantile)))) +
+  stat_density_ridges(geom = "density_ridges_gradient", 
+                      calc_ecdf = TRUE,
+                      quantiles = c(0.025, 0.975)) + # Specify quantile values
+  scale_fill_manual(
+    name = "Probability",
+    values = c("#FF0000A0", "#A0A0A0A0", "#0000FFA0"),
+    labels = c("(0, 0.025]", "(0.025, 0.975]", "(0.975, 1]")
+  ) +
+  scale_x_continuous(expand = c(0, 0)) +
+  scale_y_discrete(expand = expansion(add = c(0.2, 2.6))) +
+  theme_ridges() +
+  labs(title = "Science scores generally improve across classes",
+       subtitle = "Distributions of Science scores across the various classes",
+       x = "Science scores",
+       y = "Classes") +
+  theme(plot.title = element_text(size = 12),
+        plot.subtitle = element_text(size = 10),
+        axis.title.x = element_text(size = 8),
+        axis.title.y = element_text(size = 8, angle = 360))
+```
+
+## The Code Chunk
+
+```{r}
+#| eval: False
+ggplot(exam_data, aes(x = SCIENCE, y = CLASS, fill = factor(stat(quantile)))) +
+  stat_density_ridges(geom = "density_ridges_gradient", 
+                      calc_ecdf = TRUE,
+                      quantiles = c(0.025, 0.975)) + # Specify quantile values
+  scale_fill_manual(
+    name = "Probability",
+    values = c("#FF0000A0", "#A0A0A0A0", "#0000FFA0"),
+    labels = c("(0, 0.025]", "(0.025, 0.975]", "(0.975, 1]")
+  ) +
+  scale_x_continuous(expand = c(0, 0)) +
+  scale_y_discrete(expand = expansion(add = c(0.2, 2.6))) +
+  theme_ridges() +
+  labs(title = "Science scores generally improve across classes",
+       subtitle = "Distributions of Science scores across the various classes",
+       x = "Science scores",
+       y = "Classes") +
+  theme(plot.title = element_text(size = 12),
+        plot.subtitle = element_text(size = 10),
+        axis.title.x = element_text(size = 8),
+        axis.title.y = element_text(size = 8, angle = 360)) 
+```
+:::
+
+## Visualising Distribution with Raincloud Plot
+
+The raincloud (half-density) plot enhances the traditional box-plot by highlighting multiple modalities (an indicator that groups may exist). It also shows where densities are clustered.
+
+### Plotting a Half Eye graph using `stat_halfeye()`
+
+Note that we remove the slab interval by setting *.width = 0* and *point_colour = NA*.
+
+::: panel-tabset
+## The Plot
+
+```{r}
+#| echo: False 
+ggplot(exam_data, aes(x = CLASS, y = SCIENCE)) +
+    stat_halfeye(adjust = 0.5,
+               justification = -0.2,
+               .width = 0,
+               point_colour = NA) +
+  labs(title = "Science scores generally improve across classes",
+       subtitle = "Distributions of Science scores across the various classes",
+       x = "Science scores",
+       y = "Classes") +
+  theme(plot.title = element_text(size = 12),
+        plot.subtitle = element_text(size = 10),
+        axis.title.x = element_text(size = 8),
+        axis.title.y = element_text(size = 8, angle = 360))
+```
+
+## The Code Chunk
+
+```{r}
+#| eval: False 
+ggplot(exam_data, aes(x = CLASS, y = SCIENCE)) +
+    stat_halfeye(adjust = 0.5,
+               justification = -0.2,
+               .width = 0,
+               point_colour = NA) +
+  labs(title = "Science scores generally improve across classes",
+       subtitle = "Distributions of Science scores across the various classes",
+       x = "Science scores",
+       y = "Classes") +
+  theme(plot.title = element_text(size = 12),
+        plot.subtitle = element_text(size = 10),
+        axis.title.x = element_text(size = 8),
+        axis.title.y = element_text(size = 8, angle = 360))
+```
+:::
+
+### Adding the boxplot with `geom_boxplot()`
+
+::: panel-tabset
+## The Plot
+
+```{r}
+#| echo: False 
+ggplot(exam_data, aes(x = CLASS, y = SCIENCE)) +
+    stat_halfeye(adjust = 0.5,
+               justification = -0.2,
+               .width = 0,
+               point_colour = NA) +
+  geom_boxplot(width = .20,
+               outlier.shape = NA) +
+  labs(title = "Science scores generally improve across classes",
+       subtitle = "Distributions of Science scores across the various classes",
+       x = "Science scores",
+       y = "Classes") +
+  theme(plot.title = element_text(size = 12),
+        plot.subtitle = element_text(size = 10),
+        axis.title.x = element_text(size = 8),
+        axis.title.y = element_text(size = 8, angle = 360))
+```
+
+## The Code Chunk
+
+```{r}
+#| eval: False 
+ggplot(exam_data, aes(x = CLASS, y = SCIENCE)) +
+    stat_halfeye(adjust = 0.5,
+               justification = -0.2,
+               .width = 0,
+               point_colour = NA) +
+  geom_boxplot(width = .20,
+               outlier.shape = NA) +
+  labs(title = "Science scores generally improve across classes",
+       subtitle = "Distributions of Science scores across the various classes",
+       x = "Science scores",
+       y = "Classes") +
+  theme(plot.title = element_text(size = 12),
+        plot.subtitle = element_text(size = 10),
+        axis.title.x = element_text(size = 8),
+        axis.title.y = element_text(size = 8, angle = 360))
+```
+:::
+
+### Adding the Dot Plots with `stat_dots()`
+
+::: panel-tabset
+## The Plot
+
+```{r}
+#| echo: False 
+ggplot(exam_data, aes(x = CLASS, y = SCIENCE)) +
+    stat_halfeye(adjust = 0.5,
+               justification = -0.2,
+               .width = 0,
+               point_colour = NA) +
+  geom_boxplot(width = .20,
+               outlier.shape = NA) +
+  stat_dots(side = "left", 
+            justification = 1.2, 
+            binwidth = .5,
+            dotsize = 2) +
+  labs(title = "Science scores generally improve across classes",
+       subtitle = "Distributions of Science scores across the various classes",
+       x = "Science scores",
+       y = "Classes") +
+  theme(plot.title = element_text(size = 12),
+        plot.subtitle = element_text(size = 10),
+        axis.title.x = element_text(size = 8),
+        axis.title.y = element_text(size = 8, angle = 360))
+```
+
+## The Code Chunk
+
+```{r}
+#| eval: False 
+ggplot(exam_data, aes(x = CLASS, y = SCIENCE)) +
+    stat_halfeye(adjust = 0.5,
+               justification = -0.2,
+               .width = 0,
+               point_colour = NA) +
+  geom_boxplot(width = .20,
+               outlier.shape = NA) +
+  stat_dots(side = "left", 
+            justification = 1.2, 
+            binwidth = .5,
+            dotsize = 2) +
+  labs(title = "Science scores generally improve across classes",
+       subtitle = "Distributions of Science scores across the various classes",
+       x = "Science scores",
+       y = "Classes") +
+  theme(plot.title = element_text(size = 12),
+        plot.subtitle = element_text(size = 10),
+        axis.title.x = element_text(size = 8),
+        axis.title.y = element_text(size = 8, angle = 360))
+```
+:::
+
+### Finishing touch: `coord_flip()`
+
+::: panel-tabset
+## The Plot
+
+```{r}
+#| echo: False 
+ggplot(exam_data, aes(x = CLASS, y = SCIENCE)) +
+    stat_halfeye(adjust = 0.5,
+               justification = -0.2,
+               .width = 0,
+               point_colour = NA,
+               fill = "#93c7c2") +
+  geom_boxplot(width = .20,
+               outlier.shape = NA) +
+  stat_dots(side = "left", 
+            justification = 1.2, 
+            binwidth = .5,
+            dotsize = 2,
+               fill = "#93c7c2",
+            colour = "#93c7c2") +
+  coord_flip() +
+  labs(title = "Science scores generally improve across classes",
+       subtitle = "Distributions of Science scores across the various classes",
+       x = "Science scores",
+       y = "Classes") +
+  theme(plot.title = element_text(size = 12),
+        plot.subtitle = element_text(size = 10),
+        axis.title.x = element_text(size = 8),
+        axis.title.y = element_text(size = 8, angle = 360))
+```
+
+## The Code Chunk
+
+```{r}
+#| eval: False 
+ggplot(exam_data, aes(x = CLASS, y = SCIENCE)) +
+    stat_halfeye(adjust = 0.5,
+               justification = -0.2,
+               .width = 0,
+               point_colour = NA,
+               fill = "#93c7c2") +
+  geom_boxplot(width = .20,
+               outlier.shape = NA) +
+  stat_dots(side = "left", 
+            justification = 1.2, 
+            binwidth = .5,
+            dotsize = 2,
+               fill = "#93c7c2",
+            colour = "#93c7c2") +
+  coord_flip() +
+  labs(title = "Science scores generally improve across classes",
+       subtitle = "Distributions of Science scores across the various classes",
+       x = "Science scores",
+       y = "Classes") +
+  theme(plot.title = element_text(size = 12),
+        plot.subtitle = element_text(size = 10),
+        axis.title.x = element_text(size = 8),
+        axis.title.y = element_text(size = 8, angle = 360))
+```
+:::
+
+# Visual Statistical Analysis
+
+## Overview
+
+In this exercise, I will practice using:
+
+-   `ggstatsplot` package to create visual graphics with rich statistical information,
+-   performance package to visualise model diagnostics, and
+-   parameters package to visualise model parameters
+
+`ggstatsplot` is an extension of ggplot2 package for creating graphics with details from statistical tests included in the information-rich plots themselves. To provide alternative statistical inference methods by default. To follow best practices for statistical reporting. For all statistical tests reported in the plots, the default template abides by the APA gold standard for statistical reporting.
+
+## Getting started
+
+### Loading libraries
+
+```{r}
+pacman::p_load(ggstatsplot, tidyverse,
+               rstantools)
+```
+
+### Importing data
+
+The data used is the year end examination grades of a cohort of primary 3 students from a local school. From Hands-On Exercise 1, we know that the data has:
+
+-   Four categorical attributes: ID, CLASS, GENDER, RACE
+-   Three continuous attributes: MATHS, ENGLISH, SCIENCE
+
+```{r}
+exam <- read_csv("data/Exam_data.csv")
+```
+
+### One-sample test: `gghistostats()` method
+
+In the code chunk below, gghistostats() is used to to build an visual of one-sample test on Science scores.
+
+```{r}
+set.seed(1234)
+
+gghistostats(
+  data = exam,
+  x = SCIENCE,
+  type = "bayes",
+  test.value = 60,
+  xlab = "Science scores"
+)
+```
+
+A Bayes factor is the ratio of the likelihood of one particular hypothesis to the likelihood of another. It can be interpreted as a measure of the strength of evidence in favor of one theory among two competing theories.
+
+When we are comparing two hypotheses, H1 (the alternate hypothesis) and H0 (the null hypothesis), the Bayes Factor is often written as B10. In this case,
+
+-   Null Hypothesis (H0): The true mean of the science scores is equal to the test value of 60. This hypothesis posits that there is no significant difference between the mean score and the test value.
+-   Alternative Hypothesis (H1): The true mean of the science scores is not equal to 60. This hypothesis suggests that the mean score is significantly different from the test value.
+
+Statistical Annotations:
+
+-   **log_e(BF_01) = 2.12**: This is the natural logarithm of the Bayes Factor (BF) comparing the null hypothesis (science scores = 60) to the alternative hypothesis. A Bayes Factor greater than 1 indicates evidence against the null, and the value here suggests that **the data provide evidence against the null hypothesis H0 (since log_e(2.12) \> 0)**.
+-   **Δ_posterior mean = 1.12**: This indicates the difference between the sample mean and the test value (60), suggesting the average score is higher than the test value.
+-   **95% CI**: This confidence interval shows the range of values within which the true mean score lies with 95% probability, according to the posterior distribution.
+-   **JZS = 0.71**: This likely refers to a standardized effect size measure in a Bayesian context, possibly related to a Bayesian equivalent of Cohen's d, used to indicate the magnitude of the difference between groups or conditions.
+
+Therefore, the Bayesian analysis suggests rejecting the null hypothesis in favor of the alternative hypothesis, meaning that the data provide substantial evidence that the true mean science score is different from the test value of 60, specifically that it's higher since the posterior mean is indicated to be 70.50.
+
+Interpreting Bayes Factor:
+
+![](images/bf10.jpg)
+
+![](images/bf10.png)
+
+### Two-sample mean test: `ggbetweenstats()`
+
+In the code chunk below, ggbetweenstats() is used to build a visual for two-sample mean test of English scores by gender.
+
+```{r}
+ggbetweenstats(
+  data = exam,
+  x = GENDER, 
+  y = ENGLISH,
+  type = "np",
+  messages = FALSE
+)
+```
+
+The `ggbetweenstats` function is used to create a plot that compares the distribution of Engish scores (numeric variable) across different levels of Gender (categorical variable). It also computes and displays statistical tests to assess whether there are statistically significant differences between these groups.
+
+The `type = "np"` argument specifies that a non-parametric statistical test should be used for the comparison. Non-parametric tests do not assume that the data follows a normal distribution and are often used when the sample size is small, or the data is skewed or ordinal.
+
+The hypothesis would be:
+
+-   Null Hypothesis (H0): There is no difference in the median English scores between genders. This means that any observed difference in the sample is due to random chance.
+-   Alternative Hypothesis (H1): There is a difference in the median English scores between genders. This means that the observed difference is not due to chance, and there is a true difference in the population from which the sample was drawn.
+
+Statistical annotations:
+
+-   Median Scores: The plot indicates that the median English score for females is 73.00, while for males it is 67.00, suggesting a higher median score for females.
+-   Sample Size: The sample sizes are given as n = 170 for females and n = 152 for males.
+-   Mann-Whitney U Test: The test used is the Mann-Whitney U test, appropriate for comparing two independent samples. The test statistic W is 15627.50.
+-   P-Value: The p-value is 1.17e−03 (0.00117), which is less than the conventional threshold of 0.05 for statistical significance.
+-   Effect Size: The rank biserial is 0.21, which is an effect size measure based on the ranks of the data. This value suggests a small to medium effect size according to Cohen's guidelines (0.1 is small, 0.3 is medium, 0.5 is large).
+-   The confidence interval for this effect size is \[0.09, 0.33\], which does not include 0, further indicating that the effect is statistically significant.
+-   Total Observations: The total number of observations (combined for both genders) is 322.
+
+Given the small p-value (0.00117 \< 0.05) is what actually tells us there is a statistically significant difference between the English scores of males and females, with females having a higher median score. The effect size is small to medium, indicating that while the difference is statistically significant, the magnitude of the difference is not large.
+
+### Oneway ANOVA Test: ggbetweenstats() method
+
+In the code chunk below, `ggbetweenstats()` is used to build a visual for One-way ANOVA test on Maths score by race.
+
+```{r}
+ggbetweenstats(
+  data = exam,
+  x = RACE, 
+  y = MATHS,
+  type = "p",
+  mean.ci = TRUE, 
+  pairwise.comparisons = TRUE, 
+  pairwise.display = "s",
+  p.adjust.method = "fdr",
+  messages = FALSE
+)
+```
+
+For pairwise.display:
+
+-   "ns" → only non-significant
+-   "s" → only significant
+-   "all" → everything
+
+### `ggbetweenstats` - Summary of tests
+
+![](images/image7.jpg)
+
+![](images/image8.jpg)
+
+![](images/image9.jpg)
+
+### Significant Test of Correlation: `ggscatterstats()`
+
+In the code chunk below, `ggscatterstats()` is used to build a visual for Significant Test of Correlation between Maths scores and Science scores.
+
+```{r}
+ggscatterstats(
+  data = exam,
+  x = MATHS,
+  y = SCIENCE,
+  marginal = FALSE,
+  )
+```
+
+### Significant Test of Association (Depedence) : ggbarstats() methods
+
+```{r}
+# First, bin the MATHS scores into a 4 class variable
+exam1 <- exam %>% 
+  mutate(MATHS_bins = 
+           cut(MATHS, 
+               breaks = c(0,60,75,85,100)) # Specify values to break at
+)
+# Use ggbarstats() to build a visual for Significant Test of Association
+ggbarstats(exam1, 
+           x = MATHS_bins, 
+           y = GENDER)
+```
+
+## Visualising Models
+
+Here we visualize model diagnostic and model parameters by using `parameters` package.
+
+### Loading libraries
+
+```{r}
+pacman::p_load(readxl, performance, parameters, see, qqplotr)
+```
+
+### Importing data
+
+```{r}
+car_resale <- read_xls("data/ToyotaCorolla.xls", 
+                       "data")
+car_resale
+```
+
+### Multiple Regression Model using `lm()`
+
+The code chunk below is used to calibrate a multiple linear regression model by using lm() of Base Stats of R.
+
+```{r}
+model <- lm(Price ~ Age_08_04 + Mfg_Year + KM + 
+              Weight + Guarantee_Period, data = car_resale)
+model
+```
+
+### Model Diagnostic: Checking for multicolinearity using `check_collinearity()`
+
+```{r}
+check_collinearity(model)
+```
+
+```{r}
+check_c <- check_collinearity(model)
+plot(check_c)
+```
+
+### Model Diagnostic: checking normality assumption with `check_normality()`
+
+```{r}
+model1 <- lm(Price ~ Age_08_04 + KM + 
+              Weight + Guarantee_Period, data = car_resale)
+
+check_n <- check_normality(model1)
+
+plot(check_n)
+```
+
+### Model Diagnostic: Check model for homogeneity of variances using `check_heteroscedasticity()`
+
+```{r}
+check_h <- check_heteroscedasticity(model1)
+
+plot(check_h)
+```
+
+### Model Diagnostic: Complete check using `check_model()`
+
+```{r}
+#| fig.width=12, fig.height=10
+check_model(model1)
+```
+
+### Visualising Regression Parameters: *see* methods
+
+In the code below, `plot()` of *see* package and `parameters()` of *parameters* package are used to visualise the parameters of a regression model.
+
+```{r}
+plot(parameters(model1))
+```
+
+### Visualising Regression Parameters: `ggcoefstats()` methods
+
+```{r}
+ggcoefstats(model1, 
+            output = "plot")
+```
+
+# Visualising Uncertainty
+
+## Overview
+
+In this exercise, I will learn how to:
+
+-   to plot statistics error bars by using ggplot2,
+
+-   to plot interactive error bars by combining ggplot2, plotly and DT,
+
+-   to create advanced by using ggdist, and
+
+-   to create hypothetical outcome plots (HOPs) by using ungeviz package.
+
+## Getting Started
+
+### Loading libraries
+
+```{r}
+pacman::p_load(ungeviz, plotly, crosstalk,
+               DT, ggdist, ggridges,
+               colorspace, gganimate, tidyverse)
+```
+
+### Import data
+
+```{r}
+exam <- read_csv("data/Exam_data.csv")
+
+```
+
+## **Visualizing uncertainty of point estimates: `ggplot2` methods**
+
+A point estimate is a single number, such as a mean. Uncertainty, on the other hand, is expressed as standard error, confidence interval, or credible interval.
+
+### Derive summary statistics
+
+```{r}
+# First, derive summary statistics
+my_sum <- exam %>%
+  group_by(RACE) %>%
+  summarise( # used to compute the count of observations, mean, standard deviation
+    n=n(),
+    mean=mean(MATHS),
+    sd=sd(MATHS)
+    ) %>%
+  mutate(se=sd/sqrt(n-1)) # used to derive standard error of Maths by RACE
+```
+
+The code chunk displays the *my_sum* tibble data frame in an html table format.
+
+```{r}
+knitr::kable(head(my_sum), format = 'html')
+```
+
+### **Plotting standard error bars of point estimates**
+
+Now, we are ready to plot the standard error bars of mean maths score by race.
+
+```{r}
+ggplot(my_sum) +
+  geom_errorbar(
+    aes(x=RACE, 
+        ymin=mean-se, # The error bars are computed by using the formula mean+/-se.
+        ymax=mean+se),  
+    width=0.2, 
+    colour="black", 
+    alpha=0.9, 
+    size=0.5) +
+  geom_point(aes
+           (x=RACE, 
+            y=mean), 
+           stat="identity", # important to indicate stat=“identity”.
+           color="red",
+           size = 1.5,
+           alpha=1) +
+  ggtitle("Standard error of mean maths score by race")
+```
+
+### **Plotting confidence interval of point estimates**
+
+We can also plot the confidence intervals of mean maths score by race. Note how the error bars are sorted by using the average maths scores.
+
+```{r}
+ggplot(my_sum) +
+  geom_errorbar(
+    aes(x=reorder(RACE, -mean), 
+        ymin=mean-1.96*se, # The confidence intervals are computed by using the formula mean+/-1.96*se.
+        ymax=mean+1.96*se), 
+    width=0.2, 
+    colour="black", 
+    alpha=0.9, 
+    size=0.5) +
+  geom_point(aes
+           (x=RACE, 
+            y=mean), 
+           stat="identity", 
+           color="red",
+           size = 1.5,
+           alpha=1) +
+  labs(x = "Maths score",
+       title = "95% confidence interval of mean maths score by race")
+```
+
+### **Plotting interactive error bars of point estimates**
+
+```{r}
+shared_df = SharedData$new(my_sum)
+
+bscols(widths = c(4,8),
+       ggplotly((ggplot(shared_df) +
+                   geom_errorbar(aes(
+                     x=reorder(RACE, -mean),
+                     ymin=mean-2.58*se, 
+                     ymax=mean+2.58*se), 
+                     width=0.2, 
+                     colour="black", 
+                     alpha=0.9, 
+                     size=0.5) +
+                   geom_point(aes(
+                     x=RACE, 
+                     y=mean, 
+                     text = paste("Race:", `RACE`, 
+                                  "<br>N:", `n`,
+                                  "<br>Avg. Scores:", round(mean, digits = 2),
+                                  "<br>95% CI:[", 
+                                  round((mean-2.58*se), digits = 2), ",",
+                                  round((mean+2.58*se), digits = 2),"]")),
+                     stat="identity", 
+                     color="red", 
+                     size = 1.5, 
+                     alpha=1) + 
+                   xlab("Race") + 
+                   ylab("Average Scores") + 
+                   theme_minimal() + 
+                   theme(axis.text.x = element_text(
+                     angle = 45, vjust = 0.5, hjust=1)) +
+                   ggtitle("99% Confidence interval of average /<br>maths scores by race")), 
+                tooltip = "text"), 
+       DT::datatable(shared_df, 
+                     rownames = FALSE, 
+                     class="compact", 
+                     width="100%", 
+                     options = list(pageLength = 10,
+                                    scrollX=T), 
+                     colnames = c("No. of pupils", 
+                                  "Avg Scores",
+                                  "Std Dev",
+                                  "Std Error")) %>%
+         formatRound(columns=c('mean', 'sd', 'se'),
+                     digits=2))
+```
+
+## Visualizing Uncertainty: `ggdist`
+
+`ggdist` is designed for both frequentist and Bayesian uncertainty visualization, taking the view that uncertainty visualization can be unified through the perspective of distribution visualization:
+
+-   for frequentist models, one visualises **confidence distributions** or bootstrap distributions (see vignette(“freq-uncertainty-vis”));
+
+-   for Bayesian models, one visualises **probability distributions** (see the tidybayes package, which builds on top of ggdist).
+
+### **Visualizing the uncertainty of point estimates**
+
+`stat_pointinterval()` is used to build a visual for displaying distribution of maths scores by race.
+
+```{r}
+exam %>%
+  ggplot(aes(x = RACE, 
+             y = MATHS)) +
+  stat_pointinterval() +
+  labs(
+    title = "Visualising confidence intervals of mean math score",
+    subtitle = "Mean Point + Multiple-interval plot")
+```
+
+We can change the arguments in [stat_pointinterval()](https://mjskay.github.io/ggdist/reference/stat_pointinterval.html) to visualize intervals that cover 95% of the distribution.
+
+```{r}
+exam %>%
+  ggplot(aes(x = RACE, y = MATHS)) +
+  stat_pointinterval(.width = 0.95, #  the interval should cover 95% of the distribution, which is equivalent to a 95% confidence interval in frequentist terms
+  point_interval = median_qi) + #  point estimate to be plotted should be the median of the distribution, and qi stands for quantile interval
+  labs(
+    title = "Visualising confidence intervals of median math score - 95%",
+    subtitle = "Median Point + Multiple-interval plot")
+```
+
+We can also visualize both the 95% and 99% of the distributions:
+
+```{r}
+exam %>%
+  ggplot(aes(x = RACE, y = MATHS)) +
+  stat_pointinterval(.width = c(0.95, 0.99),  # 95% confidence interval
+                     point_interval = median_qi,
+                     show.legend = c(size = FALSE),
+                     geom = "pointinterval",
+                     position = "dodge") +
+
+  labs(
+    title = "Visualising confidence intervals of median math score",
+    subtitle = "Median Point with 95% and 99% Confidence Intervals")
+```
+
+```{r}
+exam %>%
+  ggplot(aes(x = RACE, y = MATHS)) +
+  stat_pointinterval(.width = 0.95,  # 95% confidence interval
+                     point_interval = median_qi,
+                     color = "blue") +  # Differentiate the intervals by color
+  stat_pointinterval(.width = 0.99,  # 99% confidence interval
+                     point_interval = median_qi,
+                     color = "red") +   #  Differentiate the intervals by color
+  labs(
+    title = "Visualising confidence intervals of median math score",
+    subtitle = "Median Point with 95% and 99% Confidence Intervals",
+    caption = "Blue: 95% CI, Red: 99% CI") 
+
+```
+
+In the code chunk below, [`stat_gradientinterval()`](https://mjskay.github.io/ggdist/reference/stat_gradientinterval.html) of **ggdist** is used to build a visual for displaying distribution of maths scores by race.
+
+```{r}
+exam %>%
+  ggplot(aes(x = RACE, 
+             y = MATHS)) +
+  stat_gradientinterval(   
+    fill = "tomato",      
+    show.legend = TRUE     
+  ) +                        
+  labs(
+    title = "Visualising confidence intervals of mean math score",
+    subtitle = "Gradient + interval plot")
+
+```
+
+## **Visualising Uncertainty with Hypothetical Outcome Plots (HOPs)**
+
+```{r}
+ggplot(data = exam, 
+       (aes(x = factor(RACE), y = MATHS))) +
+  geom_point(position = position_jitter(
+    height = 0.3, width = 0.05), 
+    linewidth = 0.4, color = "darkolivegreen", alpha = 1/2) +
+  geom_hpline(data = sampler(25, group = RACE), color = "lightpink") +
+  theme_bw() + 
+  transition_states(.draw, 1, 3)
+```
+
+# **Funnel Plots for Fair Comparisons**
+
+## Overview
+
+Funnel plot is a specially designed data visualisation for conducting unbiased comparison between outlets, stores or business entities. In this exercise, I will gain experience on:
+
+-   plotting funnel plots by using **funnelPlotR** package,
+
+-   plotting static funnel plot by using ggplot2 package, and
+
+-   plotting interactive funnel plot by using both **plotly R** and **ggplot2** packages.
+
+## Getting started 
+
+### Loading libraries
+
+```{r}
+pacman::p_load(tidyverse, FunnelPlotR, plotly, knitr)
+
+```
+
+### **Importing Data**
+
+In this section, COVID-19_DKI_Jakarta will be used. The data was downloaded from [Open Data Covid-19 Provinsi DKI Jakarta portal](https://riwayat-file-covid-19-dki-jakarta-jakartagis.hub.arcgis.com/). For this hands-on exercise, we are going to compare the cumulative COVID-19 cases and death by sub-district (i.e. kelurahan) as at 31st July 2021, DKI Jakarta.
+
+The code chunk below imports the data into R and save it into a tibble data frame object called *covid19*.
+
+```{r}
+covid19 <- read_csv("data/COVID-19_DKI_Jakarta.csv") %>%
+  mutate_if(is.character, as.factor)
+```
+
+```{r}
+kable(head(covid19), format = 'html')
+```
+
+## **FunnelPlotR methods**
+
+[**FunnelPlotR**](https://nhs-r-community.github.io/FunnelPlotR/) requires a `numerator` (events of interest), `denominator` (population to be considered) and `group`. The key arguments selected for customisation are:
+
+-   `limit`: plot limits (95 or 99).
+
+-   `label_outliers`: to label outliers (true or false).
+
+-   `Poisson_limits`: to add Poisson limits to the plot.
+
+-   `OD_adjust`: to add overdispersed limits to the plot.
+
+-   `xrange` and `yrange`: to specify the range to display for axes, acts like a zoom function.
+
+-   Other aesthetic components such as graph title, axis labels etc.
+
+### Version 1
+
+```{r}
+#| fig.width=10, fig.height=5
+funnel_plot(
+  numerator = covid19$Death, # events of interest
+  denominator = covid19$Positive, # population to be considered
+  group = covid19$`Sub-district`,
+  title = "Cumulative COVID-19 cases and death by sub-district"
+)
+```
+
+The code chunk above plots an object that does not resemble a funnel. We will try tweaking the input parameters.
+
+-   `data_type`: the default is set to "SR", indirectly standardised ratios. We will try to use "PR" for proportions.
+
+### Version 2
+
+```{r}
+#| fig.width=10, fig.height=5
+funnel_plot(
+  numerator = covid19$Death,
+  denominator = covid19$Positive,
+  group = covid19$`Sub-district`,
+  data_type = "PR",     # Use PR for proportions
+  x_range = c(0, 6500),  # Specify x axis range
+  y_range = c(0, 0.05),   # Specify x axis range
+  title = "Cumulative COVID-19 cases and death by sub-district"
+)
+```
+
+### Version 3
+
+```{r}
+#| fig.width=10, fig.height=5
+funnel_plot(
+  numerator = covid19$Death,
+  denominator = covid19$Positive,
+  group = covid19$`Sub-district`,
+  data_type = "PR",   
+  x_range = c(0, 6500),  
+  y_range = c(0, 0.05),
+  label = NA,
+  title = "Cumulative COVID-19 Fatality Rate by Cumulative Total Number of COVID-19 Positive Cases", #<<          
+  x_label = "Cumulative COVID-19 Positive Cases", #<<
+  y_label = "Cumulative Fatality Rate"  #<<
+)
+```
+
+-   `label = NA` argument is to removed the default label outliers feature.
+
+-   `title` argument is used to add plot title.
+
+-   `x_label` and `y_label` arguments are used to add/edit x-axis and y-axis titles.
+
+## **Funnel Plot for Fair Visual Comparison: ggplot2 methods**
+
+Here we build funnel plots step-by-step with ggplot2. We first compute the baseic statistical details.
+
+![](images/funnelplotstatdetails.png)
+
+### **Computing the basic derived fields**
+
+We first compute the cumulative death rate, standard error, and weighted average of the death rate across groups in the covid19 dataframe.
+
+::: callout-note
+**`weighted.mean()`** function is used to calculate a mean death rate, weighted by the inverse of the square of the standard error (**`1/df$rate.se^2`**). This weighting gives more influence to rates with smaller standard errors, which are considered more reliable.
+:::
+
+```{r}
+#  Derive cumulative death rate and standard error of cumulative death rate
+df <- covid19 %>%
+  mutate(rate = Death / Positive) %>%
+  mutate(rate.se = sqrt((rate*(1-rate)) / (Positive))) %>%
+  filter(rate > 0)
+
+# Compute weighted average of the death rate 
+fit.mean <- weighted.mean(df$rate, 1/df$rate.se^2)
+```
+
+### **Calculate lower and upper limits for 95% and 99.9% CI**
+
+```{r}
+number.seq <- seq(1, max(df$Positive), 1)
+number.ll95 <- fit.mean - 1.96 * sqrt((fit.mean*(1-fit.mean)) / (number.seq)) 
+number.ul95 <- fit.mean + 1.96 * sqrt((fit.mean*(1-fit.mean)) / (number.seq)) 
+number.ll999 <- fit.mean - 3.29 * sqrt((fit.mean*(1-fit.mean)) / (number.seq)) 
+number.ul999 <- fit.mean + 3.29 * sqrt((fit.mean*(1-fit.mean)) / (number.seq)) 
+dfCI <- data.frame(number.ll95, number.ul95, 
+                   number.ll999, number.ul999, 
+                   number.seq, fit.mean)
+```
+
+### Plot static funnel plot
+
+```{r}
+p <- ggplot(df, aes(x = Positive, y = rate)) +
+  geom_point(alpha=0.4) +
+  geom_text(aes(label=`Sub-district`), nudge_y = 0.001, check_overlap = TRUE) +
+  geom_line(data = dfCI, 
+            aes(x = number.seq, 
+                y = number.ll95), 
+            size = 0.4, 
+            colour = "grey40", 
+            linetype = "dashed") +
+  geom_line(data = dfCI, 
+            aes(x = number.seq, 
+                y = number.ul95), 
+            size = 0.4, 
+            colour = "grey40", 
+            linetype = "dashed") +
+  geom_line(data = dfCI, 
+            aes(x = number.seq, 
+                y = number.ll999), 
+            size = 0.4, 
+            colour = "grey40") +
+  geom_line(data = dfCI, 
+            aes(x = number.seq, 
+                y = number.ul999), 
+            size = 0.4, 
+            colour = "grey40") +
+  geom_hline(data = dfCI, 
+             aes(yintercept = fit.mean), 
+             size = 0.4, 
+             colour = "grey40") +
+  coord_cartesian(ylim=c(0,0.05)) +
+  annotate("text", x = 1, y = -0.13, label = "95%", size = 3, colour = "grey40") + 
+  annotate("text", x = 4.5, y = -0.18, label = "99%", size = 3, colour = "grey40") + 
+  ggtitle("Cumulative Fatality Rate by Cumulative Number of COVID-19 Cases") +
+  xlab("Cumulative Number of COVID-19 Cases") + 
+  ylab("Cumulative Fatality Rate") +
+  theme_light() +
+  theme(plot.title = element_text(size=12),
+        legend.position = c(0.91,0.85), 
+        legend.title = element_text(size=7),
+        legend.text = element_text(size=7),
+        legend.background = element_rect(colour = "grey60", linetype = "dotted"),
+        legend.key.height = unit(0.3, "cm"))
+p
+```
+
+### **Interactive Funnel Plot: plotly + ggplot2**
+
+The funnel plot created using ggplot2 functions can be made interactive with `ggplotly()` of **plotly** r package.
+
+```{r}
+fp_ggplotly <- ggplotly(p,
+  tooltip = c("label", 
+              "x", 
+              "y"))
+fp_ggplotly
+```
 
 # References
 

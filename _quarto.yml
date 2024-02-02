@@ -23,6 +23,18 @@ website:
             href: Hands-on_Ex/Hands-on_Ex3/Hands-on_Ex3.html
           - text: Hands-on Exercise 4
             href: Hands-on_Ex/Hands-on_Ex4/Hands-on_Ex4.html
+          - text: Hands-on Exercise 5
+            href: Hands-on_Ex/Hands-on_Ex5/Hands-on_Ex5.html
+          - text: Hands-on Exercise 6
+            href: Hands-on_Ex/Hands-on_Ex6/Hands-on_Ex6.html
+          - text: Hands-on Exercise 7
+            href: Hands-on_Ex/Hands-on_Ex7/Hands-on_Ex7.html
+          - text: Hands-on Exercise 8
+            href: Hands-on_Ex/Hands-on_Ex8/Hands-on_Ex8.html
+          - text: Hands-on Exercise 9
+            href: Hands-on_Ex/Hands-on_Ex9/Hands-on_Ex9.html
+          - text: Hands-on Exercise 10
+            href: Hands-on_Ex/Hands-on_Ex10/Hands-on_Ex10.html
       - text: "{{< iconify fxemoji redapple >}} In-class Exercises"
         menu: 
           - text: In-class Exercise 1

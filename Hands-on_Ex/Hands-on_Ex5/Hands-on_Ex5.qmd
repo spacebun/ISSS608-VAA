@@ -1,0 +1,41 @@
+---
+title: "Hands-on Exercise 5"
+subtitle: "Visual Multivariate Analysis"
+date: February 4, 2024
+date-modified: "last-modified"
+format:
+  html:
+    toc: true
+    number-sections: true
+    code-line-numbers: true
+    
+execute: 
+  eval: true
+  echo: true
+  warning: false  
+---
+
+# Building Ternary Plot with R
+
+## Overview
+
+## Getting started
+
+### Loading libraries
+
+```{r}
+pacman::p_load('plotly', 'tidyverse', 'ggtern')
+```
+
+### Importing data
+
+```{r}
+
+```
+
+# References
+
+-   [**R for Visual Analytics: Visualising Distribution**](https://r4va.netlify.app/chap09).
+-   [**R for Visual Analytics: Visual Statistical Analysis**](https://r4va.netlify.app/chap10).
+-   [**R for Visual Analytics: Visualising Uncertainty**](https://r4va.netlify.app/chap11).
+-   [**R for Visual Analytics: Funnel Plots for Fair Comparisons**](https://r4va.netlify.app/chap12).

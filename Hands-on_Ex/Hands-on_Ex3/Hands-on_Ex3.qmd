@@ -63,7 +63,7 @@ We can makes ggplot graphics interactive with the following three arguments:
 
 ### `tooltip` aesthetic
 
-Let's first demonstrate how we can make some graphs interactive with a tooltip. 
+Let's first demonstrate how we can make some graphs interactive with a tooltip.
 
 #### Display single level tooltip
 
@@ -74,7 +74,6 @@ Three steps to plotting a scatter plot with tooltip that shows studeNT ID:
 -   Call function `girafe` with the ggplot object so that the graphic is translated as a web interactive graphic
 
 ::: panel-tabset
-
 ## The Plot
 
 ```{r}
@@ -138,7 +137,6 @@ girafe(
 The content of the tooltip can be customised by including a list object, that is passed into the aesthetic for *tooltip*.
 
 ::: panel-tabset
-
 ## The Plot
 
 ```{r}
@@ -214,9 +212,7 @@ girafe(
 
 We can use `opts_tooltip()` to further customize the tooltip, such as changing opacity of background, or adding css declarations.
 
-
 ::: panel-tabset
-
 ## The Plot
 
 ```{r}
@@ -301,14 +297,12 @@ girafe(
 )   
 ```
 :::
-
 
 #### Display statistics on tooltip
 
-We can also display derived statistics. 
+We can also display derived statistics.
 
 ::: panel-tabset
-
 ## The Plot
 
 ```{r}
@@ -379,17 +373,16 @@ girafe(ggobj = gg_boxplot,
 
 ```
 :::
-
 
 ### `data_id` aesthetic: Hover effect, and styling the hover effect
 
 In the example below, elements associated with a data_id (i.e GENDER) will be highlighted upon mouse over.
 
-We also demonstrate how css codes are used to customize the highlighting effect. 
+We also demonstrate how css codes are used to customize the highlighting effect.
 
+*Updated on 3 Feb 2024: Added tooltip for data_id aesthetic*
 
 ::: panel-tabset
-
 ## The Plot
 
 ```{r}
@@ -398,8 +391,10 @@ We also demonstrate how css codes are used to customize the highlighting effect.
 # Plot ggplot object
 p <- ggplot(data=exam_data, 
             aes(x = MATHS, y = SCIENCE)) +
+  
   geom_point_interactive(
-    aes(data_id = GENDER)) + # Pass in data_id
+    aes(tooltip = GENDER,  # Update on 03 Feb: Added in tooltip
+        data_id = GENDER)) + # Pass in data_id
   scale_x_continuous(limits = c(0, NA)) + 
   scale_y_continuous(limits = c(0, NA)) +
   labs(title = "Positive Relationship between Science and Maths Scores",
@@ -432,8 +427,10 @@ girafe(
 # Plot ggplot object
 p <- ggplot(data=exam_data, 
             aes(x = MATHS, y = SCIENCE)) +
+  
   geom_point_interactive(
-    aes(data_id = GENDER)) +  # Pass in data_id
+    aes(tooltip = GENDER, # Update on 03 Feb: Added in tooltip
+        data_id = GENDER)) + # Pass in data_id
   scale_x_continuous(limits = c(0, NA)) + 
   scale_y_continuous(limits = c(0, NA)) +
   labs(title = "Positive Relationship between Science and Maths Scores",
@@ -455,7 +452,6 @@ girafe(
     opts_hover_inv(css = "opacity:0.2;")
   )
 )
-
 
 ```
 :::
@@ -463,7 +459,6 @@ girafe(
 #### Combining tooltip and hover effect
 
 ::: panel-tabset
-
 ## The Plot
 
 ```{r}
@@ -547,9 +542,7 @@ girafe(
 
 `onclick` argument of ggiraph provides hotlink interactivity on the web.
 
-
 ::: panel-tabset
-
 ## The Plot
 
 ```{r}
@@ -601,18 +594,27 @@ girafe(
 
 ### Coordinated Multiple Views with ggiraph
 
-We can use *patchwork* function to create interactive coorindated multiple views. 
+We can use *patchwork* function to create interactive coordinated multiple views, that are **linked** by student ID.
 
 ::: panel-tabset
-
 ## The Plot
+
 ```{r}
 #| echo: false
+
+# Update on 03 Feb 2024: Add in tooltip
+exam_data$tooltip <- c(paste0(     
+  "Name = ", exam_data$ID,         
+  "\n Math Score = ", exam_data$MATHS,
+  "\n Science Score = ", exam_data$SCIENCE,
+  "\n English Score = ", exam_data$ENGLISH)) 
+
 # Plot first ggplot object
 p1 <- ggplot(data=exam_data, 
             aes(x = MATHS, y = SCIENCE)) +
   geom_point_interactive(
-    aes(data_id = ID)) + # Pass in data_id
+    aes(tooltip = exam_data$tooltip, 
+        data_id = ID)) + # Pass in data_id
   scale_x_continuous(limits = c(0, NA)) + 
   scale_y_continuous(limits = c(0, NA)) +
   labs(y = "Science\n Scores",
@@ -624,7 +626,8 @@ p1 <- ggplot(data=exam_data,
 p2 <- ggplot(data=exam_data, 
             aes(x = MATHS, y = ENGLISH)) +
   geom_point_interactive(
-    aes(data_id = ID)) + # Pass in data_id
+    aes(tooltip = exam_data$tooltip,
+        data_id = ID)) + # Pass in data_id
   scale_x_continuous(limits = c(0, NA)) + 
   scale_y_continuous(limits = c(0, NA)) +
   labs(y = "English\n Scores",
@@ -633,7 +636,7 @@ p2 <- ggplot(data=exam_data,
         axis.title.x = element_text(size = 8))
 
 # Pass both ggplot objects into girafe, using patchwork
-girafe(code = print(p1 + p2), 
+girafe(code = print(p1 + p2), # Take note that print is required
        width_svg = 6,
        height_svg = 6*0.618,
        options = list(
@@ -647,11 +650,20 @@ girafe(code = print(p1 + p2),
 
 ```{r}
 #| eval: false
+
+# Update on 03 Feb 2024: Add in tooltip
+exam_data$tooltip <- c(paste0(     
+  "Name = ", exam_data$ID,         
+  "\n Math Score = ", exam_data$MATHS,
+  "\n Science Score = ", exam_data$SCIENCE,
+  "\n English Score = ", exam_data$ENGLISH)) 
+
 # Plot first ggplot object
 p1 <- ggplot(data=exam_data, 
             aes(x = MATHS, y = SCIENCE)) +
   geom_point_interactive(
-    aes(data_id = ID)) + # Pass in data_id
+    aes(tooltip = exam_data$tooltip, 
+        data_id = ID)) + # Pass in data_id
   scale_x_continuous(limits = c(0, NA)) + 
   scale_y_continuous(limits = c(0, NA)) +
   labs(y = "Science\n Scores",
@@ -663,7 +675,8 @@ p1 <- ggplot(data=exam_data,
 p2 <- ggplot(data=exam_data, 
             aes(x = MATHS, y = ENGLISH)) +
   geom_point_interactive(
-    aes(data_id = ID)) + # Pass in data_id
+    aes(tooltip = exam_data$tooltip,
+        data_id = ID)) + # Pass in data_id
   scale_x_continuous(limits = c(0, NA)) + 
   scale_y_continuous(limits = c(0, NA)) +
   labs(y = "English\n Scores",
@@ -672,7 +685,7 @@ p2 <- ggplot(data=exam_data,
         axis.title.x = element_text(size = 8))
 
 # Pass both ggplot objects into girafe, using patchwork
-girafe(code = print(p1 + p2), 
+girafe(code = print(p1 + p2), # Take note that print is required
        width_svg = 6,
        height_svg = 6*0.618,
        options = list(
@@ -681,7 +694,6 @@ girafe(code = print(p1 + p2),
          )
        ) 
 ```
-
 :::
 
 ## Interactive Data Visualisation - plotly methods
@@ -691,14 +703,13 @@ There are two ways to create interactive graph by using `plotly`, they are:
 -   by using `plot_ly()`, and
 -   by using `ggplotly()`
 
-
 ### Creating an interactive scatter plot: plot_ly() method
 
 Below we explore a basic way to plot an interactive plot.
 
 ::: panel-tabset
-
 ## The Plot
+
 ```{r}
 #| echo: false
 plot_ly(data = exam_data, 
@@ -718,7 +729,6 @@ plot_ly(data = exam_data,
         type = 'scatter',
         mode = 'markers') 
 ```
-
 :::
 
 #### Working with visual variable
@@ -726,8 +736,8 @@ plot_ly(data = exam_data,
 In the code chunk below, *color* argument is mapped to a qualitative visual variable (i.e. RACE).
 
 ::: panel-tabset
-
 ## The Plot
+
 ```{r}
 #| echo: false
 plot_ly(data = exam_data, 
@@ -749,15 +759,13 @@ plot_ly(data = exam_data,
         type = 'scatter',
         mode = 'markers')
 ```
-
 :::
-
 
 Here is another example for a bar chart. In this example we first preprocess the data to get the counts of students.
 
 ::: panel-tabset
-
 ## The Plot
+
 ```{r}
 #| echo: false
 # Preprocess the data to get counts per Race and Gender
@@ -795,7 +803,6 @@ plot_ly(data = processed_data,
          barmode = 'group',
          xaxis = list(title = 'Race'))
 ```
-
 :::
 
 ### Using `ggplotly()` to create interactive charts
@@ -804,6 +811,7 @@ We replicate the bar chart using `ggplotly()`.
 
 ::: panel-tabset
 ## The Plot
+
 ```{r}
 #| echo: false
 # Preprocess the data to get counts per Race and Gender
@@ -849,9 +857,9 @@ The creation of a coordinated linked plot by using plotly involves three steps:
 -   two scatterplots will be created by using ggplot2 functions.
 -   lastly, subplot() of plotly package is used to place them next to each other side-by-side.
 
-
 ::: panel-tabset
 ## The Plot
+
 ```{r}
 #| echo: false
 d <- highlight_key(exam_data)
@@ -917,10 +925,9 @@ subplot(ggplotly(p1), ggplotly(p2),
 ```
 :::
 
-Below is another attempt to create multiple views of plots that are not linked. 
+Below is another attempt to create multiple views of plots that are not linked.
 
 ::: panel-tabset
-
 ## The Plot
 
 ```{r}
@@ -1009,8 +1016,8 @@ combined_plot %>%
 
 Crosstalk is an add-on to the htmlwidgets package. It extends htmlwidgets with a set of classes, functions, and conventions for implementing cross-widget interactions (currently, linked brushing and filtering).
 
-
 ### Interactive Data Table: DT package
+
 ```{r}
 DT::datatable(exam_data, class= "compact")
 ```
@@ -1020,7 +1027,6 @@ DT::datatable(exam_data, class= "compact")
 Besides placing plots with the datatable, we also demo the usage of `highlight_key()`,which simply creates an object of class [crosstalk::SharedData](https://rdrr.io/cran/crosstalk/man/SharedData.html).
 
 ::: panel-tabset
-
 ## The Plot
 
 ```{r}
@@ -1061,6 +1067,7 @@ crosstalk::bscols(gg,
                   widths = 5) 
 ```
 :::
+
 Things to learn from the above code chunk:
 
 -   `highlight()` is a function of plotly package. It sets a variety of options for brushing (i.e., highlighting) multiple plots. These options are primarily designed for linking multiple plotly graphs, and may not behave as expected when linking plotly to another htmlwidget package via crosstalk. In some cases, other htmlwidgets will respect these options, such as persistent selection in leaflet.
@@ -1070,11 +1077,11 @@ Things to learn from the above code chunk:
 
 ## Overview
 
-In this exercise I will learn 
+In this exercise I will learn
 
 -   how to create animated data visualisation by using **gganimate** and **plotly**
--   how to reshape data by using **tidyr** 
--   how to process, wrangle and transform data by using **dplyr** 
+-   how to reshape data by using **tidyr**
+-   how to process, wrangle and transform data by using **dplyr**
 
 ## Getting Started
 
@@ -1109,10 +1116,9 @@ globalPop <- read_xls("data/GlobalPopulation.xls",
 
 ### Building a static plot
 
-We first build a static line chart showing the population for all countries in Asia for the year of 2020. . 
+We first build a static line chart showing the population for all countries in Asia for the year of 2020. .
 
 ::: panel-tabset
-
 ## The Plot
 
 ```{r}
@@ -1142,7 +1148,6 @@ ggplot(filter(globalPop, Year == 2020, Continent == "Asia"), aes(x = reorder(Cou
 ### Building the animated bar plot
 
 ::: panel-tabset
-
 ## The Plot
 
 ```{r}
@@ -1174,9 +1179,7 @@ ggplot(filter(globalPop, Continent == "Asia"), aes(x = reorder(Country, Populati
 
 You can further customize the animation:
 
-
 ::: panel-tabset
-
 ## The Plot
 
 ```{r}
@@ -1227,7 +1230,6 @@ animate(anim, nframes = 100, height = 600, width = 1000, fps = 5)
 ### Building an animated bubble plot: `ggplotly()` method
 
 ::: panel-tabset
-
 ## The Plot
 
 ```{r}
@@ -1270,12 +1272,10 @@ gg <- ggplot(filter(globalPop, Continent == "Asia"),
 ggplotly(gg)
 ```
 :::
-
 
 ### Building an animated bubble plot: `plot_ly()` method
 
 ::: panel-tabset
-
 ## The Plot
 
 ```{r}
@@ -1319,7 +1319,6 @@ bp <- globalPop %>%
 bp
 ```
 :::
-
 
 # References
 

@@ -1047,7 +1047,7 @@ Funnel plot is a specially designed data visualisation for conducting unbiased c
 
 -   plotting interactive funnel plot by using both **plotly R** and **ggplot2** packages.
 
-## Getting started 
+## Getting started
 
 ### Loading libraries
 

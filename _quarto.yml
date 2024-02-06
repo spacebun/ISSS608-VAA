@@ -23,8 +23,16 @@ website:
             href: Hands-on_Ex/Hands-on_Ex3/Hands-on_Ex3.html
           - text: Hands-on Exercise 4
             href: Hands-on_Ex/Hands-on_Ex4/Hands-on_Ex4.html
-          - text: Hands-on Exercise 5
-            href: Hands-on_Ex/Hands-on_Ex5/Hands-on_Ex5.html
+          - text: Hands-on Exercise 5a
+            href: Hands-on_Ex/Hands-on_Ex5/Hands-on_Ex5a.html
+          - text: Hands-on Exercise 5b
+            href: Hands-on_Ex/Hands-on_Ex5/Hands-on_Ex5b.html
+          - text: Hands-on Exercise 5c
+            href: Hands-on_Ex/Hands-on_Ex5/Hands-on_Ex5c.html
+          - text: Hands-on Exercise 5d
+            href: Hands-on_Ex/Hands-on_Ex5/Hands-on_Ex5d.html
+          - text: Hands-on Exercise 5e
+            href: Hands-on_Ex/Hands-on_Ex5/Hands-on_Ex5e.html
           - text: Hands-on Exercise 6
             href: Hands-on_Ex/Hands-on_Ex6/Hands-on_Ex6.html
           - text: Hands-on Exercise 7
@@ -45,6 +53,10 @@ website:
             href: Take-home_Ex/Take-home_Ex1/Take-home_Ex1.html
           - text: Take-home Exercise 2
             href: Take-home_Ex/Take-home_Ex2/Take-home_Ex2.html
+          - text: Take-home Exercise 3
+            href: Take-home_Ex/Take-home_Ex2/Take-home_Ex3.html
+          - text: Take-home Exercise 4
+            href: Take-home_Ex/Take-home_Ex2/Take-home_Ex4.html
     right:
       - text: "{{< iconify fxemoji housebuilding >}}"
         href: "/"

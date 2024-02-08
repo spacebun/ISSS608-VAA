@@ -8,7 +8,7 @@
 
 <meta name="dcterms.date" content="2024-02-04">
 
-<title>spacebun - Hands-on Exercise 5 (WIP)</title>
+<title>spacebun - Hands-on Exercise 5b</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -263,6 +263,16 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   <li><a href="#basic-plot" id="toc-basic-plot" class="nav-link" data-scroll-target="#basic-plot"><span class="header-section-number">1.5.1</span> Basic plot</a></li>
   </ul></li>
   <li><a href="#building-multiple-plots" id="toc-building-multiple-plots" class="nav-link" data-scroll-target="#building-multiple-plots"><span class="header-section-number">1.6</span> Building multiple plots</a></li>
+  <li><a href="#visualising-correlation-matrix-using-corrplot" id="toc-visualising-correlation-matrix-using-corrplot" class="nav-link" data-scroll-target="#visualising-correlation-matrix-using-corrplot"><span class="header-section-number">1.7</span> Visualising Correlation Matrix using <code>corrplot</code></a>
+  <ul class="collapse">
+  <li><a href="#getting-started-with-corrplot" id="toc-getting-started-with-corrplot" class="nav-link" data-scroll-target="#getting-started-with-corrplot"><span class="header-section-number">1.7.1</span> Getting started with corrplot</a></li>
+  <li><a href="#working-with-visual-geometrics" id="toc-working-with-visual-geometrics" class="nav-link" data-scroll-target="#working-with-visual-geometrics"><span class="header-section-number">1.7.2</span> Working with visual geometrics</a></li>
+  <li><a href="#working-with-layout" id="toc-working-with-layout" class="nav-link" data-scroll-target="#working-with-layout"><span class="header-section-number">1.7.3</span> Working with layout</a></li>
+  <li><a href="#working-with-mixed-layout" id="toc-working-with-mixed-layout" class="nav-link" data-scroll-target="#working-with-mixed-layout"><span class="header-section-number">1.7.4</span> Working with mixed layout</a></li>
+  <li><a href="#combining-corrgram-with-the-significant-test" id="toc-combining-corrgram-with-the-significant-test" class="nav-link" data-scroll-target="#combining-corrgram-with-the-significant-test"><span class="header-section-number">1.7.5</span> Combining corrgram with the significant test</a></li>
+  <li><a href="#reorder-a-corrgram" id="toc-reorder-a-corrgram" class="nav-link" data-scroll-target="#reorder-a-corrgram"><span class="header-section-number">1.7.6</span> Reorder a corrgram</a></li>
+  <li><a href="#reorder-a-corrgram-using-hclust" id="toc-reorder-a-corrgram-using-hclust" class="nav-link" data-scroll-target="#reorder-a-corrgram-using-hclust"><span class="header-section-number">1.7.7</span> Reorder a corrgram using <code>hclust()</code></a></li>
+  </ul></li>
   </ul></li>
   <li><a href="#references" id="toc-references" class="nav-link" data-scroll-target="#references"><span class="header-section-number">2</span> References</a></li>
   </ul>
@@ -273,7 +283,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 
 <header id="title-block-header" class="quarto-title-block default">
 <div class="quarto-title">
-<h1 class="title">Hands-on Exercise 5 (WIP)</h1>
+<h1 class="title">Hands-on Exercise 5b</h1>
 <p class="subtitle lead">Visual Multivariate Analysis: Visual Correlation Analysis</p>
 </div>
 
@@ -292,7 +302,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
     <div>
     <div class="quarto-title-meta-heading">Modified</div>
     <div class="quarto-title-meta-contents">
-      <p class="date-modified">February 7, 2024</p>
+      <p class="date-modified">February 8, 2024</p>
     </div>
   </div>
     
@@ -461,7 +471,7 @@ Note
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>For <code>ggcorrplot.arg</code>, the list should avoid any of the following arguments since they are already internally being used:&nbsp;<code>corr</code>,&nbsp;<code>method</code>,&nbsp;<code>p.mat</code>,&nbsp;<code>sig.level</code>,&nbsp;<code>ggtheme</code>,&nbsp;<code>colors</code>,&nbsp;<code>lab</code>,&nbsp;<code>pch</code>,&nbsp;<code>legend.title</code>,&nbsp;<code>digits</code>.</p>
+<p>For <code>ggcorrplot.arg</code>, the list should avoid any of the following arguments since they are already internally being used: <code>corr</code>, <code>method</code>, <code>p.mat</code>, <code>sig.level</code>, <code>ggtheme</code>, <code>colors</code>, <code>lab</code>, <code>pch</code>, <code>legend.title</code>, <code>digits</code>.</p>
 </div>
 </div>
 </section>
@@ -496,12 +506,181 @@ Note
 </div>
 </div>
 </section>
+<section id="visualising-correlation-matrix-using-corrplot" class="level2" data-number="1.7">
+<h2 data-number="1.7" class="anchored" data-anchor-id="visualising-correlation-matrix-using-corrplot"><span class="header-section-number">1.7</span> Visualising Correlation Matrix using <code>corrplot</code></h2>
+<p>First, read up on <a href="https://cran.r-project.org/web/packages/corrplot/vignettes/corrplot-intro.html">this link</a>.</p>
+<ul>
+<li>about 50 parameters including <code>method</code>, <code>type</code>, <code>order</code>, <code>diag</code></li>
+<li>color intensity of glyph is proportional to correlation coefficient by default</li>
+<li>The colors of the correlation plots can be customized by <code>col</code> in corrplot()</li>
+</ul>
+<section id="getting-started-with-corrplot" class="level3" data-number="1.7.1">
+<h3 data-number="1.7.1" class="anchored" data-anchor-id="getting-started-with-corrplot"><span class="header-section-number">1.7.1</span> Getting started with corrplot</h3>
+<p>First we compute the correlation matrix of the data frame:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb11"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1"></a>wine.cor <span class="ot">&lt;-</span> <span class="fu">cor</span>(wine[,<span class="dv">1</span><span class="sc">:</span><span class="dv">11</span>])</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Nex, we plot the corrgram:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb12"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1"></a><span class="fu">corrplot</span>(wine.cor)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="Hands-on_Ex5b_files/figure-html/unnamed-chunk-12-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>Things that can be changed:</p>
+<ul>
+<li>Visualization method (<code>method</code>)</li>
+<li>Layout (<code>type</code>)</li>
+<li>Color scheme (diverging or sequential)</li>
+<li>color choice for positive or negative correlation coefficient</li>
+<li>saturation to represent strength of correlation coeffcient</li>
+</ul>
+</section>
+<section id="working-with-visual-geometrics" class="level3" data-number="1.7.2">
+<h3 data-number="1.7.2" class="anchored" data-anchor-id="working-with-visual-geometrics"><span class="header-section-number">1.7.2</span> Working with visual geometrics</h3>
+<p>Seven visualization methods ‘<code>circle</code>’, ‘<code>square</code>’, ‘<code>ellipse</code>’, ‘<code>number</code>’, ‘<code>shade</code>’, ‘<code>color</code>’, ‘<code>pie</code>’ Vary the visualization method with <code>method</code> argument.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb13"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1"></a><span class="fu">corrplot</span>(wine.cor, </span>
+<span id="cb13-2"><a href="#cb13-2"></a>         <span class="at">method =</span> <span class="st">"color"</span>) </span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="Hands-on_Ex5b_files/figure-html/unnamed-chunk-13-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="working-with-layout" class="level3" data-number="1.7.3">
+<h3 data-number="1.7.3" class="anchored" data-anchor-id="working-with-layout"><span class="header-section-number">1.7.3</span> Working with layout</h3>
+<ul>
+<li>use <code>type</code> argument to vary layout: “full”, “upper” or “lower”</li>
+</ul>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb14"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1"></a><span class="fu">corrplot</span>(wine.cor, </span>
+<span id="cb14-2"><a href="#cb14-2"></a>         <span class="at">method =</span> <span class="st">"color"</span>, </span>
+<span id="cb14-3"><a href="#cb14-3"></a>         <span class="at">type=</span><span class="st">"upper"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="Hands-on_Ex5b_files/figure-html/unnamed-chunk-14-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="working-with-mixed-layout" class="level3" data-number="1.7.4">
+<h3 data-number="1.7.4" class="anchored" data-anchor-id="working-with-mixed-layout"><span class="header-section-number">1.7.4</span> Working with mixed layout</h3>
+<ul>
+<li><code>corrplot.mixed()</code>: Set visual methods of lower and upper triangular separately</li>
+</ul>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb15"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1"></a><span class="fu">corrplot.mixed</span>(wine.cor, </span>
+<span id="cb15-2"><a href="#cb15-2"></a>               <span class="at">lower =</span> <span class="st">"color"</span>, </span>
+<span id="cb15-3"><a href="#cb15-3"></a>               <span class="at">upper =</span> <span class="st">"pie"</span>, <span class="co">#  circles are filled clockwise for positive values, anti-clockwise for negative values</span></span>
+<span id="cb15-4"><a href="#cb15-4"></a>               <span class="at">tl.pos =</span> <span class="st">"lt"</span>, <span class="co"># “d”, “lt”, “n” text label in diagonal, lt is left and top, n is none</span></span>
+<span id="cb15-5"><a href="#cb15-5"></a>               <span class="at">diag =</span> <span class="st">"u"</span>, <span class="co"># “n”, “l”, “u” none, lower or upper</span></span>
+<span id="cb15-6"><a href="#cb15-6"></a>               <span class="at">tl.col =</span> <span class="st">"black"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="Hands-on_Ex5b_files/figure-html/unnamed-chunk-15-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="combining-corrgram-with-the-significant-test" class="level3" data-number="1.7.5">
+<h3 data-number="1.7.5" class="anchored" data-anchor-id="combining-corrgram-with-the-significant-test"><span class="header-section-number">1.7.5</span> Combining corrgram with the significant test</h3>
+<ul>
+<li><code>p.mat</code> is the p-value matrix.</li>
+<li>We can get p-value matrix and confidence intervals matrix by <code>cor.mtest()</code> which returns a list containing: <code>p</code> is the p-values matrix, <code>lowCI</code> is the lower bound of confidence interval matrix. <code>uppCI</code> is the lower bound of confidence interval matrix.</li>
+</ul>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb16"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1"></a>wine.sig <span class="ot">=</span> <span class="fu">cor.mtest</span>(wine.cor, <span class="at">conf.level=</span> .<span class="dv">95</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Then use p.mat argument:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb17"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1"></a><span class="fu">corrplot</span>(wine.cor,</span>
+<span id="cb17-2"><a href="#cb17-2"></a>         <span class="at">method =</span> <span class="st">"number"</span>,</span>
+<span id="cb17-3"><a href="#cb17-3"></a>         <span class="at">type =</span> <span class="st">"lower"</span>,</span>
+<span id="cb17-4"><a href="#cb17-4"></a>         <span class="at">diag =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb17-5"><a href="#cb17-5"></a>         <span class="at">tl.col =</span> <span class="st">"black"</span>,</span>
+<span id="cb17-6"><a href="#cb17-6"></a>         <span class="at">tl.srt =</span> <span class="dv">45</span>,</span>
+<span id="cb17-7"><a href="#cb17-7"></a>         <span class="at">p.mat =</span> wine.sig<span class="sc">$</span>p,</span>
+<span id="cb17-8"><a href="#cb17-8"></a>         <span class="at">sig.level =</span> .<span class="dv">05</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="Hands-on_Ex5b_files/figure-html/unnamed-chunk-17-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="reorder-a-corrgram" class="level3" data-number="1.7.6">
+<h3 data-number="1.7.6" class="anchored" data-anchor-id="reorder-a-corrgram"><span class="header-section-number">1.7.6</span> Reorder a corrgram</h3>
+<p>We can re-order the matrix according to correlation coefficients using <em><code>order</code></em> argument.</p>
+<ul>
+<li>“AOE” is for the angular order of the eigenvectors. See Michael Friendly (2002) for details.</li>
+<li>“FPC” for the first principal component order.</li>
+<li>“hclust” for hierarchical clustering order, and “hclust.method” for the agglomeration method to be used.
+<ul>
+<li>“hclust.method” should be one of “ward”, “single”, “complete”, “average”, “mcquitty”, “median” or “centroid”.</li>
+</ul></li>
+<li>“alphabet” for alphabetical order.</li>
+</ul>
+<p>More algorithms can be found in <strong>seriation</strong> package.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb18"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1"></a><span class="fu">corrplot.mixed</span>(wine.cor, </span>
+<span id="cb18-2"><a href="#cb18-2"></a>               <span class="at">lower =</span> <span class="st">"color"</span>, </span>
+<span id="cb18-3"><a href="#cb18-3"></a>               <span class="at">upper =</span> <span class="st">"number"</span>,</span>
+<span id="cb18-4"><a href="#cb18-4"></a>               <span class="at">tl.pos =</span> <span class="st">"lt"</span>,</span>
+<span id="cb18-5"><a href="#cb18-5"></a>               <span class="at">diag =</span> <span class="st">"l"</span>,</span>
+<span id="cb18-6"><a href="#cb18-6"></a>               <span class="at">order=</span><span class="st">"AOE"</span>,</span>
+<span id="cb18-7"><a href="#cb18-7"></a>               <span class="at">tl.col =</span> <span class="st">"black"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="Hands-on_Ex5b_files/figure-html/unnamed-chunk-18-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="reorder-a-corrgram-using-hclust" class="level3" data-number="1.7.7">
+<h3 data-number="1.7.7" class="anchored" data-anchor-id="reorder-a-corrgram-using-hclust"><span class="header-section-number">1.7.7</span> Reorder a corrgram using <code>hclust()</code></h3>
+<p>If using <strong>hclust</strong>, <strong><em>corrplot()</em></strong> can draw rectangles around the corrgram based on the results of hierarchical clustering.</p>
+<ul>
+<li><code>'hclust.method'</code>&nbsp;should be one of&nbsp;<code>'ward'</code>,&nbsp;<code>'ward.D'</code>,&nbsp;<code>'ward.D2'</code>,&nbsp;<code>'single'</code>,&nbsp;<code>'complete'</code>,&nbsp;<code>'average'</code>,&nbsp;<code>'mcquitty'</code>,&nbsp;<code>'median'</code>&nbsp;or&nbsp;<code>'centroid'</code>.</li>
+</ul>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb19"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1"></a><span class="fu">corrplot</span>(wine.cor, </span>
+<span id="cb19-2"><a href="#cb19-2"></a>         <span class="at">method =</span> <span class="st">"color"</span>, </span>
+<span id="cb19-3"><a href="#cb19-3"></a>         <span class="at">tl.pos =</span> <span class="st">"lt"</span>,</span>
+<span id="cb19-4"><a href="#cb19-4"></a>         <span class="at">tl.col =</span> <span class="st">"black"</span>,</span>
+<span id="cb19-5"><a href="#cb19-5"></a>         <span class="at">order=</span><span class="st">"hclust"</span>,</span>
+<span id="cb19-6"><a href="#cb19-6"></a>         <span class="at">hclust.method =</span> <span class="st">"ward.D"</span>,</span>
+<span id="cb19-7"><a href="#cb19-7"></a>         <span class="at">addrect =</span> <span class="dv">3</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="Hands-on_Ex5b_files/figure-html/unnamed-chunk-19-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+</section>
 </section>
 <section id="references" class="level1" data-number="2">
 <h1 data-number="2"><span class="header-section-number">2</span> References</h1>
 <ul>
 <li><a href="https://r4va.netlify.app/chap06"><strong>R for Visual Analytics: Visual Correlation Analysis</strong></a></li>
-<li>R for Visual Analytics:</li>
 </ul>
 
 

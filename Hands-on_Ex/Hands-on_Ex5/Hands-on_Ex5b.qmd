@@ -1,5 +1,5 @@
 ---
-title: "Hands-on Exercise 5 (WIP)"
+title: "Hands-on Exercise 5b"
 subtitle: "Visual Multivariate Analysis: Visual Correlation Analysis"
 date: February 4, 2024
 date-modified: "last-modified"
@@ -125,7 +125,7 @@ ggcorrmat(
 ```
 
 ::: callout-note
-For ` ggcorrplot.arg`, the list should avoid any of the following arguments since they are already internally being used: `corr`, `method`, `p.mat`, `sig.level`, `ggtheme`, `colors`, `lab`, `pch`, `legend.title`, `digits`.
+For `ggcorrplot.arg`, the list should avoid any of the following arguments since they are already internally being used: `corr`, `method`, `p.mat`, `sig.level`, `ggtheme`, `colors`, `lab`, `pch`, `legend.title`, `digits`.
 :::
 
 ## Building multiple plots
@@ -154,8 +154,128 @@ grouped_ggcorrmat(
 )
 ```
 
+## Visualising Correlation Matrix using `corrplot`
+
+First, read up on [this link](https://cran.r-project.org/web/packages/corrplot/vignettes/corrplot-intro.html).
+
+-   about 50 parameters including `method`, `type`, `order`, `diag`
+-   color intensity of glyph is proportional to correlation coefficient by default
+-   The colors of the correlation plots can be customized by `col` in corrplot()
+
+### Getting started with corrplot
+
+First we compute the correlation matrix of the data frame:
+
+```{r}
+wine.cor <- cor(wine[,1:11])
+```
+
+Nex, we plot the corrgram:
+
+```{r}
+corrplot(wine.cor)
+```
+
+Things that can be changed:
+
+-   Visualization method (`method`)
+-   Layout (`type`)
+-   Color scheme (diverging or sequential)
+-   color choice for positive or negative correlation coefficient
+-   saturation to represent strength of correlation coeffcient
+
+### Working with visual geometrics
+
+Seven visualization methods '`circle`', '`square`', '`ellipse`', '`number`', '`shade`', '`color`', '`pie`' Vary the visualization method with `method` argument.
+
+```{r}
+corrplot(wine.cor, 
+         method = "color") 
+```
+
+### Working with layout
+
+-   use `type` argument to vary layout: “full”, “upper” or “lower”
+
+```{r}
+corrplot(wine.cor, 
+         method = "color", 
+         type="upper")
+```
+
+### Working with mixed layout
+
+-   `corrplot.mixed()`: Set visual methods of lower and upper triangular separately
+
+```{r}
+corrplot.mixed(wine.cor, 
+               lower = "color", 
+               upper = "pie", #  circles are filled clockwise for positive values, anti-clockwise for negative values
+               tl.pos = "lt", # “d”, “lt”, “n” text label in diagonal, lt is left and top, n is none
+               diag = "u", # “n”, “l”, “u” none, lower or upper
+               tl.col = "black")
+```
+
+### Combining corrgram with the significant test
+
+-   `p.mat` is the p-value matrix.
+-   We can get p-value matrix and confidence intervals matrix by `cor.mtest()` which returns a list containing: `p` is the p-values matrix, `lowCI` is the lower bound of confidence interval matrix. `uppCI` is the lower bound of confidence interval matrix.
+
+```{r}
+wine.sig = cor.mtest(wine.cor, conf.level= .95)
+```
+
+Then use p.mat argument:
+
+```{r}
+corrplot(wine.cor,
+         method = "number",
+         type = "lower",
+         diag = FALSE,
+         tl.col = "black",
+         tl.srt = 45,
+         p.mat = wine.sig$p,
+         sig.level = .05)
+```
+
+### Reorder a corrgram
+
+We can re-order the matrix according to correlation coefficients using *`order`* argument.
+
+-   “AOE” is for the angular order of the eigenvectors. See Michael Friendly (2002) for details.
+-   “FPC” for the first principal component order.
+-   “hclust” for hierarchical clustering order, and “hclust.method” for the agglomeration method to be used.
+    -   “hclust.method” should be one of “ward”, “single”, “complete”, “average”, “mcquitty”, “median” or “centroid”.
+-   “alphabet” for alphabetical order.
+
+More algorithms can be found in **seriation** package.
+
+```{r}
+corrplot.mixed(wine.cor, 
+               lower = "color", 
+               upper = "number",
+               tl.pos = "lt",
+               diag = "l",
+               order="AOE",
+               tl.col = "black")
+```
+
+### Reorder a corrgram using `hclust()`
+
+If using **hclust**, ***corrplot()*** can draw rectangles around the corrgram based on the results of hierarchical clustering.
+
+-   `'hclust.method'` should be one of `'ward'`, `'ward.D'`, `'ward.D2'`, `'single'`, `'complete'`, `'average'`, `'mcquitty'`, `'median'` or `'centroid'`.
+
+```{r}
+corrplot(wine.cor, 
+         method = "color", 
+         tl.pos = "lt",
+         tl.col = "black",
+         order="hclust",
+         hclust.method = "ward.D",
+         addrect = 3)
+```
 
 # References
 
 -   [**R for Visual Analytics: Visual Correlation Analysis**](https://r4va.netlify.app/chap06)
--   R for Visual Analytics:

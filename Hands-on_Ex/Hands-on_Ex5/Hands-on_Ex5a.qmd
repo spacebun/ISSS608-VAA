@@ -1,5 +1,5 @@
 ---
-title: "Hands-on Exercise 5"
+title: "Hands-on Exercise 5a"
 subtitle: "Visual Multivariate Analysis: Creating Ternary Plot with R"
 date: February 4, 2024
 date-modified: "last-modified"

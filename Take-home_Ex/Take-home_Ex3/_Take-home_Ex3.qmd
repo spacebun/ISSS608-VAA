@@ -1,0 +1,253 @@
+---
+title: "Take-home Exercise 3 (Work in Progress)"
+subtitle: "Be Weatherwise or Otherwise"
+date: February 11, 2024
+date-modified:  last-modified
+format:
+  html:
+    toc: true
+    number-sections: false
+    code-line-numbers: false
+    
+execute: 
+  eval: true
+  echo: true
+  warning: false  
+---
+
+# Overview
+
+In this exercise, we will apply **visual interactivity** and **visualizing uncertainty** to validate the [claims](https://www.nccs.gov.sg/singapores-climate-action/impact-of-climate-change-in-singapore/) that:
+
+-   Daily mean temperature are projected to increase by 1.4 to 4.6, and
+
+-   The contrast between the wet months (November to January) and dry month (February and June to September) is likely to be more pronounced.
+
+To do so, we will we use the daily temperature and rainfall records of **June** of the year 1983, 1993, 2003, 2013 and 2023 collected at the **Changi** climate station, to create an analytics-driven data visualisation. At the same time, we will apply appropriate interactive techniques to enhance the user experience in data discovery and/or visual story-telling.
+
+# Getting started
+
+## Load packages
+
+First, we load packages required:
+
+-   **readr**: for reading in CSV files
+
+-   **dplyr**: for manipulating, concatenating dataframes
+
+-   **purrr**: for handling lists and functional programming
+
+-   **naniar**: for using *miss_vis()* function to check data for missing values
+
+```{r}
+pacman::p_load(readr, dplyr, purrr, naniar)
+```
+
+# Data preparation
+
+## Import data
+
+Next, we load the [Climate Historical Daily Records](http://www.weather.gov.sg/climate-historical-daily/) for the **Changi** weather station, for the five years 1983, 1993, 2003, 2013 and 2023. The data for each month of the five years was downloaded using a python script. The data, in the form of .CSV files, will be imported as a list of CSV files, then compiled into a single dataframe using R.
+
+First, we read in all .CSV files into a list object of dataframes. As the .CSV files may be ended with either UTF-8 or ISO-8859-1 encoding, we will create a function to read in the .CSV files that encompasses both types of encoding.
+
+```{r}
+#| echo: false
+# Define a function to read CSV files with different encodings
+read_csv_files <- function(file_path, encodings = c("UTF-8", "ISO-8859-1")) {
+  for (encoding in encodings) {
+    tryCatch({
+      return(read_csv(file_path, locale = locale(encoding = encoding)))
+    }, error = function(e) {
+      message(sprintf("Failed to decode %s with %s encoding: %s", file_path, encoding, e$message))
+    })
+  }
+  stop(sprintf("Could not decode file %s with any of the provided encodings.", file_path))
+}
+
+# Define the names of the .CSV files
+input_files <- list.files(path = "data/", pattern = "\\.csv$", full.names = TRUE)
+
+# Read all CSV files into a list of dataframes
+all_data <- map(input_files, read_csv_files)
+```
+
+Next, we identify columns with inconsistent data types across all the dataframes:
+
+```{r}
+# Define a function to get column types of a data frame
+get_column_types <- function(df) {
+  sapply(df, class)
+}
+
+# Get column types for each data frame
+columnTypesList <- map(all_data, get_column_types)
+
+# Identify columns with different types across data frames
+uniqueTypes <- unique(unlist(columnTypesList))
+columnsWithDifferentTypes <- list()
+
+for (typeName in uniqueTypes) {
+  columnsOfType <- names(Filter(function(x) typeName %in% x, columnTypesList[[1]]))
+  for (colName in columnsOfType) {
+    typesFound <- unique(sapply(columnTypesList, `[`, colName))
+    if (length(typesFound) > 1) {
+      columnsWithDifferentTypes[[colName]] <- typesFound
+    }
+  }
+}
+
+# Display columns with different types
+columnsWithDifferentTypes
+```
+
+From the code chunk above, we observe that:
+
+-   The 'Mean Wind Speed (km/h)' and 'Max Wind Speed (km/h)' columns exhibit data type inconsistencies.
+
+    -   These columns will be uniformly converted to numeric type.
+
+-   The columns 'Highest 30 Min Rainfall (mm)', 'Highest 60 Min Rainfall (mm)', and 'Highest 120 Min Rainfall (mm)' are type character in some dataframes, and NA type in other dataframes.
+
+    -   This suggests that these columns are present in some dataframes but absent in others. We will address the handling of these columns later on.
+
+We hence convert the 'Mean Wind Speed (km/h)' and 'Max Wind Speed (km/h)' columns to numeric type:
+
+```{r}
+#| warning: false
+all_data <- map(all_data, ~ .x %>%
+  mutate(
+    `Mean Wind Speed (km/h)` = as.numeric(as.character(`Mean Wind Speed (km/h)`)),
+    `Max Wind Speed (km/h)` = as.numeric(as.character(`Max Wind Speed (km/h)`))
+  )
+)
+```
+
+The list of dataframes is then combined into a single dataframe, *weather_data:*
+
+```{r}
+weather_data <- bind_rows(all_data)
+```
+
+## Clean data
+
+Now that we have a single datafrmae, we first check the health of the dataframe by:
+
+-   using *glimpse()* to look at the structure of the dataframe, data types of the columns, and some values of the dataframe,
+
+-   using *duplicate()* to check the dataframe for any duplicated entries using *duplicate()*, and
+
+-   using *vis_miss()* to check the state of missing values in the dataset.
+
+::: panel-tabset
+### glimpse()
+
+```{r}
+glimpse(weather_data)
+```
+
+### duplicated()
+
+```{r}
+weather_data[duplicated(weather_data),]
+```
+
+### vis_miss()
+
+```{r}
+vis_miss(weather_data)
+
+```
+:::
+
+From the above, we observe these data quality issues and actionable insights:
+
+-   The *glimpse* function shows three columns 'Year', 'Month', 'Day' representing the date of the record.
+
+    -   These columns can be used to create a 'Date' column of date type that would make visualizing the data for different time periods easier.
+
+-   The *glimpse* function shows the presence of character values **`"\u0097"`** in the columns 'Highest 30 Min Rainfall (mm)', 'Highest 60 Min Rainfall (mm)', and 'Highest 120 Min Rainfall (mm)'.
+
+    -   These non-numeric placeholders represent missing values and should be converted to NA.
+
+    -   These columns should also be of type numeric instead of character.
+
+-   The *glimpse* function also shows there is a possible naming inconsistency of the 'Highest 30 Min Rainfall (mm)', 'Highest 60 Min Rainfall (mm)', and 'Highest 120 Min Rainfall (mm)' character type columns, where similar columns 'Highest 30 **min** Rainfall (mm)', 'Highest 60 **min** Rainfall (mm)', and 'Highest 120 **min** Rainfall (mm)' of numeric type exist. The *vis_miss()* function confirms this naming inconsistency.
+
+    -   This can be resolved by merging the information in the character and double type columns.
+
+```{r}
+# First, create a new column Date
+weather_data <- weather_data %>%
+  mutate(Date = as.Date(paste(Year, Month, Day, sep = "-")))
+
+# Next, convert character values "\u0097" to NA.
+weather_data <- weather_data %>%
+  mutate(
+    `Highest 30 Min Rainfall (mm)` = na_if(`Highest 30 Min Rainfall (mm)`, "\u0097"),
+    `Highest 60 Min Rainfall (mm)` = na_if(`Highest 60 Min Rainfall (mm)`, "\u0097"),
+    `Highest 120 Min Rainfall (mm)` = na_if(`Highest 120 Min Rainfall (mm)`, "\u0097")
+  )
+
+# Next, convert these columns to numeric type.
+weather_data <- weather_data %>%
+  mutate(
+    `Highest 30 Min Rainfall (mm)` = as.numeric(`Highest 30 Min Rainfall (mm)`),
+    `Highest 60 Min Rainfall (mm)` = as.numeric(`Highest 60 Min Rainfall (mm)`),
+    `Highest 120 Min Rainfall (mm)` = as.numeric(`Highest 120 Min Rainfall (mm)`)
+  )
+
+# Lastly, merge duplicate columns on the condition that the originally numeric column (e.g. Highest 30 min Rainfall (mm)) is not NA value.
+
+weather_data <- weather_data %>%
+  mutate(
+    `Highest 30 Min Rainfall (mm)` = coalesce(`Highest 30 min Rainfall (mm)`, `Highest 30 Min Rainfall (mm)`),
+    `Highest 60 Min Rainfall (mm)` = coalesce(`Highest 60 min Rainfall (mm)`, `Highest 60 Min Rainfall (mm)`),
+    `Highest 120 Min Rainfall (mm)` = coalesce(`Highest 120 min Rainfall (mm)`, `Highest 120 Min Rainfall (mm)`)
+  ) %>%
+  # Optional: Remove the source columns if they are no longer needed
+  select(
+    -`Highest 30 min Rainfall (mm)`,
+    -`Highest 60 min Rainfall (mm)`,
+    -`Highest 120 min Rainfall (mm)`
+  )
+
+```
+
+We then check the health of the data again:
+
+::: panel-tabset
+### glimpse()
+
+```{r}
+glimpse(weather_data)
+```
+
+### vis_miss()
+
+```{r}
+vis_miss(weather_data)
+```
+:::
+
+Insights:
+
+-   The dataset is now clean. It has 1825 rows and 14 columns of correct data types.
+
+-   The missing values in the data for the three columns 'Highest 30 Min Rainfall (mm)', 'Highest 60 Min Rainfall (mm)', and 'Highest 120 Min Rainfall (mm)' correspond with [information that these datapoints were not collected before 2014](http://www.weather.gov.sg/wp-content/uploads/2022/06/Station_Records.pdf). Hence, we will leave the values for the years before 2014 as NA.
+
+We can now proceed with data exploration.
+
+# Data exploration
+
+Use this section to explain your selection of data visualisation techniques used.
+
+# Data visualization design
+
+Write about the data visualisation design and interactivity principles and best practices implemented.
+
+## Summary and conclusion
+
+## References
+
+-   

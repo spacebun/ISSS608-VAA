@@ -17,13 +17,17 @@ execute:
 
 # Overview
 
-In this exercise, we will apply **visual interactivity** and **visualizing uncertainty** to validate the [claims](https://www.nccs.gov.sg/singapores-climate-action/impact-of-climate-change-in-singapore/) that:
+In this exercise, we'll apply **visual interactivity** and **visualizing uncertainty** methods to validate either of the [claims on future climate projection](https://www.nccs.gov.sg/singapores-climate-action/impact-of-climate-change-in-singapore/) that:
 
--   Daily mean temperature are projected to increase by 1.4 to 4.6, and
+-   Daily mean temperature are projected to increase by 1.4 to 4.6 C, and
 
 -   The contrast between the wet months (November to January) and dry month (February and June to September) is likely to be more pronounced.
 
-To do so, we will we use the daily temperature and rainfall records of **June** of the year 1983, 1993, 2003, 2013 and 2023 collected at the **Changi** climate station, to create an analytics-driven data visualisation. At the same time, we will apply appropriate interactive techniques to enhance the user experience in data discovery and/or visual story-telling.
+We will choose to validate the first claim that **"Daily mean temperature are projected to increase by 1.4 to 4.6 C"**.
+
+To do so, we will use the daily temperature records of **June** of the year 1983, 1993, 2003, 2013 and 2023 collected at the **Changi** climate station, to create an analytics-driven data visualisation.
+
+We will apply appropriate interactive techniques to enhance the user experience in data discovery and/or visual story-telling.
 
 # Getting started
 
@@ -40,7 +44,11 @@ First, we load packages required:
 -   **naniar**: for using *miss_vis()* function to check data for missing values
 
 ```{r}
-pacman::p_load(readr, dplyr, purrr, naniar)
+pacman::p_load(readr, dplyr, purrr, naniar,
+               tidyverse, DT, ggplot2, 
+               ggridges, ggdist,
+               plotly, patchwork, ggiraph,
+               viridis)
 ```
 
 # Data preparation
@@ -52,6 +60,7 @@ Next, we load the [Climate Historical Daily Records](http://www.weather.gov.sg/c
 First, we read in all .CSV files into a list object of dataframes. As the .CSV files may be ended with either UTF-8 or ISO-8859-1 encoding, we will create a function to read in the .CSV files that encompasses both types of encoding.
 
 ```{r}
+#| eval: false
 #| echo: false
 # Define a function to read CSV files with different encodings
 read_csv_files <- function(file_path, encodings = c("UTF-8", "ISO-8859-1")) {
@@ -75,6 +84,7 @@ all_data <- map(input_files, read_csv_files)
 Next, we identify columns with inconsistent data types across all the dataframes:
 
 ```{r}
+#| eval: false
 # Define a function to get column types of a data frame
 get_column_types <- function(df) {
   sapply(df, class)
@@ -115,6 +125,7 @@ We hence convert the 'Mean Wind Speed (km/h)' and 'Max Wind Speed (km/h)' column
 
 ```{r}
 #| warning: false
+#| eval: false
 all_data <- map(all_data, ~ .x %>%
   mutate(
     `Mean Wind Speed (km/h)` = as.numeric(as.character(`Mean Wind Speed (km/h)`)),
@@ -126,14 +137,30 @@ all_data <- map(all_data, ~ .x %>%
 The list of dataframes is then combined into a single dataframe, *weather_data:*
 
 ```{r}
+#| eval: false
 weather_data <- bind_rows(all_data)
 ```
 
-## Clean data
+We will save this dataframe as an rds object for faster loading of data in the future.
 
-Now that we have a single datafrmae, we first check the health of the dataframe by:
+```{r}
+#| eval: false
+write_rds(weather_data, "data/weather_data.rds")
+```
+
+To load this file in the future, follow the code in the code chunk below:
+
+```{r}
+weather_data <- read_rds("data/weather_data.rds")
+```
+
+## Check data health
+
+Now that we have a single dataframe, we first check the health of the dataframe by:
 
 -   using *glimpse()* to look at the structure of the dataframe, data types of the columns, and some values of the dataframe,
+
+-   using *datatable()* from the DT package to view the dataframe more interactively,
 
 -   using *duplicate()* to check the dataframe for any duplicated entries using *duplicate()*, and
 
@@ -146,6 +173,12 @@ Now that we have a single datafrmae, we first check the health of the dataframe 
 glimpse(weather_data)
 ```
 
+### datatable()
+
+```{r}
+DT::datatable(weather_data, class= "compact")
+```
+
 ### duplicated()
 
 ```{r}
@@ -156,7 +189,6 @@ weather_data[duplicated(weather_data),]
 
 ```{r}
 vis_miss(weather_data)
-
 ```
 :::
 
@@ -175,6 +207,8 @@ From the above, we observe these data quality issues and actionable insights:
 -   The *glimpse* function also shows there is a possible naming inconsistency of the 'Highest 30 Min Rainfall (mm)', 'Highest 60 Min Rainfall (mm)', and 'Highest 120 Min Rainfall (mm)' character type columns, where similar columns 'Highest 30 **min** Rainfall (mm)', 'Highest 60 **min** Rainfall (mm)', and 'Highest 120 **min** Rainfall (mm)' of numeric type exist. The *vis_miss()* function confirms this naming inconsistency.
 
     -   This can be resolved by merging the information in the character and double type columns.
+
+## Clean data
 
 ```{r}
 # First, create a new column Date
@@ -223,6 +257,12 @@ We then check the health of the data again:
 glimpse(weather_data)
 ```
 
+### datatable()
+
+```{r}
+DT::datatable(weather_data, class= "compact")
+```
+
 ### vis_miss()
 
 ```{r}
@@ -236,18 +276,553 @@ Insights:
 
 -   The missing values in the data for the three columns 'Highest 30 Min Rainfall (mm)', 'Highest 60 Min Rainfall (mm)', and 'Highest 120 Min Rainfall (mm)' correspond with [information that these datapoints were not collected before 2014](http://www.weather.gov.sg/wp-content/uploads/2022/06/Station_Records.pdf). Hence, we will leave the values for the years before 2014 as NA.
 
-We can now proceed with data exploration.
+## Rename columns
 
-# Data exploration
+We will rename the following columns for easier handling while plotting:
 
-Use this section to explain your selection of data visualisation techniques used.
+```{r}
+weather_data <- weather_data %>%
+  rename(
+    Mean_Temperature = `Mean Temperature (°C)`,
+    Max_Temperature = `Maximum Temperature (°C)`,
+    Min_Temperature = `Minimum Temperature (°C)`
+  )
+```
 
-# Data visualization design
+## Select data for June
 
-Write about the data visualisation design and interactivity principles and best practices implemented.
+As we have mentioned that we will be focusing on the month of **June** for this exercise, we will extract the data for this month.
+
+```{r}
+june_weather_data <- weather_data %>%
+  filter(Month == 6) 
+```
+
+We can now proceed with the next steps.
+
+# Data discovery
+
+As we have chosen to address the future climate projection claim that "Daily mean temperature are projected to increase by 1.4 to 4.6C", we will primarily use following columns:
+
+-   'Mean_Temperature'
+-   'Max_Temperature'
+-   'Min_Temperature'
+
+## Distribution of mean temperatures
+
+We first observe the distributions of the mean temperature values in June for the five years, with a ridgeline plot. This plot will allow us to also visually compare the values across the years.
+
+```{r}
+#| code-fold: true
+june_weather_data$Year<-factor(june_weather_data$Year,levels=c("1983", "1993", "2003", "2013", "2023"))
+
+temp_ridge_chart <- ggplot(june_weather_data, aes(x = Mean_Temperature, y=Year, fill = stat(x))) +
+                       geom_density_ridges_gradient(scale =2,rel_min_height = 0.01, gradient_lwd = 1.) +
+                       scale_y_discrete(limits = unique(rev(june_weather_data$Year)))+
+                       scale_fill_viridis_c(name = "°C", option = "C") +
+                       labs(title = 'June temperature profile',
+                        subtitle = 'Distribution of mean temperatures recorded in June across years',
+                        x = "Mean Temperatures",
+                        y = "Year") +
+                        theme_ridges(font_size = 13, grid = TRUE) +
+  theme(plot.title = element_text(size = 14),
+        plot.subtitle = element_text(size = 10),
+        axis.title.x = element_text(size = 8),
+        axis.title.y = element_text(size = 8, angle = 360))
+
+temp_ridge_chart
+```
+
+::: callout-tip
+## Insights
+
+-   Overall the shift in peaks towards the right over the years suggest an increase in average temperature.
+-   The distributions for the years 2003, 2013 and 2023 are skewed more to the right than 1983 and 1993. This indicates higher tendency for hotter days in the years of 2003, 2013, 2023.
+-   The left tails of the distributions, are not extending as far left in more recent years as they do in earlier years. This suggests a decrease in the occurrence of lower temperature extremes, which could mean fewer cooling days in June in recent years.
+-   The right tails have remained similar in position across the five years, indicating that the magnitude of warmer temperature extremes in June have stayed relatively consistent over the five years.
+-   Hence, despite a general trend of rising average temperatures, as indicated by the leftward shift of the distributions, the highest temperatures reached in June have not shown a parallel upward trend.
+-   The shape of distributions vary across the years. Some years resemble normal distributions (1983, 2003, 2023), while others had multiple peaks (1993, 2013)
+:::
+
+To make the visualization of distribution more informative for a user, we can use plot_ly to plot a violin plot showing distribution, along with a boxplot for summary statistics.
+
+```{r}
+#| code-fold: true
+#| fig-width: 12
+#| fig-width: 2
+# Create the violin plot
+fig <- plot_ly(data = june_weather_data, x = ~Year, y = ~Mean_Temperature, type = 'violin', 
+               split = ~Year, 
+               box = list(visible = T)) # Adds a box plot inside the violin for summary statistics
+
+# Customize layout
+fig <- fig %>% layout(title = "Distribution of Mean Temperatures in June Across Years",
+                      yaxis = list(title = "Mean Temperature (°C)"),
+                      xaxis = list(title = "Year")) # To influence tooltip positioning
+
+fig
+```
+
+::: callout-tip
+## Insights
+
+-   The median temperatures (central horizontal line in the boxplot within each violin) appear to rise slightly over the years, suggesting a gradual increase in median temperatures. However, it is noted that there was a dip in the median in 2013 and that the median for 2023 is similar to 2003.
+-   The interquartile ranges do not show a consistent trend in terms of becoming wider or narrower, implying that the variability around the median does not follow a clear pattern over the years.
+-   The lower tails show an increasing trend. Similar to the ridgeline plot, this indicates fewer cooler days in recent years.
+-   However, notably the year 2003 had the most extreme low mean temperature values.
+:::
+
+### \[To delete\] Visualizing distributions of mean temperature for June across years
+
+```{r}
+ggplot(june_weather_data, aes(x = Mean_Temperature, y = Year, fill = factor(stat(quantile)))) +
+  stat_density_ridges(geom = "density_ridges_gradient", 
+                      calc_ecdf = TRUE,
+                      quantiles = 4, # Add quantiles
+                      quantile_lines = TRUE) + # Add quantile lines
+  scale_fill_viridis_d(name = "Quartiles", option = "cividis") +  # change fill to scale_fill_viridis_d and name to Quartiles
+  scale_x_continuous(expand = c(0, 0)) +
+  scale_y_discrete(limits = unique(rev(june_weather_data$Year))) +
+  theme_ridges() +
+  labs(title = 'June temperature profile',
+                        subtitle = 'Distribution of mean temperatures recorded in June across years',
+       x = "Mean Temperatures",
+       y = "Year") +
+  theme(plot.title = element_text(size = 12),
+        plot.subtitle = element_text(size = 10),
+        axis.title.x = element_text(size = 8),
+        axis.title.y = element_text(size = 8, angle = 360))
+```
+
+### Computing mean increase
+
+```{r}
+# Calculate the mean temperature for June of each year
+mean_june_temps <- june_weather_data %>%
+  group_by(Year) %>%
+  summarise(Mean_June_Temperature = mean(Mean_Temperature, na.rm = TRUE))
+
+# Calculate the year-on-year temperature increase
+mean_june_temps$Temperature_Increase <- c(NA, diff(mean_june_temps$Mean_June_Temperature))
+
+
+# Assuming your june_weather_data is structured with columns: 'Year', 'Day', and 'Mean_Temperature'
+
+# Example calculation
+mean_june_temps <- june_weather_data %>%
+  group_by(Year) %>%
+  summarise(Mean_June_Temperature = mean(Mean_Temperature, na.rm = TRUE)) %>%
+  mutate(Temperature_Increase = c(NA, diff(Mean_June_Temperature)))
+
+print(mean_june_temps)
+
+```
+
+### \[To delete\] Visualizing distribution
+
+```{r}
+ggplot(june_weather_data, aes(x = Year, y = Mean_Temperature)) +
+    stat_halfeye(adjust = 0.5,
+               justification = -0.2,
+               .width = 0,
+               point_colour = NA,
+               fill = "#93c7c2") +
+  geom_boxplot(width = .20,
+               outlier.shape = NA) +
+  coord_flip() +
+  labs(title = "Science scores generally improve across classes",
+       subtitle = "Distributions of Science scores across the various classes",
+       x = "Science scores",
+       y = "Classes") +
+  theme(plot.title = element_text(size = 12),
+        plot.subtitle = element_text(size = 10),
+        axis.title.x = element_text(size = 8),
+        axis.title.y = element_text(size = 8, angle = 360))
+```
+
+### Heatmap with plotly
+
+```{r}
+fig <- plot_ly(data = june_weather_data, x = ~Year, y = ~Day, z = ~Mean_Temperature, type = "heatmap", colors = colorRamp(c("blue", "yellow", "red")))
+
+# Adding layout options
+fig <- fig %>% layout(title = "Daily Mean Temperatures for June Across Years",
+                      xaxis = list(title = "Year"),
+                      yaxis = list(title = "Day of June", autorange="reversed"), # Reverse the y-axis to have day 1 at the top
+                      colorbar = list(title = "Temp (°C)"))
+
+# Render the plot
+fig
+
+```
+
+```{r}
+str(june_weather_data_wide)
+
+```
+
+### Kendall Test
+
+```{r}
+pacman::p_load(Kendall)
+
+# Assuming 'year' and 'Mean_Temperature' are your columns
+mk_result <- MannKendall(june_weather_data$Mean_Temperature)
+mk_result
+```
+
+###Kruskal-Wallis Test
+
+```{r}
+pacman::p_load(stats)
+
+# Assuming 'Year' is a factor and 'Mean_Temperature' is the temperature for each June of each year
+kruskal_test <- kruskal.test(Mean_Temperature ~ Year, data = june_weather_data)
+kruskal_test
+
+```
+
+### Wilco Test
+
+```{r}
+# Assuming your dataset is named weather_data and has columns: Year, Day, and Mean_Temperature
+
+data_2013 <- june_weather_data %>%
+  filter(Year == 2013 & Month == 6) %>%
+  arrange(Day) # Ensure data is ordered by day
+
+data_2023 <- june_weather_data %>%
+  filter(Year == 2023 & Month == 6) %>%
+  arrange(Day) # Ensure data is ordered by day
+
+# Assuming both data frames are aligned by Day
+differences <- data_2023$Mean_Temperature - data_2013$Mean_Temperature
+
+test_result <- wilcox.test(x = data_2013$Mean_Temperature, y = data_2023$Mean_Temperature, paired = TRUE)
+
+print(test_result)
+
+mean_difference <- mean(differences)
+
+print(mean_difference)
+
+
+```
+
+### Linear regression analysis
+
+```{r}
+# Fit the linear model
+model <- lm(Mean_Temperature ~ Year, data = june_weather_data)
+
+# Summary of the model to view coefficients
+summary(model)
+```
+
+```{r}
+confint(model)
+```
+
+```{r}
+ggplot(june_weather_data, aes(x = Date, y = Mean_Temperature)) +
+  geom_point() +  # Plot the data points
+  geom_smooth(method = "lm", se = FALSE, color = "blue") +  # Add the regression line
+  labs(title = "Change in Mean Temperature Over Time",
+       x = "Date", y = "Mean Temperature (°C)") +
+  theme_minimal()
+```
+
+### Visualizing uncertainty: Plotting standard error bars of point estimates
+
+```{r}
+my_sum <- june_weather_data %>%
+  group_by(Year) %>%
+  summarise( # used to compute the count of observations, mean, standard deviation
+    n=n(),
+    mean=mean(Mean_Temperature),
+    sd=sd(Mean_Temperature)
+    ) %>%
+  mutate(se=sd/sqrt(n-1)) # used to derive standard error of Maths by RACE
+```
+
+```{r}
+knitr::kable(head(my_sum), format = 'html')
+```
+
+```{r}
+ggplot(my_sum) +
+  geom_errorbar(
+    aes(x=Year, 
+        ymin=mean-se, # The error bars are computed by using the formula mean+/-se.
+        ymax=mean+se),  
+    width=0.2, 
+    colour="black", 
+    alpha=0.9, 
+    size=0.5) +
+  geom_point(aes
+           (x=Year, 
+            y=mean), 
+           stat="identity", # important to indicate stat=“identity”.
+           color="red",
+           size = 1.5,
+           alpha=1) +
+  ggtitle("Standard error of mean of daily mean score by year")
+```
+
+#### \[To delete\] Computing increase from year to year
+
+```{r}
+#| code-fold: true
+my_sum <- my_sum %>%
+mutate(Temperature_Increase = c(NA, diff(mean)))
+
+knitr::kable(head(my_sum), format = 'html')
+```
+
+### Plotting confidence interval of point estimates
+
+```{r}
+#|: code-fold: true
+ggplot(my_sum) +
+  geom_errorbar(
+    aes(x=Year, 
+        ymin=mean-se, # The error bars are computed by using the formula mean+/-se.
+        ymax=mean+se),  
+    width=0.2, 
+    colour="black", 
+    alpha=0.9, 
+    size=0.5) +
+  geom_point(aes
+           (x=Year, 
+            y=mean), 
+           stat="identity", # important to indicate stat=“identity”.
+           color="red",
+           size = 1.5,
+           alpha=1) +
+  ggtitle("Standard error of mean of daily mean score by year")
+
+
+```
+
+```{r}
+ggplot(my_sum) +
+  geom_errorbar(
+    aes(x=reorder(Year, -mean), 
+        ymin=mean-1.96*se, # The confidence intervals are computed by using the formula mean+/-1.96*se.
+        ymax=mean+1.96*se), 
+    width=0.2, 
+    colour="black", 
+    alpha=0.9, 
+    size=0.5) +
+  geom_point(aes
+           (x=Year, 
+            y=mean), 
+           stat="identity", 
+           color="red",
+           size = 1.5,
+           alpha=1) +
+  labs(x = "Maths score",
+       title = "95% confidence interval of mean temp score by year")
+```
+
+```{r}
+june_weather_data %>%
+  ggplot(aes(x = factor(Year), y = Mean_Temperature)) +
+  stat_gradientinterval(   
+    aes(ymin = Mean_Temperature - (1.96 * my_sum$se), ymax = Mean_Temperature + (1.96 * my_sum$se)), # Assuming 'se' column exists for standard error
+    fill = "skyblue",      
+    show.legend = TRUE     
+  ) +                      
+  labs(
+    title = "Visualising confidence intervals of daily mean temperature for June",
+    subtitle = "Gradient + interval plot",
+    x = "Year",
+    y = "Mean Temperature (°C)")
+```
+
+### \[To delete\] Ridgeline plot for Mean Tempeature distribution across months, for the year 1983
+
+Modify *weather_data* to create a new column, Month_MMM that changes the month numbers to month abbreviations (e.g. 1 becomes 'Jan').
+
+```{r}
+weather_data<-transform(weather_data,Month_MMM=month.abb[Month])
+```
+
+Make Month_MMM a factor for the ridgeline plot to work:
+
+```{r}
+weather_data$Month_MMM<-factor(weather_data$Month_MMM,levels=c("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"))
+```
+
+Select data for a specific year, 1983.
+
+```{r}
+# Plot for one year, 1983
+weather_data_1983 <- weather_data %>%
+  filter(Year == 1983)
+```
+
+Then plot the ridgeline plot:
+
+```{r}
+
+temp_1983_ridge_chart <- ggplot(weather_data_1983, aes(x = Mean_Temperature, y=Month_MMM, fill = stat(x))) +
+                       geom_density_ridges_gradient(scale =2, size=0.3,rel_min_height = 0.01, gradient_lwd = 1.) +
+                       scale_y_discrete(limits = unique(rev(weather_data_1983$Month_MMM)))+
+                       scale_fill_viridis_c(name = "°C", option = "C") +
+                       labs(title = 'Singapore temperature profile',
+                        subtitle = 'Daily mean temperature recorded in Singapore in 1983') +
+                        xlab(" ")+
+                        ylab(" ")+
+                        theme_ridges(font_size = 13, grid = TRUE) 
+
+temp_1983_ridge_chart
+```
+
+## \[To delete\] Time series line plot for temperature measures for June 1983.
+
+We first plot all three measures of temperature for June 1983:
+
+```{r}
+# Filter for June 1983
+june_1983_data <- weather_data %>%
+  filter(Year == 1983, Month == 6)
+
+# Reshape the data to long format
+long_data <- june_1983_data %>%
+  pivot_longer(cols = c(Mean_Temperature, Max_Temperature, Min_Temperature),
+               names_to = "Temperature_Type",
+               values_to = "Temperature")
+
+# Plotting
+ggplot(long_data, aes(x = Day, y = Temperature, color = Temperature_Type)) +
+  geom_line() + # Line plot to connect the points
+  geom_point() + # Add points to show actual data points
+  theme_minimal() + # Use a minimal theme
+  labs(title = "Temperature Measures in June 1983",
+       x = "Day",
+       y = "Temperature (°C)") +
+  scale_color_manual(values = c(Mean_Temperature = "blue", 
+                                Max_Temperature = "red", 
+                                Min_Temperature = "green")) # Optional: customize colors
+```
+
+## \[To delete\] Time series line plot for Mean_Temperature for June across all years
+
+```{r}
+ggplot(june_weather_data, aes(x = Day, y = Mean_Temperature, group = 1)) +
+  geom_line() + 
+  facet_wrap(~Year, ncol = 1) + 
+  theme_minimal() +
+  labs(title = "Mean Temperature in June across Selected Years",
+       x = "Year",
+       y = "Mean Temperature (°C)") 
+```
+
+```{r}
+# Plotting standard error bars and confidence interval
+# Code to plot side by side sub plots
+my_sum$Year <- as.numeric(as.character(my_sum$Year))
+
+# Create the plot for mean with standard error
+fig1 <- plot_ly(data = my_sum, x = ~Year, y = ~mean, type = 'scatter', mode = 'lines+markers',
+        error_y = ~list(array = se,
+                        color = '#000000')) %>%
+  layout(xaxis = list(title = 'Year', type = 'log'), yaxis = list(title = 'Mean of Mean_Temperature values'))
+
+
+# Add the second trace for mean with confidence intervals
+fig2 <- plot_ly(data = my_sum, x = ~Year, y = ~mean, type = 'scatter', mode = 'lines+markers',
+               error_y = ~list(
+                 array = my_sum$ci_upper - my_sum$mean,
+                 arrayminus = my_sum$mean - my_sum$ci_lower,
+                 color = '#000000'
+               ),
+               line = list(color = 'blue')) %>%
+  layout(xaxis = list(title = 'Year'), yaxis = list(title = ' Mean of Mean_Temperature values'))
+
+
+annotations = list( 
+  list( 
+    x = 0.2,  
+    y = 1,  
+    text = "Mean Daily Temperature with Standard Error",  
+    xref = "paper",  
+    yref = "paper",  
+    xanchor = "center",  
+    yanchor = "bottom",  
+    showarrow = FALSE 
+  ),  
+  list( 
+    x = 0.8,  
+    y = 1,  
+    text = "Mean Daily Temperature with 95% Confidence Intervals",  
+    xref = "paper",  
+    yref = "paper",  
+    xanchor = "center",  
+    yanchor = "bottom",  
+    showarrow = FALSE 
+  )
+)
+mrg <- list(l = 50, r = 50,
+          b = 50, t = 50,
+          pad = 20)
+
+fig <- subplot(fig1, fig2,
+               shareY = TRUE,
+               shareX = TRUE,
+               margin = 0.05) %>% 
+  layout(title = list( text = 'Visualizng Uncertainty of the Mean of Mean_Temperature values', 
+                       font = list(family = "Arial Black", size = 14)),
+         plot_bgcolor='#e5ecf6',
+         showlegend=FALSE,
+         annotations = annotations,
+         margin = mrg)
+fig
+```
 
 ## Summary and conclusion
 
 ## References
 
 -   
+
+```{r}
+#| fig-width: 12
+#| fig-height: 5
+
+# to delete this code chunk 
+
+p1 <- ggbetweenstats(
+  data = june_weather_data,
+  x = Year, 
+  y = Mean_Temperature,
+  type = "p", # non-parametric. This means it is comprin median., 
+  mean.ci = TRUE, 
+  pairwise.comparisons = TRUE, 
+  pairwise.display = "s",
+  p.adjust.method = "fdr", 
+  messages = FALSE
+)
+
+p2 <- ggbetweenstats(
+  data = june_weather_data,
+  x = Year, 
+  y = Max_Temperature,
+  type = "p", # non-parametric. 
+  mean.ci = TRUE, 
+  pairwise.comparisons = TRUE, 
+  pairwise.display = "s",
+  p.adjust.method = "fdr", 
+  messages = FALSE
+)
+## combining the individual plots into a single plot
+combine_plots(
+  list(p1, p2),
+  plotgrid.args = list(nrow = 2),
+  annotation.args = list(
+    title = "Comparison of life expectancy between 1957 and 2007",
+    caption = "Source: Gapminder Foundation"
+  )
+)
+```

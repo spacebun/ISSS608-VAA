@@ -894,5 +894,33 @@
     "title": "Hands-on Exercise 6",
     "section": "",
     "text": "Before getting started, make sure that CGPfunctions has been installed and loaded onto R environment. Then, refer to Using newggslopegraph to learn more about the function. Lastly, read more about newggslopegraph() and its arguments by referring to this link.\n\npacman::p_load(CGPfunctions)\n\n\n\n\nrice &lt;- read_csv(\"data/rice.csv\")\nkable(head(rice))\n\n\n\n\nCountry\nYear\nYield\nProduction\n\n\n\n\nChina\n1961\n20787\n56217601\n\n\nChina\n1962\n23700\n65675288\n\n\nChina\n1963\n26833\n76439280\n\n\nChina\n1964\n28289\n85853780\n\n\nChina\n1965\n29667\n90705630\n\n\nChina\n1966\n31445\n98403990\n\n\n\n\n\n\n\n\n\nrice %&gt;% \n  mutate(Year = factor(Year)) %&gt;%\n  filter(Year %in% c(1961, 1980)) %&gt;%\n  newggslopegraph(Year, Yield, Country,\n                Title = \"Rice Yield of Top 11 Asian Countries\",\n                SubTitle = \"1961-1980\",\n                Caption = \"Prepared by: Dr. Kam Tin Seong\")"
+  },
+  {
+    "objectID": "In-class_Ex/In-class_Ex6/In-class_Ex6.html",
+    "href": "In-class_Ex/In-class_Ex6/In-class_Ex6.html",
+    "title": "In-class Exercise 6",
+    "section": "",
+    "text": "pacman::p_load(ggHoriPlot, ggthemes, tidyverse)"
+  },
+  {
+    "objectID": "In-class_Ex/In-class_Ex6/In-class_Ex6.html#load-libraries",
+    "href": "In-class_Ex/In-class_Ex6/In-class_Ex6.html#load-libraries",
+    "title": "In-class Exercise 6",
+    "section": "",
+    "text": "pacman::p_load(ggHoriPlot, ggthemes, tidyverse)"
+  },
+  {
+    "objectID": "In-class_Ex/In-class_Ex6/In-class_Ex6.html#import-data",
+    "href": "In-class_Ex/In-class_Ex6/In-class_Ex6.html#import-data",
+    "title": "In-class Exercise 6",
+    "section": "Import Data",
+    "text": "Import Data\n\naverp &lt;- read_csv(\"data/AVERP.csv\") %&gt;%\n  mutate(`Date` = dmy(`Date`))"
+  },
+  {
+    "objectID": "In-class_Ex/In-class_Ex6/In-class_Ex6.html#plot-horizon-plot",
+    "href": "In-class_Ex/In-class_Ex6/In-class_Ex6.html#plot-horizon-plot",
+    "title": "In-class Exercise 6",
+    "section": "Plot Horizon Plot",
+    "text": "Plot Horizon Plot\n\naverp %&gt;% \n  filter(Date &gt;= \"2018-01-01\") %&gt;%\n  ggplot() +\n  geom_horizon(aes(x = Date, y=Values), \n               origin = \"midpoint\", \n               horizonscale = 6)+\n  facet_grid(`Consumer Items`~.) +\n    theme_few() +\n  scale_fill_hcl(palette = 'RdBu') +\n  theme(panel.spacing.y=unit(0, \"lines\"), strip.text.y = element_text(\n    size = 5, angle = 0, hjust = 0),\n    legend.position = 'none',\n    axis.text.y = element_blank(),\n    axis.text.x = element_text(size=7),\n    axis.title.y = element_blank(),\n    axis.title.x = element_blank(),\n    axis.ticks.y = element_blank(),\n    panel.border = element_blank()\n    ) +\n    scale_x_date(expand=c(0,0), date_breaks = \"3 month\", date_labels = \"%b%y\") +\n  ggtitle('Average Retail Prices of Selected Consumer Items (Jan 2018 to Dec 2022)')"
   }
 ]

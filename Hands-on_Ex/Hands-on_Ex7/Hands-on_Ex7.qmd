@@ -1,0 +1,110 @@
+---
+title: "Hands-on Exercise 7 (Work in Progress)"
+subtitle: "Visualising and Analysing Geographic Data"
+date: February 25, 2024
+date-modified: "last-modified"
+format:
+  html:
+    toc: true
+    number-sections: true
+    code-line-numbers: true
+    
+execute: 
+  eval: true
+  echo: true
+  warning: false  
+---
+
+# **Choropleth Mapping with R**
+
+## Overview
+
+In this exercise I will learn how to plot functional and truthful choropleth maps by using an R package called [**tmap**](https://cran.r-project.org/web/packages/tmap/) package.
+
+## Loading libraries
+
+We will use the  [**tmap**](https://cran.r-project.org/web/packages/tmap/) package that can create thematic maps, such as choropleths and bubble maps; and the [**sf**](https://cran.r-project.org/web/packages/sf/) package for handling geospatial data.
+
+```{r}
+pacman::p_load(sf, tmap, tidyverse)
+```
+
+## Importing data
+
+Two data set will be used to create the choropleth map. They are:
+
+-   Master Plan 2014 Subzone Boundary (Web) (i.e. `MP14_SUBZONE_WEB_PL`) in ESRI shapefile format. It can be downloaded at [data.gov.sg](https://data.gov.sg/) This is a geospatial data. It consists of the geographical boundary of Singapore at the planning subzone level. The data is based on URA Master Plan 2014.
+
+-   Singapore Residents by Planning Area / Subzone, Age Group, Sex and Type of Dwelling, June 2011-2020 in csv format (i.e. `respopagesextod2011to2020.csv`). This is an aspatial data fie. It can be downloaded at [Department of Statistics, Singapore](https://www.singstat.gov.sg/) Although it does not contain any coordinates values, but it’s PA and SZ fields can be used as unique identifiers to geocode to `MP14_SUBZONE_WEB_PL` shapefile.
+
+### **Importing Geospatial Data into R**
+
+We first use the *st_read()* function of **sf** package to import `MP14_SUBZONE_WEB_PL` shapefile into R as a simple feature data frame called `mpsz`.
+
+```{r}
+mpsz <- st_read(dsn = "data/geospatial", 
+                layer = "MP14_SUBZONE_WEB_PL")
+```
+
+Let's examine the content and first ten records of `mpsz:`
+
+```{r}
+mpsz
+```
+
+### **Importing Attribute Data into R**
+
+Next, we will import *respopagsex2011to2020.csv* file into RStudio and save the file into an R dataframe called *popagsex*.
+
+```{r}
+popdata <- read_csv("data/aspatial/respopagesextod2011to2020.csv")
+```
+
+### **Data Preparation**
+
+We first need to prepare a data table with year 2020 values. The data table should include the variables PA, SZ, YOUNG, ECONOMY ACTIVE, AGED, TOTAL, DEPENDENCY.
+
+-   YOUNG: age group 0 to 4 until age groyup 20 to 24,
+
+-   ECONOMY ACTIVE: age group 25-29 until age group 60-64,
+
+-   AGED: age group 65 and above,
+
+-   TOTAL: all age group, and
+
+-   DEPENDENCY: the ratio between young and aged against economy active group
+
+#### Data wrangling
+
+The following data wrangling and transformation functions will be used:
+
+-   *pivot_wider()* of **tidyr** package, and
+
+-   *mutate()*, *filter()*, *group_by()* and *select()* of **dplyr** package
+
+-   
+
+```{r}
+popdata2020 <- popdata %>%
+  filter(Time == 2020) %>%
+  group_by(PA, SZ, AG) %>%
+  summarise(`POP` = sum(`Pop`)) %>%
+  ungroup() %>%
+  pivot_wider(names_from=AG, 
+              values_from=POP) %>%
+  mutate(YOUNG = rowSums(.[3:6])
+         +rowSums(.[12])) %>%
+mutate(`ECONOMY ACTIVE` = rowSums(.[7:11])+
+rowSums(.[13:15]))%>%
+mutate(`AGED`=rowSums(.[16:21])) %>%
+mutate(`TOTAL`=rowSums(.[3:21])) %>%  
+mutate(`DEPENDENCY` = (`YOUNG` + `AGED`)
+/`ECONOMY ACTIVE`) %>%
+  select(`PA`, `SZ`, `YOUNG`, 
+       `ECONOMY ACTIVE`, `AGED`, 
+       `TOTAL`, `DEPENDENCY`)
+```
+
+# References
+
+-   [**R for Visual Analytics: Choropleth Mapping with R**](https://r4va.netlify.app/chap21)

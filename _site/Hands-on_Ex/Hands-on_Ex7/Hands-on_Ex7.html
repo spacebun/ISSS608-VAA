@@ -258,6 +258,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   <li><a href="#importing-attribute-data-into-r" id="toc-importing-attribute-data-into-r" class="nav-link" data-scroll-target="#importing-attribute-data-into-r"><span class="header-section-number">1.3.2</span> <strong>Importing Attribute Data into R</strong></a></li>
   <li><a href="#data-preparation" id="toc-data-preparation" class="nav-link" data-scroll-target="#data-preparation"><span class="header-section-number">1.3.3</span> <strong>Data Preparation</strong></a></li>
   <li><a href="#choropleth-mapping-geospatial-data-using-tmap" id="toc-choropleth-mapping-geospatial-data-using-tmap" class="nav-link" data-scroll-target="#choropleth-mapping-geospatial-data-using-tmap"><span class="header-section-number">1.3.4</span> Choropleth Mapping Geospatial Data Using tmap</a></li>
+  <li><a href="#data-classification-methods-of-tmap" id="toc-data-classification-methods-of-tmap" class="nav-link" data-scroll-target="#data-classification-methods-of-tmap"><span class="header-section-number">1.3.5</span> <strong>Data classification methods of tmap</strong></a></li>
   </ul></li>
   </ul></li>
   <li><a href="#references" id="toc-references" class="nav-link" data-scroll-target="#references"><span class="header-section-number">2</span> References</a></li>
@@ -541,10 +542,357 @@ Student’s Notes
 </section>
 <section id="choropleth-mapping-geospatial-data-using-tmap" class="level3" data-number="1.3.4">
 <h3 data-number="1.3.4" class="anchored" data-anchor-id="choropleth-mapping-geospatial-data-using-tmap"><span class="header-section-number">1.3.4</span> Choropleth Mapping Geospatial Data Using tmap</h3>
-<p>Two approaches can be used to prepare thematic map using tmap, they are:</p>
-<p>Plotting a thematic map quickly by using qtm(). Plotting highly customisable thematic map by using tmap elements.</p>
+<p>Two approaches can be used to prepare thematic map using <em>tmap</em>, they are:</p>
+<ul>
+<li><p>Plotting a thematic map quickly by using <em>qtm()</em>.</p></li>
+<li><p>Plotting highly customisable thematic map by using tmap elements.</p></li>
+</ul>
 <section id="plotting-a-choropleth-map-quickly-by-using-qtm" class="level4" data-number="1.3.4.1">
-<h4 data-number="1.3.4.1" class="anchored" data-anchor-id="plotting-a-choropleth-map-quickly-by-using-qtm"><span class="header-section-number">1.3.4.1</span> Plotting a choropleth map quickly by using qtm()</h4>
+<h4 data-number="1.3.4.1" class="anchored" data-anchor-id="plotting-a-choropleth-map-quickly-by-using-qtm"><span class="header-section-number">1.3.4.1</span> Plotting a choropleth map quickly by using <em>qtm()</em></h4>
+<p>The easiest and quickest to draw a choropleth map using <strong>tmap</strong> is using <em>qtm()</em>. It is concise and provides a good default visualisation in many cases.</p>
+<p>The code chunk below will draw a cartographic standard choropleth map as shown below.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb13"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1"></a><span class="fu">tmap_mode</span>(<span class="st">"plot"</span>) <span class="co"># Set the tmap mode: "plot" or "view"</span></span>
+<span id="cb13-2"><a href="#cb13-2"></a><span class="fu">qtm</span>(mpsz_pop2020, <span class="co"># qtm is a quick plotting method to Plot a thematic map</span></span>
+<span id="cb13-3"><a href="#cb13-3"></a>    <span class="at">fill =</span> <span class="st">"DEPENDENCY"</span>) <span class="co"># either a color to fill the polygons, or name of the data variable in shp to draw a choropleth. Only applicable when shp contains polygons.  Set fill = NULL to draw only polygon borders. </span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="Hands-on_Ex7_files/figure-html/unnamed-chunk-10-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb14"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1"></a><span class="fu">tmap_mode</span>(<span class="st">"plot"</span>)  </span>
+<span id="cb14-2"><a href="#cb14-2"></a><span class="fu">qtm</span>(mpsz_pop2020,</span>
+<span id="cb14-3"><a href="#cb14-3"></a>    <span class="at">fill =</span> <span class="cn">NULL</span>) <span class="co"># Set fill = NULL to draw only polygon borders. </span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="Hands-on_Ex7_files/figure-html/unnamed-chunk-11-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>Things to learn from the code chunk above:</p>
+<ul>
+<li><p><em>tmap_mode()</em> with “plot” option is used to produce a <strong>static map</strong>.</p>
+<ul>
+<li>For interactive mode, “view” option should be used. If the mode is set to “view”, the map is shown interactively as an htmlwidget. However it does not work for this data.</li>
+</ul></li>
+<li><p><em>fill</em> argument is used to map the attribute (i.e.&nbsp;DEPENDENCY)<br>
+</p></li>
+</ul>
+</section>
+<section id="creating-a-choropleth-map-by-using-tmaps-elements" class="level4" data-number="1.3.4.2">
+<h4 data-number="1.3.4.2" class="anchored" data-anchor-id="creating-a-choropleth-map-by-using-tmaps-elements"><span class="header-section-number">1.3.4.2</span> <strong>Creating a choropleth map by using <em>tmap</em>’s elements</strong></h4>
+<p>Despite its usefulness of drawing a choropleth map quickly and easily, the disadvantge of&nbsp;<em>qtm()</em>&nbsp;is that it makes aesthetics of individual layers harder to control.</p>
+<p>To draw a high quality cartographic choropleth map as shown in the figure below, <strong>tmap</strong>’s drawing elements should be used.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb15"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1"></a><span class="fu">tm_shape</span>(mpsz_pop2020)<span class="sc">+</span> <span class="co"># Creates a tmap-element that specifies a spatial data object, which we refer to as shape. Also the projection and covered area (bounding box) can be set. It is possible to use multiple shape objects within one plot (see tmap-element).</span></span>
+<span id="cb15-2"><a href="#cb15-2"></a>  <span class="fu">tm_fill</span>(<span class="st">"DEPENDENCY"</span>,  <span class="co"># AES Layer. Create a polygon layer (without borders)</span></span>
+<span id="cb15-3"><a href="#cb15-3"></a>          <span class="at">style =</span> <span class="st">"quantile"</span>,  <span class="co">#  define a data classification method. </span></span>
+<span id="cb15-4"><a href="#cb15-4"></a>          <span class="at">palette =</span> <span class="st">"Blues"</span>,</span>
+<span id="cb15-5"><a href="#cb15-5"></a>          <span class="at">title =</span> <span class="st">"Dependency ratio"</span>) <span class="sc">+</span></span>
+<span id="cb15-6"><a href="#cb15-6"></a>  <span class="fu">tm_layout</span>(<span class="at">main.title =</span> <span class="st">"Distribution of Dependency Ratio by planning subzone"</span>, <span class="co"># layout element. Adjust the layout (main function)</span></span>
+<span id="cb15-7"><a href="#cb15-7"></a>            <span class="at">main.title.position =</span> <span class="st">"center"</span>,</span>
+<span id="cb15-8"><a href="#cb15-8"></a>            <span class="at">main.title.size =</span> <span class="fl">1.2</span>,</span>
+<span id="cb15-9"><a href="#cb15-9"></a>            <span class="at">legend.height =</span> <span class="fl">0.45</span>, </span>
+<span id="cb15-10"><a href="#cb15-10"></a>            <span class="at">legend.width =</span> <span class="fl">0.35</span>,</span>
+<span id="cb15-11"><a href="#cb15-11"></a>            <span class="at">frame =</span> <span class="cn">TRUE</span>) <span class="sc">+</span></span>
+<span id="cb15-12"><a href="#cb15-12"></a>  <span class="fu">tm_borders</span>(<span class="at">alpha =</span> <span class="fl">0.5</span>) <span class="sc">+</span> <span class="co"># AES Layer. Create polygon borders.</span></span>
+<span id="cb15-13"><a href="#cb15-13"></a>  <span class="fu">tm_compass</span>(<span class="at">type=</span><span class="st">"8star"</span>, <span class="at">size =</span> <span class="dv">2</span>) <span class="sc">+</span> <span class="co">#Attribute. Create a map compass</span></span>
+<span id="cb15-14"><a href="#cb15-14"></a>  <span class="fu">tm_scale_bar</span>() <span class="sc">+</span> <span class="co"># Attribute. Create a scale bar</span></span>
+<span id="cb15-15"><a href="#cb15-15"></a>  <span class="fu">tm_grid</span>(<span class="at">alpha =</span><span class="fl">0.2</span>) <span class="sc">+</span> <span class="co"># Attribute. Create grid lines</span></span>
+<span id="cb15-16"><a href="#cb15-16"></a>  <span class="fu">tm_credits</span>(<span class="st">"Source: Planning Sub-zone boundary from Urban Redevelopment Authorithy (URA)</span><span class="sc">\n</span><span class="st"> and Population data from Department of Statistics DOS"</span>, </span>
+<span id="cb15-17"><a href="#cb15-17"></a>             <span class="at">position =</span> <span class="fu">c</span>(<span class="st">"left"</span>, <span class="st">"bottom"</span>)) <span class="co"># Attribute. Create a text for credits</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="Hands-on_Ex7_files/figure-html/unnamed-chunk-12-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Student’s Notes
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>Trying <em>tm_facets()</em> wil argument along set to “SUBZONE_N” created a lot of plots with each plot being a specified area.</p>
+</div>
+</div>
+</section>
+<section id="drawing-a-base-map" class="level4" data-number="1.3.4.3">
+<h4 data-number="1.3.4.3" class="anchored" data-anchor-id="drawing-a-base-map"><span class="header-section-number">1.3.4.3</span> Drawing a base map</h4>
+<p>The basic building block of <strong>tmap</strong> is <em>tm_shape()</em>, followed by one or more layer elements such as <em>tm_fill()</em> and <em>tm_polygons()</em>.</p>
+<p>In the code chunk below,&nbsp;<em>tm_shape()</em>&nbsp;is used to define the input data (i.e&nbsp;<em>mpsz_pop2020</em>) and&nbsp;<em>tm_polygons()</em>&nbsp;is used to draw the planning subzone polygons.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb16"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1"></a><span class="fu">tm_shape</span>(mpsz_pop2020) <span class="sc">+</span></span>
+<span id="cb16-2"><a href="#cb16-2"></a>  <span class="fu">tm_polygons</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="Hands-on_Ex7_files/figure-html/unnamed-chunk-13-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="drawing-a-choropleth-map-using-tm_polygons" class="level4" data-number="1.3.4.4">
+<h4 data-number="1.3.4.4" class="anchored" data-anchor-id="drawing-a-choropleth-map-using-tm_polygons"><span class="header-section-number">1.3.4.4</span> Drawing a choropleth map using <em>tm_polygons()</em></h4>
+<p>To draw a choropleth map showing the geographical distribution of a selected variable by planning subzone, we just need to assign the target variable such as&nbsp;<em>Dependency</em>&nbsp;to&nbsp;the aes layer <em>tm_polygons()</em>.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb17"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1"></a><span class="fu">tm_shape</span>(mpsz_pop2020)<span class="sc">+</span></span>
+<span id="cb17-2"><a href="#cb17-2"></a>  <span class="fu">tm_polygons</span>(<span class="st">"DEPENDENCY"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="Hands-on_Ex7_files/figure-html/unnamed-chunk-14-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>Things to learn from <em>tm_polygons()</em>:</p>
+<ul>
+<li><p>The default interval binning used to draw the choropleth map is called “pretty”. A detailed discussion of the data classification methods supported by <strong>tmap</strong> will be provided later on.</p></li>
+<li><p>The default colour scheme used is <code>YlOrRd</code> of ColorBrewer. You will learn more about the color scheme later on</p></li>
+<li><p>By default, missing values will be shaded in grey.</p></li>
+</ul>
+</section>
+<section id="drawing-a-choropleth-map-using-tm_fill-and-tm_border" class="level4" data-number="1.3.4.5">
+<h4 data-number="1.3.4.5" class="anchored" data-anchor-id="drawing-a-choropleth-map-using-tm_fill-and-tm_border"><span class="header-section-number">1.3.4.5</span> Drawing a choropleth map using <em>tm_fill()</em> and <em>tm_border()</em></h4>
+<p><strong>Actually, <em>tm_polygons()</em> is a wrapper of <em>tm_fill()</em> and <em>tm_border()</em>.</strong></p>
+<p><em>tm_fill()</em> <u>shades</u> the polygons by using the default colour scheme and <em>tm_borders()</em> adds the <u>borders</u> of the shapefile onto the choropleth map.</p>
+<p>The code chunk below draws a choropleth map by using <em>tm_fill()</em> alone.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb18"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1"></a><span class="fu">tm_shape</span>(mpsz_pop2020)<span class="sc">+</span></span>
+<span id="cb18-2"><a href="#cb18-2"></a>  <span class="fu">tm_fill</span>(<span class="st">"DEPENDENCY"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="Hands-on_Ex7_files/figure-html/unnamed-chunk-15-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>Notice that the planning subzones are shared according to the respective dependecy values</p>
+<p>To add the boundary of the planning subzones, tm_borders will be used as shown in the code chunk below.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb19"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1"></a><span class="fu">tm_shape</span>(mpsz_pop2020)<span class="sc">+</span></span>
+<span id="cb19-2"><a href="#cb19-2"></a>  <span class="fu">tm_fill</span>(<span class="st">"DEPENDENCY"</span>) <span class="sc">+</span></span>
+<span id="cb19-3"><a href="#cb19-3"></a>  <span class="fu">tm_borders</span>(<span class="at">lwd =</span> <span class="fl">0.1</span>,  <span class="at">alpha =</span> <span class="dv">1</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="Hands-on_Ex7_files/figure-html/unnamed-chunk-16-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>Notice that light-gray border lines have been added on the choropleth map.</p>
+<ul>
+<li>The <em>alpha</em> argument is used to define transparency number between 0 (totally transparent) and 1 (not transparent). By default, the alpha value of the col is used (normally 1).</li>
+</ul>
+<p>Beside <em>alpha</em> argument, there are three other arguments for <em>tm_borders()</em>, they are:</p>
+<ul>
+<li><p><em>col</em> = border colour,</p></li>
+<li><p><em>lwd</em> = border line width. The default is 1, and</p></li>
+<li><p><em>lty</em> = border line type. The default is “solid”.</p></li>
+</ul>
+</section>
+</section>
+<section id="data-classification-methods-of-tmap" class="level3" data-number="1.3.5">
+<h3 data-number="1.3.5" class="anchored" data-anchor-id="data-classification-methods-of-tmap"><span class="header-section-number">1.3.5</span> <strong>Data classification methods of tmap</strong></h3>
+<p>Most choropleth maps employ some methods of data classification. The point of classification is to take a large number of observations and <u>group them into data ranges or classes.</u></p>
+<p><strong>tmap</strong> provides a total ten data classification methods, namely: <em>fixed</em>, <em>sd</em>, <em>equal</em>, <em>pretty</em> (default), <em>quantile</em>, <em>kmeans</em>, <em>hclust</em>, <em>bclust</em>, <em>fisher</em>, and <em>jenks</em>.</p>
+<p>To define a data classification method, the <em>style</em> argument of <em>tm_fill()</em> or <em>tm_polygons()</em> will be used.</p>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Student’s Notes
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>From documentation on <em>style</em></p>
+<p>This is a method to process the color scale when col is a <u>numeric variable</u>.</p>
+<p>Discrete gradient options are “cat”, “fixed”, “sd”, “equal”, “pretty”, “quantile”, “kmeans”, “hclust”, “bclust”, “fisher”, “jenks”, “dpih”, “headtails”, and “log10_pretty”.</p>
+<p>A numeric variable is processed as a categorical variable when using “cat”, i.e.&nbsp;each unique value will correspond to a distinct category. For the other discrete gradient options (except “log10_pretty”), see the details in classIntervals (extra arguments can be passed on via style.args). Continuous gradient options are “cont”, “order”, and “log10”. The first maps the values of col to a smooth gradient, the second maps the order of values of col to a smooth gradient, and the third uses a logarithmic transformation.</p>
+</div>
+</div>
+<p>More on some of the styles from <a href="https://www.rdocumentation.org/packages/classInt/versions/0.4-10/topics/classIntervals">classIntervals</a>:</p>
+<ul>
+<li><p>The “equal” style divides the range of the variable into n parts.</p></li>
+<li><p>The “pretty” style chooses a number of breaks not necessarily equal to n using <strong><code>pretty</code></strong>, but likely to be legible; arguments to <strong><code>pretty</code></strong> may be passed through <strong><code>...</code></strong>.</p></li>
+<li><p>The “quantile” style provides quantile breaks; arguments to <strong><code>quantile</code></strong> may be passed through <strong><code>...</code></strong>.</p></li>
+<li><p>The “kmeans” style uses <strong><code>kmeans</code></strong> to generate the breaks; it may be anchored using <strong><code>set.seed</code></strong>; the <strong><code>pars</code></strong> attribute returns the kmeans object generated; if <strong><code>kmeans</code></strong> fails, a jittered input vector containing <strong><code>rtimes</code></strong> replications of <strong><code>var</code></strong> is tried — with few unique values in <strong><code>var</code></strong>, this can prove necessary; arguments to <strong><code>kmeans</code></strong> may be passed through <strong><code>...</code></strong>.</p></li>
+<li><p>The “hclust” style uses <strong><code>hclust</code></strong> to generate the breaks using hierarchical clustering; the <strong><code>pars</code></strong> attribute returns the hclust object generated, and can be used to find other breaks using <strong><code>getHclustClassIntervals</code></strong>; arguments to <strong><code>hclust</code></strong> may be passed through <strong><code>...</code></strong>.</p></li>
+<li><p>The “bclust” style uses <strong><code>bclust</code></strong> to generate the breaks using bagged clustering; it may be anchored using <strong><code>set.seed</code></strong>; the <strong><code>pars</code></strong> attribute returns the bclust object generated, and can be used to find other breaks using <strong><code>getBclustClassIntervals</code></strong>; if <strong><code>bclust</code></strong> fails, a jittered input vector containing <strong><code>rtimes</code></strong> replications of <strong><code>var</code></strong> is tried — with few unique values in <strong><code>var</code></strong>, this can prove necessary; arguments to <strong><code>bclust</code></strong> may be passed through <strong><code>...</code></strong>.</p></li>
+<li><p>The “fisher” style uses the algorithm proposed by W. D. Fisher (1958) and discussed by Slocum et al.&nbsp;(2005) as the Fisher-Jenks algorithm; added here thanks to Hisaji Ono. This style will subsample by default for more than 3000 observations. This style should always be preferred to “jenks” as it uses the original Fortran code and runs nested for-loops much faster.</p></li>
+<li><p>The “jenks” style has been ported from Jenks’ code, and has been checked for consistency with ArcView, ArcGIS, and MapInfo (with some remaining differences); added here thanks to Hisaji Ono (originally reported as Basic, now seen as Fortran (as described in a talk last seen at http://www.irlogi.ie/wp-content/uploads/2016/11/NUIM_ChoroHarmful.pdf, slides 26-27)). Note that the sense of interval closure is reversed from the other styles, and in this implementation has to be right-closed - use cutlabels=TRUE in <strong><code>findColours</code></strong> on the object returned to show the closure clearly, and use <strong><code>findCols</code></strong> to extract the classes for each value. This style will subsample by default for more than 3000 observations.</p></li>
+<li><p>The “dpih” style uses the <strong><code>dpih()</code></strong> function from KernSmooth (Wand, 1995) implementing direct plug-in methodology to select the bin width of a histogram.</p></li>
+<li><p>The “headtails” style uses the algorithm proposed by Bin Jiang (2013), in order to find groupings or hierarchy for data with a heavy-tailed distribution. This classification scheme partitions all of the data values around the mean into two parts and continues the process iteratively for the values (above the mean) in the head until the head part values are no longer heavy-tailed distributed. Thus, the number of classes and the class intervals are both naturally determined. By default the algorithm uses <strong><code>thr = 0.4</code></strong>, meaning that when the head represents more than 40% of the observations the distribution is not considered heavy-tailed.</p></li>
+</ul>
+<section id="plotting-choropleth-maps-with-built-in-classification-methods" class="level4" data-number="1.3.5.1">
+<h4 data-number="1.3.5.1" class="anchored" data-anchor-id="plotting-choropleth-maps-with-built-in-classification-methods"><span class="header-section-number">1.3.5.1</span> Plotting choropleth maps with built-in classification methods</h4>
+<p>The code chunk below shows a quantile data classification that uses 5 classes.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb20"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb20-1"><a href="#cb20-1"></a><span class="fu">tm_shape</span>(mpsz_pop2020)<span class="sc">+</span></span>
+<span id="cb20-2"><a href="#cb20-2"></a>  <span class="fu">tm_fill</span>(<span class="st">"DEPENDENCY"</span>,</span>
+<span id="cb20-3"><a href="#cb20-3"></a>          <span class="at">n =</span> <span class="dv">5</span>,</span>
+<span id="cb20-4"><a href="#cb20-4"></a>          <span class="at">style =</span> <span class="st">"jenks"</span>) <span class="sc">+</span></span>
+<span id="cb20-5"><a href="#cb20-5"></a>  <span class="fu">tm_borders</span>(<span class="at">alpha =</span> <span class="fl">0.5</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="Hands-on_Ex7_files/figure-html/unnamed-chunk-17-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>In the code chunk below, <em>equal</em> data classification method is used. Notice that the distribution of quantile data classification method are more evenly distributed then equal data classification method.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb21"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb21-1"><a href="#cb21-1"></a><span class="fu">tm_shape</span>(mpsz_pop2020)<span class="sc">+</span></span>
+<span id="cb21-2"><a href="#cb21-2"></a>  <span class="fu">tm_fill</span>(<span class="st">"DEPENDENCY"</span>,</span>
+<span id="cb21-3"><a href="#cb21-3"></a>          <span class="at">n =</span> <span class="dv">5</span>,</span>
+<span id="cb21-4"><a href="#cb21-4"></a>          <span class="at">style =</span> <span class="st">"equal"</span>) <span class="sc">+</span> <span class="co"># divides the range of the variable into 5 parts</span></span>
+<span id="cb21-5"><a href="#cb21-5"></a>  <span class="fu">tm_borders</span>(<span class="at">alpha =</span> <span class="fl">0.5</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="Hands-on_Ex7_files/figure-html/unnamed-chunk-18-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<blockquote class="blockquote">
+<p><strong>Warning: Maps Lie!</strong></p>
+</blockquote>
+<blockquote class="blockquote">
+<p>DIY: Using what you havelearned, prepare choropleth maps by using different classification methods supported by tmap and compare their differences.</p>
+</blockquote>
+<ul>
+<li><p>pretty</p>
+<ul>
+<li>Seems similar to equal method</li>
+</ul></li>
+</ul>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb22"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb22-1"><a href="#cb22-1"></a><span class="fu">tm_shape</span>(mpsz_pop2020)<span class="sc">+</span></span>
+<span id="cb22-2"><a href="#cb22-2"></a>  <span class="fu">tm_fill</span>(<span class="st">"DEPENDENCY"</span>,</span>
+<span id="cb22-3"><a href="#cb22-3"></a>          <span class="at">n =</span> <span class="dv">5</span>,</span>
+<span id="cb22-4"><a href="#cb22-4"></a>          <span class="at">style =</span> <span class="st">"pretty"</span>) <span class="sc">+</span></span>
+<span id="cb22-5"><a href="#cb22-5"></a>  <span class="fu">tm_borders</span>(<span class="at">alpha =</span> <span class="fl">0.5</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="Hands-on_Ex7_files/figure-html/unnamed-chunk-19-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<ul>
+<li>kmeans</li>
+</ul>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb23"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb23-1"><a href="#cb23-1"></a><span class="fu">tm_shape</span>(mpsz_pop2020)<span class="sc">+</span></span>
+<span id="cb23-2"><a href="#cb23-2"></a>  <span class="fu">tm_fill</span>(<span class="st">"DEPENDENCY"</span>,</span>
+<span id="cb23-3"><a href="#cb23-3"></a>          <span class="at">n =</span> <span class="dv">5</span>,</span>
+<span id="cb23-4"><a href="#cb23-4"></a>          <span class="at">style =</span> <span class="st">"kmeans"</span>) <span class="sc">+</span></span>
+<span id="cb23-5"><a href="#cb23-5"></a>  <span class="fu">tm_borders</span>(<span class="at">alpha =</span> <span class="fl">0.5</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="Hands-on_Ex7_files/figure-html/unnamed-chunk-20-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<ul>
+<li>hclust</li>
+</ul>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb24"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb24-1"><a href="#cb24-1"></a><span class="fu">tm_shape</span>(mpsz_pop2020)<span class="sc">+</span></span>
+<span id="cb24-2"><a href="#cb24-2"></a>  <span class="fu">tm_fill</span>(<span class="st">"DEPENDENCY"</span>,</span>
+<span id="cb24-3"><a href="#cb24-3"></a>          <span class="at">n =</span> <span class="dv">5</span>,</span>
+<span id="cb24-4"><a href="#cb24-4"></a>          <span class="at">style =</span> <span class="st">"hclust"</span>) <span class="sc">+</span></span>
+<span id="cb24-5"><a href="#cb24-5"></a>  <span class="fu">tm_borders</span>(<span class="at">alpha =</span> <span class="fl">0.5</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="Hands-on_Ex7_files/figure-html/unnamed-chunk-21-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<blockquote class="blockquote">
+<p>DIY: Preparing choropleth maps by using similar classification method but with different numbers of classes (i.e.&nbsp;2, 6, 10, 20). Compare the output maps, what observation can you draw?</p>
+</blockquote>
+<ul>
+<li>n = 5</li>
+</ul>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb25"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb25-1"><a href="#cb25-1"></a><span class="fu">tm_shape</span>(mpsz_pop2020)<span class="sc">+</span></span>
+<span id="cb25-2"><a href="#cb25-2"></a>  <span class="fu">tm_fill</span>(<span class="st">"DEPENDENCY"</span>,</span>
+<span id="cb25-3"><a href="#cb25-3"></a>          <span class="at">n =</span> <span class="dv">5</span>,</span>
+<span id="cb25-4"><a href="#cb25-4"></a>          <span class="at">style =</span> <span class="st">"quantile"</span>) <span class="sc">+</span></span>
+<span id="cb25-5"><a href="#cb25-5"></a>  <span class="fu">tm_borders</span>(<span class="at">alpha =</span> <span class="fl">0.5</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="Hands-on_Ex7_files/figure-html/unnamed-chunk-22-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<ul>
+<li>n = 4</li>
+</ul>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb26"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb26-1"><a href="#cb26-1"></a><span class="fu">tm_shape</span>(mpsz_pop2020)<span class="sc">+</span></span>
+<span id="cb26-2"><a href="#cb26-2"></a>  <span class="fu">tm_fill</span>(<span class="st">"DEPENDENCY"</span>,</span>
+<span id="cb26-3"><a href="#cb26-3"></a>          <span class="at">n =</span> <span class="dv">4</span>,</span>
+<span id="cb26-4"><a href="#cb26-4"></a>          <span class="at">style =</span> <span class="st">"quantile"</span>) <span class="sc">+</span></span>
+<span id="cb26-5"><a href="#cb26-5"></a>  <span class="fu">tm_borders</span>(<span class="at">alpha =</span> <span class="fl">0.5</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="Hands-on_Ex7_files/figure-html/unnamed-chunk-23-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<ul>
+<li>n = 3</li>
+</ul>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb27"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb27-1"><a href="#cb27-1"></a><span class="fu">tm_shape</span>(mpsz_pop2020)<span class="sc">+</span></span>
+<span id="cb27-2"><a href="#cb27-2"></a>  <span class="fu">tm_fill</span>(<span class="st">"DEPENDENCY"</span>,</span>
+<span id="cb27-3"><a href="#cb27-3"></a>          <span class="at">n =</span> <span class="dv">3</span>,</span>
+<span id="cb27-4"><a href="#cb27-4"></a>          <span class="at">style =</span> <span class="st">"quantile"</span>) <span class="sc">+</span></span>
+<span id="cb27-5"><a href="#cb27-5"></a>  <span class="fu">tm_borders</span>(<span class="at">alpha =</span> <span class="fl">0.5</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="Hands-on_Ex7_files/figure-html/unnamed-chunk-24-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="plotting-choropleth-map-with-custom-break" class="level4" data-number="1.3.5.2">
+<h4 data-number="1.3.5.2" class="anchored" data-anchor-id="plotting-choropleth-map-with-custom-break"><span class="header-section-number">1.3.5.2</span> Plotting choropleth map with custom break</h4>
+<p>For all the built-in styles, the category breaks are computed internally. In order to override these defaults, the breakpoints can be set explicitly by means of the <em>breaks</em> argument to the <em>tm_fill()</em>. It is important to note that, in <strong>tmap</strong> the breaks include a minimum and maximum. As a result, in order to end up with n categories, n+1 elements must be specified in the <em>breaks</em> option (the values must be in increasing order).</p>
+<p>Before we get started, it is always a good practice to get some descriptive statistics on the variable before setting the break points. Code chunk below will be used to compute and display the descriptive statistics of <strong>DEPENDENCY</strong> field.</p>
 </section>
 </section>
 </section>

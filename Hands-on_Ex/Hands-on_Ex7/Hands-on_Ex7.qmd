@@ -191,6 +191,263 @@ The easiest and quickest to draw a choropleth map using **tmap** is using *qtm()
 
 The code chunk below will draw a cartographic standard choropleth map as shown below.
 
+```{r}
+tmap_mode("plot") # Set the tmap mode: "plot" or "view"
+qtm(mpsz_pop2020, # qtm is a quick plotting method to Plot a thematic map
+    fill = "DEPENDENCY") # either a color to fill the polygons, or name of the data variable in shp to draw a choropleth. Only applicable when shp contains polygons.  Set fill = NULL to draw only polygon borders. 
+```
+
+```{r}
+tmap_mode("plot")  
+qtm(mpsz_pop2020,
+    fill = NULL) # Set fill = NULL to draw only polygon borders. 
+```
+
+Things to learn from the code chunk above:
+
+-   *tmap_mode()* with “plot” option is used to produce a **static map**.
+
+    -   For interactive mode, “view” option should be used. If the mode is set to "view", the map is shown interactively as an htmlwidget. However it does not work for this data.
+
+-   *fill* argument is used to map the attribute (i.e. DEPENDENCY)\
+
+#### **Creating a choropleth map by using *tmap*’s elements**
+
+Despite its usefulness of drawing a choropleth map quickly and easily, the disadvantge of *qtm()* is that it makes aesthetics of individual layers harder to control.
+
+To draw a high quality cartographic choropleth map as shown in the figure below, **tmap**’s drawing elements should be used.
+
+```{r}
+tm_shape(mpsz_pop2020)+ # Creates a tmap-element that specifies a spatial data object, which we refer to as shape. Also the projection and covered area (bounding box) can be set. It is possible to use multiple shape objects within one plot (see tmap-element).
+  tm_fill("DEPENDENCY",  # AES Layer. Create a polygon layer (without borders)
+          style = "quantile",  #  define a data classification method. 
+          palette = "Blues",
+          title = "Dependency ratio") +
+  tm_layout(main.title = "Distribution of Dependency Ratio by planning subzone", # layout element. Adjust the layout (main function)
+            main.title.position = "center",
+            main.title.size = 1.2,
+            legend.height = 0.45, 
+            legend.width = 0.35,
+            frame = TRUE) +
+  tm_borders(alpha = 0.5) + # AES Layer. Create polygon borders.
+  tm_compass(type="8star", size = 2) + #Attribute. Create a map compass
+  tm_scale_bar() + # Attribute. Create a scale bar
+  tm_grid(alpha =0.2) + # Attribute. Create grid lines
+  tm_credits("Source: Planning Sub-zone boundary from Urban Redevelopment Authorithy (URA)\n and Population data from Department of Statistics DOS", 
+             position = c("left", "bottom")) # Attribute. Create a text for credits
+```
+
+::: callout-note
+## Student's Notes
+
+Trying *tm_facets()* wil argument along set to "SUBZONE_N" created a lot of plots with each plot being a specified area.
+:::
+
+#### Drawing a base map
+
+The basic building block of **tmap** is *tm_shape()*, followed by one or more layer elements such as *tm_fill()* and *tm_polygons()*.
+
+In the code chunk below, *tm_shape()* is used to define the input data (i.e *mpsz_pop2020*) and *tm_polygons()* is used to draw the planning subzone polygons.
+
+```{r}
+tm_shape(mpsz_pop2020) +
+  tm_polygons()
+```
+
+#### Drawing a choropleth map using *tm_polygons()*
+
+To draw a choropleth map showing the geographical distribution of a selected variable by planning subzone, we just need to assign the target variable such as *Dependency* to the aes layer *tm_polygons()*.
+
+```{r}
+tm_shape(mpsz_pop2020)+
+  tm_polygons("DEPENDENCY")
+```
+
+Things to learn from *tm_polygons()*:
+
+-   The default interval binning used to draw the choropleth map is called “pretty”. A detailed discussion of the data classification methods supported by **tmap** will be provided later on.
+
+-   The default colour scheme used is `YlOrRd` of ColorBrewer. You will learn more about the color scheme later on
+
+-   By default, missing values will be shaded in grey.
+
+#### Drawing a choropleth map using *tm_fill()* and *tm_border()*
+
+**Actually, *tm_polygons()* is a wrapper of *tm_fill()* and *tm_border()*.**
+
+*tm_fill()* [shades]{.underline} the polygons by using the default colour scheme and *tm_borders()* adds the [borders]{.underline} of the shapefile onto the choropleth map.
+
+The code chunk below draws a choropleth map by using *tm_fill()* alone.
+
+```{r}
+tm_shape(mpsz_pop2020)+
+  tm_fill("DEPENDENCY")
+```
+
+Notice that the planning subzones are shared according to the respective dependecy values
+
+To add the boundary of the planning subzones, tm_borders will be used as shown in the code chunk below.
+
+```{r}
+tm_shape(mpsz_pop2020)+
+  tm_fill("DEPENDENCY") +
+  tm_borders(lwd = 0.1,  alpha = 1)
+```
+
+Notice that light-gray border lines have been added on the choropleth map.
+
+-   The *alpha* argument is used to define transparency number between 0 (totally transparent) and 1 (not transparent). By default, the alpha value of the col is used (normally 1).
+
+Beside *alpha* argument, there are three other arguments for *tm_borders()*, they are:
+
+-   *col* = border colour,
+
+-   *lwd* = border line width. The default is 1, and
+
+-   *lty* = border line type. The default is “solid".
+
+### **Data classification methods of tmap**
+
+Most choropleth maps employ some methods of data classification. The point of classification is to take a large number of observations and [group them into data ranges or classes.]{.underline}
+
+**tmap** provides a total ten data classification methods, namely: *fixed*, *sd*, *equal*, *pretty* (default), *quantile*, *kmeans*, *hclust*, *bclust*, *fisher*, and *jenks*.
+
+To define a data classification method, the *style* argument of *tm_fill()* or *tm_polygons()* will be used.
+
+::: callout-note
+## Student's Notes
+
+From documentation on *style*
+
+This is a method to process the color scale when col is a [numeric variable]{.underline}.
+
+Discrete gradient options are "cat", "fixed", "sd", "equal", "pretty", "quantile", "kmeans", "hclust", "bclust", "fisher", "jenks", "dpih", "headtails", and "log10_pretty".
+
+A numeric variable is processed as a categorical variable when using "cat", i.e. each unique value will correspond to a distinct category.
+For the other discrete gradient options (except "log10_pretty"), see the details in classIntervals (extra arguments can be passed on via style.args).
+Continuous gradient options are "cont", "order", and "log10". The first maps
+the values of col to a smooth gradient, the second maps the order of values
+of col to a smooth gradient, and the third uses a logarithmic transformation.
+:::
+
+More on some of the styles from [classIntervals](https://www.rdocumentation.org/packages/classInt/versions/0.4-10/topics/classIntervals):
+
+-   The "equal" style divides the range of the variable into n parts.
+
+-   The "pretty" style chooses a number of breaks not necessarily equal to n using **`pretty`**, but likely to be legible; arguments to **`pretty`** may be passed through **`...`**.
+
+-   The "quantile" style provides quantile breaks; arguments to **`quantile`** may be passed through **`...`**.
+
+-   The "kmeans" style uses **`kmeans`** to generate the breaks; it may be anchored using **`set.seed`**; the **`pars`** attribute returns the kmeans object generated; if **`kmeans`** fails, a jittered input vector containing **`rtimes`** replications of **`var`** is tried --- with few unique values in **`var`**, this can prove necessary; arguments to **`kmeans`** may be passed through **`...`**.
+
+-   The "hclust" style uses **`hclust`** to generate the breaks using hierarchical clustering; the **`pars`** attribute returns the hclust object generated, and can be used to find other breaks using **`getHclustClassIntervals`**; arguments to **`hclust`** may be passed through **`...`**.
+
+-   The "bclust" style uses **`bclust`** to generate the breaks using bagged clustering; it may be anchored using **`set.seed`**; the **`pars`** attribute returns the bclust object generated, and can be used to find other breaks using **`getBclustClassIntervals`**; if **`bclust`** fails, a jittered input vector containing **`rtimes`** replications of **`var`** is tried --- with few unique values in **`var`**, this can prove necessary; arguments to **`bclust`** may be passed through **`...`**.
+
+-   The "fisher" style uses the algorithm proposed by W. D. Fisher (1958) and discussed by Slocum et al. (2005) as the Fisher-Jenks algorithm; added here thanks to Hisaji Ono. This style will subsample by default for more than 3000 observations. This style should always be preferred to "jenks" as it uses the original Fortran code and runs nested for-loops much faster.
+
+-   The "jenks" style has been ported from Jenks' code, and has been checked for consistency with ArcView, ArcGIS, and MapInfo (with some remaining differences); added here thanks to Hisaji Ono (originally reported as Basic, now seen as Fortran (as described in a talk last seen at http://www.irlogi.ie/wp-content/uploads/2016/11/NUIM_ChoroHarmful.pdf, slides 26-27)). Note that the sense of interval closure is reversed from the other styles, and in this implementation has to be right-closed - use cutlabels=TRUE in **`findColours`** on the object returned to show the closure clearly, and use **`findCols`** to extract the classes for each value. This style will subsample by default for more than 3000 observations.
+
+-   The "dpih" style uses the **`dpih()`** function from KernSmooth (Wand, 1995) implementing direct plug-in methodology to select the bin width of a histogram.
+
+-   The "headtails" style uses the algorithm proposed by Bin Jiang (2013), in order to find groupings or hierarchy for data with a heavy-tailed distribution. This classification scheme partitions all of the data values around the mean into two parts and continues the process iteratively for the values (above the mean) in the head until the head part values are no longer heavy-tailed distributed. Thus, the number of classes and the class intervals are both naturally determined. By default the algorithm uses **`thr = 0.4`**, meaning that when the head represents more than 40% of the observations the distribution is not considered heavy-tailed.
+
+#### Plotting choropleth maps with built-in classification methods
+
+The code chunk below shows a quantile data classification that uses 5 classes.
+
+```{r}
+tm_shape(mpsz_pop2020)+
+  tm_fill("DEPENDENCY",
+          n = 5,
+          style = "jenks") +
+  tm_borders(alpha = 0.5)
+```
+
+In the code chunk below, *equal* data classification method is used. Notice that the distribution of quantile data classification method are more evenly distributed then equal data classification method.
+
+```{r}
+tm_shape(mpsz_pop2020)+
+  tm_fill("DEPENDENCY",
+          n = 5,
+          style = "equal") + # divides the range of the variable into 5 parts
+  tm_borders(alpha = 0.5)
+```
+
+> **Warning: Maps Lie!**
+
+> DIY: Using what you havelearned, prepare choropleth maps by using different classification methods supported by tmap and compare their differences.
+
+-   pretty
+
+    -   Seems similar to equal method
+
+```{r}
+tm_shape(mpsz_pop2020)+
+  tm_fill("DEPENDENCY",
+          n = 5,
+          style = "pretty") +
+  tm_borders(alpha = 0.5)
+```
+
+-   kmeans
+
+```{r}
+tm_shape(mpsz_pop2020)+
+  tm_fill("DEPENDENCY",
+          n = 5,
+          style = "kmeans") +
+  tm_borders(alpha = 0.5)
+```
+
+-   hclust
+
+```{r}
+tm_shape(mpsz_pop2020)+
+  tm_fill("DEPENDENCY",
+          n = 5,
+          style = "hclust") +
+  tm_borders(alpha = 0.5)
+```
+
+> DIY: Preparing choropleth maps by using similar classification method but with different numbers of classes (i.e. 2, 6, 10, 20). Compare the output maps, what observation can you draw?
+
+-   n = 5
+
+```{r}
+tm_shape(mpsz_pop2020)+
+  tm_fill("DEPENDENCY",
+          n = 5,
+          style = "quantile") +
+  tm_borders(alpha = 0.5)
+```
+
+-   n = 4
+
+```{r}
+tm_shape(mpsz_pop2020)+
+  tm_fill("DEPENDENCY",
+          n = 4,
+          style = "quantile") +
+  tm_borders(alpha = 0.5)
+```
+
+-   n = 3
+
+```{r}
+tm_shape(mpsz_pop2020)+
+  tm_fill("DEPENDENCY",
+          n = 3,
+          style = "quantile") +
+  tm_borders(alpha = 0.5)
+```
+
+#### Plotting choropleth map with custom break
+
+For all the built-in styles, the category breaks are computed internally. In order to override these defaults, the breakpoints can be set explicitly by means of the *breaks* argument to the *tm_fill()*. It is important to note that, in **tmap** the breaks include a minimum and maximum. As a result, in order to end up with n categories, n+1 elements must be specified in the *breaks* option (the values must be in increasing order).
+
+Before we get started, it is always a good practice to get some descriptive statistics on the variable before setting the break points. Code chunk below will be used to compute and display the descriptive statistics of **DEPENDENCY** field.
+
 # References
 
 -   [**R for Visual Analytics: Choropleth Mapping with R**](https://r4va.netlify.app/chap21)

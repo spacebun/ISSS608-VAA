@@ -1,5 +1,5 @@
 ---
-title: "Hands-on Exercise 7 (Work in Progress)"
+title: "Hands-on Exercise 7"
 subtitle: "Visualising and Analysing Geographic Data"
 date: February 25, 2024
 date-modified: "last-modified"
@@ -323,11 +323,7 @@ This is a method to process the color scale when col is a [numeric variable]{.un
 
 Discrete gradient options are "cat", "fixed", "sd", "equal", "pretty", "quantile", "kmeans", "hclust", "bclust", "fisher", "jenks", "dpih", "headtails", and "log10_pretty".
 
-A numeric variable is processed as a categorical variable when using "cat", i.e. each unique value will correspond to a distinct category.
-For the other discrete gradient options (except "log10_pretty"), see the details in classIntervals (extra arguments can be passed on via style.args).
-Continuous gradient options are "cont", "order", and "log10". The first maps
-the values of col to a smooth gradient, the second maps the order of values
-of col to a smooth gradient, and the third uses a logarithmic transformation.
+A numeric variable is processed as a categorical variable when using "cat", i.e. each unique value will correspond to a distinct category. For the other discrete gradient options (except "log10_pretty"), see the details in classIntervals (extra arguments can be passed on via style.args). Continuous gradient options are "cont", "order", and "log10". The first maps the values of col to a smooth gradient, the second maps the order of values of col to a smooth gradient, and the third uses a logarithmic transformation.
 :::
 
 More on some of the styles from [classIntervals](https://www.rdocumentation.org/packages/classInt/versions/0.4-10/topics/classIntervals):
@@ -577,7 +573,7 @@ In **tmap**, small multiple maps can be plotted in three ways:
 
 -   by creating multiple stand-alone maps with *tmap_arrange()*.
 
-####  By assigning multiple values to at least one of the aesthetic arguments
+#### By assigning multiple values to at least one of the aesthetic arguments
 
 In this example, small multiple choropleth maps are created by defining ***columns*** in **tm_fill()**
 
@@ -795,7 +791,7 @@ tm_bubbles(col = "red",
            border.lwd = 1)
 ```
 
-###  **Let's give it a different colour**
+### **Let's give it a different colour**
 
 The proportional symbol map can be further improved by using the colour visual attribute. In the code chunks below, *OUTLET_TYPE* variable is used as the colour attribute variable.
 

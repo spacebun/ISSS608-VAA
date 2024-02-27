@@ -23,7 +23,7 @@ In this exercise I will learn how to plot functional and truthful choropleth map
 
 ## Loading libraries
 
-We will use the  [**tmap**](https://cran.r-project.org/web/packages/tmap/) package that can create thematic maps, such as choropleths and bubble maps; and the [**sf**](https://cran.r-project.org/web/packages/sf/) package for handling geospatial data.
+We will use the [**tmap**](https://cran.r-project.org/web/packages/tmap/) package that can create thematic maps, such as choropleths and bubble maps; and the [**sf**](https://cran.r-project.org/web/packages/sf/) package for handling geospatial data.
 
 ```{r}
 pacman::p_load(sf, tmap, tidyverse)
@@ -33,38 +33,75 @@ pacman::p_load(sf, tmap, tidyverse)
 
 Two data set will be used to create the choropleth map. They are:
 
--   Master Plan 2014 Subzone Boundary (Web) (i.e. `MP14_SUBZONE_WEB_PL`) in ESRI shapefile format. It can be downloaded at [data.gov.sg](https://data.gov.sg/) This is a geospatial data. It consists of the geographical boundary of Singapore at the planning subzone level. The data is based on URA Master Plan 2014.
+-   Master Plan 2014 Subzone Boundary (Web) (i.e. `MP14_SUBZONE_WEB_PL`) in ESRI shapefile format. It can be downloaded at [data.gov.sg](https://data.gov.sg/) This is a **geospatial data**. It consists of the **geographical boundary of Singapore at the planning subzone level**. The data is based on URA Master Plan 2014.
 
--   Singapore Residents by Planning Area / Subzone, Age Group, Sex and Type of Dwelling, June 2011-2020 in csv format (i.e. `respopagesextod2011to2020.csv`). This is an aspatial data fie. It can be downloaded at [Department of Statistics, Singapore](https://www.singstat.gov.sg/) Although it does not contain any coordinates values, but it’s PA and SZ fields can be used as unique identifiers to geocode to `MP14_SUBZONE_WEB_PL` shapefile.
+-   Singapore Residents by Planning Area / Subzone, Age Group, Sex and Type of Dwelling, June 2011-2020 in csv format (i.e. `respopagesextod2011to2020.csv`). This is an aspatial data fie. It can be downloaded at [Department of Statistics, Singapore](https://www.singstat.gov.sg/) Although it does not contain any coordinates values, but it’s PA and SZ fields can be used as unique identifiers to geocode to `MP14_SUBZONE_WEB_PL` shapefile.
 
 ### **Importing Geospatial Data into R**
 
-We first use the *st_read()* function of **sf** package to import `MP14_SUBZONE_WEB_PL` shapefile into R as a simple feature data frame called `mpsz`.
+We first use the *st_read()* function of **sf** package to import `MP14_SUBZONE_WEB_PL` shapefile into R as a simple feature data frame called `mpsz`.
 
 ```{r}
 mpsz <- st_read(dsn = "data/geospatial", 
                 layer = "MP14_SUBZONE_WEB_PL")
 ```
 
-Let's examine the content and first ten records of `mpsz:`
+::: callout-note
+### Student's Notes
+
+There are 323 features (rows) and 15 fields (columns).
+:::
+
+Let's examine the content and first ten records of `mpsz:`
 
 ```{r}
 mpsz
 ```
 
+::: callout-note
+### Student's Notes
+
+Each feature could represent a different area, like a subzone or district. Alongside spatial information, each feature has 15 additional attributes or fields. These fields contain non-spatial data associated with each feature, such as names, codes, and other identifiers.
+
+Geometry type: MULTIPOLYGON: Each feature's geometry is stored as a MULTIPOLYGON, indicating that the spatial data for each area consists of one or more polygons. A polygon is a shape enclosed by a boundary that defines the area of the feature. MULTIPOLYGONs are used for complex shapes that might consist of several disjointed parts.
+
+Dimension: XY This indicates that the spatial data is in two dimensions, using X and Y coordinates to represent locations on a plane. This is typical for most mapping and GIS applications.
+
+Bounding box: xmin: 2667.538 ymin: 15748.72 xmax: 56396.44 ymax: 50256.33 The bounding box gives you the minimum and maximum coordinates of the dataset in the X (longitude) and Y (latitude) dimensions. This provides a rough idea of the spatial extent covered by your data.
+
+Projected CRS: SVY21 The Coordinate Reference System defines how the two-dimensional, flat map relates to real places on the Earth. SVY21 is a specific type of CRS that is likely tailored for a particular region e.g. Singapore.
+:::
+
 ### **Importing Attribute Data into R**
 
-Next, we will import *respopagsex2011to2020.csv* file into RStudio and save the file into an R dataframe called *popagsex*.
+Next, we will import *respopagsex2011to2020.csv* file into RStudio and save the file into an R dataframe called *popagsex*.
 
 ```{r}
 popdata <- read_csv("data/aspatial/respopagesextod2011to2020.csv")
 ```
 
+```{r}
+str(popdata)
+```
+
+::: callout-note
+### Student's Notes
+
+Data consists of 984,656 rows and 7 columns.
+
+Recall that PA and SZ fields can be used as unique identifiers to geocode to MP14_SUBZONE_WEB_PL shapefile. It seems like
+
+-   *PA* corresponds to *PLN_AREA_N*
+-   *SZ* corresponds to *SUBZONE_N*
+
+PA: Area / Region in SG SZ: Specific area within PA AG: Age group Sex: Gender TOD: Type of Dwelling Pop: Population for this age group for this area and TOD. Time: Year of info
+:::
+
 ### **Data Preparation**
 
-We first need to prepare a data table with year 2020 values. The data table should include the variables PA, SZ, YOUNG, ECONOMY ACTIVE, AGED, TOTAL, DEPENDENCY.
+We first need to prepare a data table with year **2020** values. The data table should include the variables PA, SZ, YOUNG, ECONOMY ACTIVE, AGED, TOTAL, DEPENDENCY.
 
--   YOUNG: age group 0 to 4 until age groyup 20 to 24,
+-   YOUNG: age group 0 to 4 until age group 20 to 24,
 
 -   ECONOMY ACTIVE: age group 25-29 until age group 60-64,
 
@@ -82,28 +119,77 @@ The following data wrangling and transformation functions will be used:
 
 -   *mutate()*, *filter()*, *group_by()* and *select()* of **dplyr** package
 
--   
-
 ```{r}
 popdata2020 <- popdata %>%
-  filter(Time == 2020) %>%
-  group_by(PA, SZ, AG) %>%
-  summarise(`POP` = sum(`Pop`)) %>%
-  ungroup() %>%
+  filter(Time == 2020) %>% # Filter data for year 2020
+  group_by(PA, SZ, AG) %>% # Group by PA SZ and AG. Not grouped: Sex , TOD. So we will see sum of age across each TOD and Gender for group. 
+  summarise(`POP` = sum(`Pop`)) %>% # Allows us to see population for each of the group, adding up for all type of TOD and Gender. 
+  ungroup() %>% 
   pivot_wider(names_from=AG, 
-              values_from=POP) %>%
-  mutate(YOUNG = rowSums(.[3:6])
-         +rowSums(.[12])) %>%
-mutate(`ECONOMY ACTIVE` = rowSums(.[7:11])+
+              values_from=POP) %>% # One row per combi of PA and SZ. Add columns for the Age Groups. Each value is the sum Pop for that age group. 
+  mutate(YOUNG = rowSums(.[3:6]) # Create new column YOUNG that calculates sum of values in columns 3 to 6 for each row. The . notation is a placeholder that refers to the current data frame being manipulated. 
+         +rowSums(.[12])) %>% # This is age group 5-9 which has weird position in column 12. 
+mutate(`ECONOMY ACTIVE` = rowSums(.[7:11])+ # Create new col again 
 rowSums(.[13:15]))%>%
-mutate(`AGED`=rowSums(.[16:21])) %>%
-mutate(`TOTAL`=rowSums(.[3:21])) %>%  
-mutate(`DEPENDENCY` = (`YOUNG` + `AGED`)
+mutate(`AGED`=rowSums(.[16:21])) %>%  # Create new col again 
+mutate(`TOTAL`=rowSums(.[3:21])) %>%  # Create new col again but sum across all age groups
+mutate(`DEPENDENCY` = (`YOUNG` + `AGED`) # New col for the ratio between young and aged against economy active group
 /`ECONOMY ACTIVE`) %>%
-  select(`PA`, `SZ`, `YOUNG`, 
+  select(`PA`, `SZ`, `YOUNG`, # Used to only select relevant cols so all the age Group cols are dropped. 
        `ECONOMY ACTIVE`, `AGED`, 
        `TOTAL`, `DEPENDENCY`)
 ```
+
+#### Joining the attribute data and geospatial data
+
+Before we can perform the georelational join, one extra step is required to **convert the values in PA and SZ fields to uppercase**. This is because the values of PA and SZ fields are made up of upper- and lowercase. On the other, hand the SUBZONE_N and PLN_AREA_N are in uppercase.
+
+```{r}
+# popdata2020 <- popdata2020 %>%
+#   mutate_at(.vars = vars(PA, SZ),  # .vars argument specifies the variables (or columns) on which the function specified by .funs will be applied. 
+#           .funs = funs(toupper)) %>% # .funs argument specifies the function(s) to apply to the selected variables. toupper function will be applied to each of the selected variables.
+#   filter(`ECONOMY ACTIVE` > 0) # only include those where the value of the ECONOMY ACTIVE column is greater than 0.
+
+# As `funs()` was deprecated in dplyr 0.8.0, we will use this
+popdata2020 <- popdata2020 %>%
+  mutate(across(.cols = c(PA, SZ), .fns = toupper)) %>%
+  filter(`ECONOMY ACTIVE` > 0)
+```
+
+Next, *left_join()* of dplyr is used to join the geographical data and attribute table using planning subzone name e.g. *SUBZONE_N* and *SZ* as the common identifier.
+
+```{r}
+mpsz_pop2020 <- left_join(mpsz, popdata2020,
+                          by = c("SUBZONE_N" = "SZ"))
+```
+
+::: callout-note
+### Student's Notes
+
+There is no more *SZ* column in the dataframe *mpsz_pop2020*.
+
+If the *popdata2020* data does not have a specified SZ that corresponds to SUBZONE_N, the values for PA, YOUNG, ECONOMY ACTIVE, AGED, TOTAL, DEPENDENCY columns will reflect as NA.
+:::
+
+Save output to .rds:
+
+```{r}
+write_rds(mpsz_pop2020, "data/rds/mpszpop2020.rds")
+```
+
+### Choropleth Mapping Geospatial Data Using tmap
+
+Two approaches can be used to prepare thematic map using *tmap*, they are:
+
+-   Plotting a thematic map quickly by using *qtm()*.
+
+-   Plotting highly customisable thematic map by using tmap elements.
+
+#### Plotting a choropleth map quickly by using *qtm()*
+
+The easiest and quickest to draw a choropleth map using **tmap** is using *qtm()*. It is concise and provides a good default visualisation in many cases.
+
+The code chunk below will draw a cartographic standard choropleth map as shown below.
 
 # References
 

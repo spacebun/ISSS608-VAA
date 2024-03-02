@@ -221,7 +221,72 @@ ggplot(ang_mo_kio_data, aes(x = `Daily Rainfall Total (mm)`)) +
   theme_minimal()
 ```
 
-### CLUSTERING EDA
+## UNIVARIATE TIME SERIES: Exploratory Data Analysis: Mean Temperature (°C). For Ang Mo Kio only. 
+
+Extract the temperature data into a variable *temp_data*:
+
+```{r}
+temp_data <- weather_data %>%
+  select(c(Station, Date, `Mean Temperature (°C)`, LAT, LONG))
+
+str(temp_data)
+```
+
+
+```{r}
+# Filter for a single station, e.g., "Ang Mo Kio"
+ang_mo_kio_data <- temp_data %>% 
+  filter(Station == "Ang Mo Kio")
+```
+
+### Time series plot: 
+
+```{r}
+# Plotting Mean Temperature as an example
+ggplot(ang_mo_kio_data, aes(x = Date, y = `Mean Temperature (°C)`)) +
+  geom_line() + 
+  labs(title = "Mean Temperature (°C) Over Time at Ang Mo Kio", x = "Date", y = "Mean Temperature (°C)") +
+  theme_minimal()
+```
+
+### Seasonality and Trend Analysis
+
+Done using the `stl()` function for seasonal-trend decomposition using LOESS.
+
+```{r}
+ts_data <- ts(ang_mo_kio_data$`Mean Temperature (°C)`, frequency = 365)
+
+decomposed_data <- stl(ts_data, s.window = "periodic")
+plot(decomposed_data)
+```
+### Autocorrelation Analysis
+
+To help with identifying how values are related to their lagged versions.
+
+```{r}
+acf(ts_data)
+pacf(ts_data)
+```
+### Stationarity Check
+
+Many forecasting models assume that the time series is stationary. Use the Augmented Dickey-Fuller (ADF) test to check for stationarity.
+
+```{r}
+adf.test(ts_data, alternative = "stationary")
+```
+### Distribution of the Variable
+
+Examine the distribution of your variable to identify any skewness, kurtosis, or outliers.
+
+```{r}
+ggplot(ang_mo_kio_data, aes(x = `Mean Temperature (°C)`)) +
+  geom_histogram(bins = 30, fill = "blue", color = "black") +
+  labs(title = "Distribution of Mean Temp at Ang Mo Kio", x = "Mean Temperature (°C)", y = "Frequency") +
+  theme_minimal()
+```
+
+
+### CLUSTERING EDA: Mean_Temperature
 To find similar patterns among stations, you might first perform a clustering analysis (e.g., using hierarchical clustering or k-means on station averages) and then visualize the clusters.
 ```{r}
 # Example: Hierarchical Clustering on Average Temperature by Station
@@ -234,28 +299,63 @@ dist_matrix <- dist(avg_temp$Avg_Temp)
 hc <- hclust(dist_matrix)
 plot(hc)
 ```
+### HORIZON PLOT: Mean Temperature (°C)
+
+```{r}
+weather_data %>% 
+  ggplot() +
+  geom_horizon(aes(x = Date, y=`Mean Temperature (°C)`), 
+               origin = "midpoint", 
+               horizonscale = 6)+
+  facet_grid(`Station`~.) +
+    theme_few() +
+    scale_fill_hcl(palette = 'RdBu') +
+  theme(panel.spacing.y=unit(0, "lines"), strip.text.y = element_text(
+    size = 5, angle = 0, hjust = 0),
+    legend.position = 'none',
+    axis.text.y = element_blank(),
+    axis.text.x = element_text(size=7),
+    axis.title.y = element_blank(),
+    axis.title.x = element_blank(),
+    axis.ticks.y = element_blank(),
+    panel.border = element_blank()
+    ) +
+    scale_x_date(expand=c(0,0), date_breaks = "3 month", date_labels = "%b%y") +
+  ggtitle('Mean Temperature (°C) across different weather stations (2021 - 2023)')
+```
+
+### HORIZON PLOT: Rainfall
+
+```{r}
+
+weather_data %>% 
+  ggplot() +
+  geom_horizon(aes(x = Date, y=`Daily Rainfall Total (mm)`), 
+               origin = "min", 
+               horizonscale = 6)+
+  facet_grid(`Station`~.) +
+    theme_few() +
+    scale_fill_hcl(palette = 'RdBu') +
+  theme(panel.spacing.y=unit(0, "lines"), strip.text.y = element_text(
+    size = 5, angle = 0, hjust = 0),
+    legend.position = 'none',
+    axis.text.y = element_blank(),
+    axis.text.x = element_text(size=7),
+    axis.title.y = element_blank(),
+    axis.title.x = element_blank(),
+    axis.ticks.y = element_blank(),
+    panel.border = element_blank()
+    ) +
+    scale_x_date(expand=c(0,0), date_breaks = "3 month", date_labels = "%b%y") +
+  ggtitle('Daily Rainfall Total across different weather stations (2021 - 2023)')
+```
+# Air quality data:
+
 ### HORIZON PLOT
 
 ```{r}
 
-# 
-# # Filter for a specific station and date range
-# rainfall_data <- weather_data %>%
-#   filter(Station == "Ang Mo Kio", Date >= "2021-01-01") %>%
-#   select(Date, `Daily Rainfall Total (mm)`)
-# 
-# # Since the 'geom_horizon' function is not a standard geom in ggplot2, the following code is a placeholder
-# # for the concept of what you might be aiming to achieve with a horizon plot.
-# # Please adjust this with the appropriate function or package you're using for horizon plots.
-# 
-# ggplot(rainfall_data, aes(x = Date, y = `Daily Rainfall Total (mm)`)) +
-#   geom_line() + # Placeholder for geom_horizon
-#   theme_minimal() +
-#   labs(title = "Daily Rainfall Total at Ang Mo Kio (2021 - 2023)", x = "Date", y = "Rainfall (mm)") +
-#   scale_x_date(date_breaks = "3 months", date_labels = "%b %Y")
-
-
-weather_data %>% 
+psi_24h_data %>% 
   ggplot() +
   geom_horizon(aes(x = Date, y=`Daily Rainfall Total (mm)`), 
                origin = "midpoint", 
@@ -275,27 +375,5 @@ weather_data %>%
     ) +
     scale_x_date(expand=c(0,0), date_breaks = "3 month", date_labels = "%b%y") +
   ggtitle('Daily Rainfall Total across different weather stations (2021 - 2023)')
-```
-
-
-```{r}
-ggplot(weather_data) +
-  geom_horizon(aes(x = Date, y = `Daily Rainfall Total (mm)`, group = Station), 
-               origin = "midpoint", 
-               horizonscale = 6) +
-  facet_grid(Station~., scales = 'free_y') + # Adjust this to your dataset
-  theme_few() +
-  scale_fill_hcl(palette = 'RdBu') +
-  theme(panel.spacing.y = unit(0, "lines"), 
-        strip.text.y = element_text(size = 5, angle = 0, hjust = 0),
-        legend.position = 'none',
-        axis.text.y = element_blank(),
-        axis.text.x = element_text(size = 7),
-        axis.title.y = element_blank(),
-        axis.title.x = element_blank(),
-        axis.ticks.y = element_blank(),
-        panel.border = element_blank()) +
-  scale_x_date(expand = c(0,0), date_breaks = "3 month", date_labels = "%b%y") +
-  ggtitle('Daily Rainfall Total (mm) by Station')
 ```
 

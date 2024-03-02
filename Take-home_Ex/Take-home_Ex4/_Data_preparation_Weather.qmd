@@ -1,0 +1,461 @@
+---
+title: "Data Preparation"
+subtitle: "Weather"
+author: "Lim Jia Jia"
+date: February 27, 2024
+date-modified:  last-modified
+format:
+  html:
+    toc: true
+    number-sections: true
+    code-line-numbers: false
+    
+execute: 
+  eval: true
+  echo: true
+  warning: false  
+---
+
+## Overview
+
+In this document we clean and prepare our weather data.
+
+```{mermaid}
+flowchart TD
+    A(Import Data) --> B(Data preparation)
+    B --> C(Save data)
+```
+
+
+
+## Getting Started
+
+### Load R packages
+
+First, we load packages required:
+
+```{r}
+pacman::p_load(naniar,
+               tidyverse, haven,
+               ggrepel, ggthemes,
+               ggridges, ggdist,
+               patchwork, ggpattern,
+               hrbrthemes, plotly,
+               sf, tmap,
+               lubridate,
+               DT, imputeTS, 
+               kableExtra)
+```
+
+## Import weather data
+
+```{r}
+weather <- read_csv("../data/climate_historical_daily_records.csv") 
+```
+
+## Data preparation
+
+For this project, we retrieved data from the [NEA website](http://www.weather.gov.sg/climate-historical-daily/) for 63 weather stations distributed across Singapore from the years 2014 to 2023. After examining the station records file, we found that 41 stations had some missing information for a few variables. Additionally, we identified stations that had no recorded data for entire months and others with excessive missing values, indicating significant gaps in data collection and recording. The detailed data cleaning process are documented down in the next few sections.
+
+```{mermaid}
+flowchart LR
+    A(Data preparation) --> B(Filter for period\n2021 to 2023)
+    A --> C(Remove unused variables)
+    A --> D(Check and remove duplicates)
+    A --> E(Station-specific cleaning)
+    E --> F(Remove stations with\nincomplete data)
+    E --> G(Remove stations with\nno data for an entire month)
+    E --> H(Remove stations with \nexcessive missing values)
+    A --> I(Impute data)
+    A --> J(Add Date column)
+```
+
+
+
+### General Data Cleaning
+
+#### Check structure with `glimpse()`
+
+```{r}
+glimpse(weather)
+```
+
+#### Filter desired period
+
+For this project, we focus on the year 2021 to 2023.
+
+```{r}
+weather <- weather %>%
+  filter(Year >= 2021)
+```
+
+#### Remove unused variables
+
+We will drop the following columns that we will not be using for this project:
+
+-   `Highest 30 Min Rainfall (mm)`
+-   `Highest 60 Min Rainfall (mm)`
+-   `Highest 1200 Min Rainfall (mm)`
+
+```{r}
+weather <- weather %>%
+  select(-c(`Highest 30 Min Rainfall (mm)`, 
+            `Highest 60 Min Rainfall (mm)`, 
+            `Highest 120 Min Rainfall (mm)`))
+```
+
+#### Checking for duplicated rows
+
+We use the following code to check the duplicated data for combination of Station Name, Year, Month, and Day. If there is any duplicated data, it will be shown.
+
+```{r}
+# Identify duplicates
+duplicates <- weather[duplicated(weather[c("Station", "Year", "Month", "Day")]) | duplicated(weather[c("Station", "Year", "Month", "Day")], fromLast = TRUE), ]
+
+# Check if 'duplicates' dataframe is empty
+if (nrow(duplicates) == 0) {
+  print("The combination of Station Name, Year, Month, and Day is unique.")
+} else {
+  print("There are duplicates in the combination of Station Name, Year, Month, and Day. Showing duplicated rows:")
+  # Print out the duplicated rows
+  print(duplicates)
+}
+
+```
+
+For duplicated row, we remove them by using following code.
+
+```{r}
+# Removing duplicates and keeping the first occurrence
+weather_unique <- weather %>%
+  distinct(Station, Year, Month, Day, .keep_all = TRUE)
+
+# View the cleaned data
+glimpse(weather_unique)
+```
+
+### Station-Specific Data Cleaning
+
+#### Removal of Stations with Incomplete Data
+
+Based on the Station Records, we will remove a number of stations where there is no data for a number of variables.
+
+```{r}
+# Define the station names to remove
+stations_to_remove <- c("Macritchie Reservoir", "Lower Peirce Reservoir", "Pasir Ris (West)", "Kampong Bahru", "Jurong Pier", "Ulu Pandan", "Serangoon", "Jurong (East)", "Mandai", "Upper Thomson", "Buangkok", "Boon Lay (West)", "Bukit Panjang", "Kranji Reservoir", "Tanjong Pagar", "Admiralty West", "Queenstown", "Tanjong Katong", "Chai Chee", "Upper Peirce Reservoir", "Kent Ridge", "Somerset (Road)", "Punggol", "Tuas West", "Simei", "Toa Payoh", "Tuas", "Bukit Timah", "Yishun", "Buona Vista", "Pasir Ris (Central)", "Jurong (North)", "Choa Chu Kang (West)", "Serangoon North", "Lim Chu Kang", "Marine Parade", "Choa Chu Kang (Central)", "Dhoby Ghaut", "Nicoll Highway", "Botanic Garden", "Whampoa")
+
+# Remove rows with the specified station names
+weather_unique <- weather_unique[!weather_unique$Station %in% stations_to_remove, ] # 29 Feb: replaced !weather with !weather_unique
+```
+
+Table below shows that unique weather stations in the data table after removal of incomplete data.
+
+```{r}
+#| code-fold: TRUE
+# Extract unique stations from the weather dataframe
+unique_stations <- unique(weather_unique$Station)
+
+kable(unique_stations, 
+      row.names = TRUE, 
+      col.names = "Station")
+```
+
+#### Identification and Removal of Stations with No Data for an Entire Month
+
+For some stations, there is no data for an entire month. We will check and summarise this list of stations by month and year.
+
+```{r}
+# Count the number of distinct months with data for each Station and Year
+yearly_month_count <- weather_unique %>%
+  group_by(Station, Year) %>%
+  summarise(TotalMonths = n_distinct(Month), .groups = 'drop')
+
+# Spread the Year to make them as columns with the count of months as values
+yearly_summary <- yearly_month_count %>%
+  pivot_wider(names_from = Year, values_from = TotalMonths, values_fill = list(TotalMonths = 0))
+
+datatable(yearly_summary, 
+            class= "compact",
+            rownames = FALSE,
+            width="100%", 
+            options = list(pageLength = 10,scrollX=T),
+          caption = 'Total number of monthly data per year for each station ')
+
+```
+
+The code below list out the missing months.
+
+```{r}
+# First, create a complete combination of Station, Year, and Month
+all_combinations <- expand.grid(
+  Station = unique(weather_unique$Station),
+  Year = 2021:2023, # Assuming you are interested in years from 2021 onwards
+  Month = 1:12
+)
+
+# Then left join this with the original weather data to identify missing entries
+missing_months <- all_combinations %>%
+  left_join(weather_unique, by = c("Station", "Year", "Month")) %>%
+  # Use is.na() to check for rows that didn't have a match in the original data
+  filter(is.na(Day)) %>%
+  # Select only the relevant columns for the final output
+  select(Station, Year, Month)
+
+# Now, create a summary table that lists out the missing months
+missing_months_summary <- missing_months %>%
+  group_by(Station, Year) %>%
+  summarise(MissingMonths = toString(sort(unique(Month))), .groups = 'drop')
+
+# Print the summary
+# print(missing_months_summary)
+
+datatable(missing_months_summary, 
+            class= "compact",
+            rownames = FALSE,
+            width="100%", 
+            options = list(pageLength = 10,scrollX=T),
+          caption = 'List of missing months')
+```
+
+We will drop the data for stations that have at least one missing month.
+
+```{r}
+# List of station names to drop
+stations_to_drop <- unique(missing_months$Station)
+
+# Filter out rows with station names in the list
+weather_unique <- weather_unique %>%
+  filter(!Station %in% stations_to_drop)
+```
+
+```{r}
+#| code-fold: TRUE
+kable(stations_to_drop, 
+      row.names = TRUE, 
+      col.names = "Station",
+      caption = "List of Stations Dropped")
+
+```
+
+```{r}
+#| code-fold: TRUE
+remaining_station <- unique(weather_unique$Station)
+
+kable(remaining_station,
+      row.names = TRUE,
+      col.names = "Station",
+      caption = "List of Remaining Stations")
+```
+
+#### Checking for and Removal of Stations with Excessive Missing Values
+
+Missing values can be represented by "`\u0097`", "NA" and "-".
+
+First, we filter for Station Year Month where any of the variables have 7 or more occurrences of missing values.
+
+```{r}
+# Assuming the previous steps to summarize and filter data
+weather_summary <- weather_unique %>%
+  mutate(across(where(is.numeric), ~ as.character(.))) %>% # Convert numeric columns to character
+  mutate(across(-c(Station, Year, Month, Day), ~ .x == "NA" | .x == "\u0097" | .x == "-", .names = "count_{col}")) %>%
+  group_by(Station, Year = as.numeric(Year), Month = as.numeric(Month)) %>%
+  summarise(across(starts_with("count_"), sum), .groups = "drop") %>%
+  # Filter rows where any count of 'NA' or '\u0097' is 7 or more
+  filter(if_any(starts_with("count_"), ~ . > 7)) %>%
+  # Arrange the data by Station, Year, and Month
+  arrange(Station, Year, Month)
+
+# Proceed to transform the summarized data back to a more readable format
+weather_summary_long <- weather_summary %>%
+  pivot_longer(-c(Station, Year, Month), names_to = "Measurement", values_to = "Count_NA_U0097") %>%
+  separate(Measurement, into = c("Dummy", "Variable"), sep = "_", extra = "merge") %>%
+  select(-Dummy) %>%
+  pivot_wider(names_from = "Variable", values_from = "Count_NA_U0097")
+
+# View the ordered, filtered summary
+# print(weather_summary_long)
+
+datatable(weather_summary_long, 
+            class= "compact",
+            rownames = FALSE,
+            width="100%", 
+            options = list(pageLength = 10,scrollX=T),
+          caption = 'List of missing values per month')
+
+```
+
+We summarize the total number of months with missing data per station.
+
+```{r}
+station_missing_summary <- weather_summary %>%
+  group_by(Station) %>%
+  summarise(Total_Missing_Months = n()) %>%
+  ungroup()
+
+datatable(station_missing_summary, 
+            class= "compact",
+            rownames = FALSE,
+            width="100%", 
+            options = list(pageLength = 10,scrollX=T),
+          caption = 'Total missing months with more than 7 missing values')
+```
+
+As the station has more than 7 missing values each month, we drop the station with the following code.
+
+```{r}
+# Drop stations in weather_unique that are listed in station_missing_summary
+weather_unique_filtered <- anti_join(weather_unique, station_missing_summary, by = "Station")
+```
+
+```{r}
+#| code-fold: true
+Station_excessive_missing <- unique(station_missing_summary$Station)
+                                    
+kable(Station_excessive_missing, 
+      row.names = TRUE,
+      col.names = "Station",
+      caption = "List of Stations Dropped")
+```
+
+### Final data assessment
+
+After previous steps, the list below shows the final stations that we will be using in the subsequent analysis. This section, we will first examine the final data set after removal of stations. Next, summary of missing values will be shown before we proceed with data imputation.
+
+```{r}
+#| code-fold: true
+final_stations <- unique(weather_unique_filtered$Station)
+
+kable(final_stations,
+      row.names = TRUE,
+      col.names = "Station",
+      caption = "List of Final Stations")
+```
+
+Following data table show the final data set.
+
+```{r}
+datatable(weather_unique_filtered, 
+            class= "compact",
+            rownames = FALSE,
+            width="100%", 
+            options = list(pageLength = 10,scrollX=T),
+          caption = 'Final data set')
+
+```
+
+The table below shows the numbers of missing value of the final data set.
+
+```{r}
+# Assuming the previous steps to summarize and filter data
+weather_summary <- weather_unique_filtered %>%
+  mutate(across(where(is.numeric), ~ as.character(.))) %>% # Convert numeric columns to character
+  mutate(across(-c(Station, Year, Month, Day), ~ .x == "NA" | .x == "\u0097" | .x == "-", .names = "count_{col}")) %>%
+  group_by(Station, Year = as.numeric(Year), Month = as.numeric(Month)) %>%
+  summarise(across(starts_with("count_"), sum), .groups = "drop") %>%
+  # Filter rows where any count of 'NA' or '\u0097' is 7 or more
+  filter(if_any(starts_with("count_"), ~ . > 0 & . <= 7)) %>%
+  # Arrange the data by Station, Year, and Month
+  arrange(Station, Year, Month)
+
+# Proceed to transform the summarized data back to a more readable format
+weather_summary_long <- weather_summary %>%
+  pivot_longer(-c(Station, Year, Month), names_to = "Measurement", values_to = "Count_NA_U0097") %>%
+  separate(Measurement, into = c("Dummy", "Variable"), sep = "_", extra = "merge") %>%
+  select(-Dummy) %>%
+  pivot_wider(names_from = "Variable", values_from = "Count_NA_U0097")
+
+# View the ordered, filtered summary
+# print(weather_summary_long)
+
+datatable(weather_summary_long, 
+            class= "compact",
+            rownames = FALSE,
+            width="100%", 
+            options = list(pageLength = 10,scrollX=T),
+          caption = 'List of missing values per month for final data set')
+
+```
+
+### Imputation of data
+
+```{r}
+#| eval: false
+# Ensure Date column exists
+weather_unique_filtered$Date <- as.Date(paste(weather_unique_filtered$Year, weather_unique_filtered$Month, weather_unique_filtered$Day, sep = "-"))
+
+# Define the weather variables to loop through
+weather_variables <- c("Daily Rainfall Total (mm)", "Mean Temperature (°C)", "Maximum Temperature (°C)", 
+                       "Minimum Temperature (°C)", "Mean Wind Speed (km/h)", "Max Wind Speed (km/h)")
+
+# Loop through each weather variable to impute missing values
+for(variable in weather_variables) {
+  # Convert variable to numeric, as na_ma() requires numeric input
+  weather_unique_filtered[[variable]] <- as.numeric(as.character(weather_unique_filtered[[variable]]))
+  
+  # Impute missing values using a moving average
+  weather_unique_imputed <- weather_unique_filtered %>%
+    group_by(Station) %>%
+    arrange(Station, Date) %>%
+    mutate(!!variable := round(na_ma(!!sym(variable), k = 3, weighting = "simple"), 1)) %>%
+    ungroup()
+}
+
+# Drop 'Year', 'Month', 'Day' columns and rearrange so 'Date' is the second column, immediately after 'Station'
+weather_unique_imputed <- weather_unique_imputed %>%
+  select(Station, Date, everything(), -Year, -Month, -Day)
+```
+
+### Add Date column to data
+
+```{r}
+
+# Ensure Date column exists
+weather_unique_filtered$Date <- as.Date(paste(weather_unique_filtered$Year, weather_unique_filtered$Month, weather_unique_filtered$Day, sep = "-"))
+
+weather_variables <- c("Daily Rainfall Total (mm)", "Mean Temperature (°C)", "Maximum Temperature (°C)", 
+                       "Minimum Temperature (°C)", "Mean Wind Speed (km/h)", "Max Wind Speed (km/h)")
+
+weather_unique_imputed <- weather_unique_filtered
+
+for(variable in weather_variables) {
+  weather_unique_imputed[[variable]] <- as.numeric(as.character(weather_unique_imputed[[variable]]))
+  
+  # Impute missing values using a moving average, rounded to 1 decimal place
+  weather_unique_imputed <- weather_unique_imputed %>%
+    group_by(Station) %>%
+    arrange(Station, Date) %>%
+    mutate(!!variable := round(na_ma(!!sym(variable), k = 3, weighting = "simple"), 1)) %>%
+    ungroup()
+}
+
+# Drop 'Year', 'Month', 'Day' columns and rearrange so 'Date' is the second column
+weather_unique_imputed <- weather_unique_imputed %>%
+  select(Station, Date, everything(), -Year, -Month, -Day)
+
+```
+
+```{r}
+datatable(weather_unique_imputed, 
+            class= "compact",
+            rownames = FALSE,
+            width="100%", 
+            options = list(pageLength = 10,scrollX=T),
+          caption = 'Final data set after imputation')
+
+```
+
+## Save data to rds
+
+Following code is used to export the imputed data table to csv.
+
+```{r}
+#| eval: false
+write_rds(weather_unique_imputed, "../data/weather_imputed.rds")
+```
+
+To read data in the future, use the following code chunk:
+
+```{r}
+#| eval: false
+weather_data <- read_rds("../data/weather_imputed.rds")
+```

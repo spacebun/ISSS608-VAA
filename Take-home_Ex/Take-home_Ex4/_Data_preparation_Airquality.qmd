@@ -1,0 +1,529 @@
+---
+title: "Data Preparation"
+subtitle: "Air Quality / Pollutants"
+date: February 25, 2024
+date-modified:  last-modified
+format:
+  html:
+    toc: true
+    number-sections: true
+    code-line-numbers: false
+    
+execute: 
+  eval: true
+  echo: true
+  warning: false  
+---
+
+## Overview
+
+Objective of this exercise is to perform data preparation for our air quality datasets.
+
+## Getting Started
+
+### Load libraries
+
+First, we load packages required:
+
+-   **tidyverse**: to support tasks such as reading in packages or data manipulation
+-   **naniar**: for using *miss_vis()* function to check data for missing values
+-   **imputeTS**: for using *na_ma()* function to impute missing values
+-   **DT**: for using *datatable()* to view the dataset interactively
+-   **lubridate**: for handling date-time formats
+
+```{r}
+pacman::p_load(tidyverse, naniar,imputeTS, DT, lubridate)
+```
+
+### Import datasets
+
+Next we import the datasets.
+
+```{r}
+pollutants <- read_csv("../data/pollutants_singapore.csv", locale = locale(encoding = "ISO-8859-1"))
+
+pm25_hourly <- read_csv("../data/Historical1hrPM2.5.csv", locale = locale(encoding = "ISO-8859-1"))
+
+psi_24h <- read_csv("../data/Historical24hrPSI.csv", locale = locale(encoding = "ISO-8859-1"))
+
+```
+
+For air quality, we have the following datasets:
+
+-   *pollutants:* Daily concentration of [6 air pollutants and PSI level](https://www-nea-gov-sg-admin.cwp.sg/our-services/pollution-control/air-pollution/faqs) for 5 areas in Singapore, for the period of approximately 2014 to 2023.
+
+-   *pm25_hourly*: Historical regional 1-hr PM2.5 value measured in µg/m3, for period April 2014 to Dec 2022. Retrieved from [Data.gov.sg: Historical 24-hr PSI](https://beta.data.gov.sg/collections/1380/view).
+
+-   *psi_24h*: Historical regional 24-hr PSI, for period April 2014 to Dec 2022. Retrieved from [Data.gov.sg: Historical 1-hr PM2.5](https://beta.data.gov.sg/collections/1379/view).
+
+## Data Preparation: *pollutants*
+
+### Overview
+
+Below is the summary of data preparation steps:
+
+1.  Check data structure
+
+2.  Convert date from *chr* to *Date* type
+
+3.  Filter for desired period, 2021 to 2023
+
+4.  Check for duplicated rows
+
+5.  Check for missing values
+
+6.  Drop columns with large number of missing values
+
+7.  Impute missing values for remaining columns
+
+8.  Save data to rds
+
+### Check structure with `glimpse()`
+
+```{r}
+glimpse(pollutants)
+```
+
+There are 18, 390 rows, and 9 columns in the dataset. Here are more details on the 9 columns:
+
+-   *Area* <chr>: The ambient air quality in Singapore is continuously monitored through a network of air monitoring sensors across the island. The data from the air monitoring sensors are reported for [five regions](https://www.nea.gov.sg/our-services/pollution-control/air-pollution/faqs) in Singapore – **North, South, East, West, Central**.
+
+-   *date* <chr>: The date for each row is recorded in YYYY/MM/DD format, of type chr.
+
+    -   **We will need to convert this to date/time class e.g. Date, POSIXct, or POSIXlt.**
+
+    -   **We will also select the time period of 2021-2023, to align the time period of this dataset with the weather dataset.**
+
+-   *pm25*, *pm10*, *o3*, *no2*, *so2*, *co* <dbl>: The air monitoring sensors measure concentration levels of **six** air pollutants: fine particulate matter (PM~2.5~), particulate matter (PM~10~), ozone (O~3~), nitrogen dioxide (NO~2~), sulphur dioxide (SO~2~) and carbon monoxide (CO). The values are reported in µg/m^3^ for each 24h period / day.
+
+-   *psi* <dbl>: PSI is the air quality index used in Singapore. It is reported as a number on a scale of **0 to 500**.
+
+### Convert date column to date type
+
+The code below converts the *date* column to type 'Date' and renames it to *Date*.
+
+\# Check that date column is now date type
+
+class(pollutants\$Date)
+
+```{r}
+# Convert date column from character to date type
+pollutants <- pollutants %>%
+  mutate(date = trimws(date), 
+         date = as.Date(date, format="%Y/%m/%d"))
+
+# Rename date column top 'Date'
+pollutants <- pollutants %>% 
+       rename("Date" = "date")
+
+# Check that date column is now date type
+class(pollutants$Date)
+```
+
+### Filter desired period, 2021 to 2023
+
+For this project, we focus on the year 2021 to 2023.
+
+```{r}
+pollutants <- pollutants %>%
+  filter(between(Date, as.Date('2021-01-01'), as.Date('2023-12-31')))
+
+# Check time period of data
+time_period_start <- min(pollutants$Date)
+time_period_end <- max(pollutants$Date)
+
+# Print the time period
+cat("The time period of the filtered dataset is from", format(time_period_start, "%Y-%m-%d"),"to", format(time_period_end, "%Y-%m-%d"), "\n")
+```
+
+### Check for duplicated rows
+
+We use the following code to check for duplicated data based on combination of Area and Date. If there is any duplicated data, it will be shown.
+
+```{r}
+# Identify duplicates
+duplicates <- pollutants[duplicated(pollutants[c("Area", "Date")]) | duplicated(pollutants[c("Area", "Date")], fromLast = TRUE), ]
+
+# Check if 'duplicates' dataframe is empty
+if (nrow(duplicates) == 0) {
+  print("The combination of Area and Date is unique.")
+} else {
+  print("There are duplicates. Showing duplicated rows:")
+  # Print out the duplicated rows
+  print(duplicates)
+}
+```
+
+There are no duplicated rows in our dataset.
+
+### Check for missing values
+
+We will first visually assess if there are any missing values using `vis_miss()` from the **naniar** package.
+
+```{r}
+vis_miss(pollutants)
+```
+
+We see that there are almost no values for two columns, *no2* and *psi*. We will drop these columns in the next step. There are also missing values for *pm25*, *pm10*, *o3*, *so2*, *co* columns. We will select a suitable imputation method to handle these missing values as well.
+
+### Drop columns with large number of missing values
+
+In the code below, we drop the columns *no2* and *psi*.
+
+```{r}
+pollutants <- pollutants %>%
+  select(-c(no2, psi))
+```
+
+### Impute missing values
+
+To handle the missing values for *pm25*, *pm10*, *o3*, *so2*, *co* columns, we will impute missing values using simple moving average from **imputeTS** package.
+
+```{r}
+# List of pollutants
+pollutant_variables <- c("pm25", "pm10", "o3", "so2", "co")
+
+# Loop through each pollutant variable to impute missing values
+for(variable in pollutant_variables) {
+  # Apply the imputation by grouping by Area and arranging by Date
+  pollutants <- pollutants %>%
+    group_by(Area) %>%
+    arrange(Area, Date) %>%
+    mutate(!!variable := na_ma(!!sym(variable), k = 3, weighting = "simple")) %>%
+    ungroup()
+}
+
+# Visual check for missing values
+vis_miss(pollutants)
+```
+
+### View dataset and data structure
+
+```{r}
+# Dataset structure
+str(pollutants)
+```
+
+```{r}
+datatable(pollutants, 
+            class= "compact",
+            rownames = FALSE,
+            width="100%", 
+            options = list(pageLength = 31,scrollX=T),
+          caption = 'polluants data set after imputation, 2021 - 2023')
+```
+
+### Save data to rds
+
+Following code is used to export the imputed data table to csv.
+
+```{r}
+#| eval: false
+write_rds(pollutants, "../data/pollutants_imputed.rds")
+```
+
+To read data in the future, use the following code chunk:
+
+```{r}
+pollutants_data <- read_rds("../data/pollutants_imputed.rds")
+```
+
+## Data Preparation: *pm25_hourly*
+
+### Overview
+
+Below is the summary of data preparation steps:
+
+1.  Check data structure
+
+2.  Convert column time of datetime column
+
+3.  Filter for desired period, 2020 to 2022
+
+4.  Rename columns to be TitleCase
+
+5.  Check for duplicated rows
+
+6.  Check for missing values
+
+7.  Save data to rds
+
+### Check structure with `glimpse()`
+
+```{r}
+glimpse(pm25_hourly)
+```
+
+-   *1hr_pm2.5* <chr>: The datetime for each row is recorded in YYYY/MM/DD format, of type chr.
+
+    -   **We will need to convert this to date/time class**
+
+    -   **We will rename it to 'DateTime'.**
+
+    -   **We will also select the time period of 2021-2022 for this project.**
+
+-   *north, south, east, west, central* <dbl>: Each column contains data from the air monitoring sensors reported for [a region](#0) in Singapore.
+
+    -   **We will rename the columns to capitalize the first letter of each region name, e.g. 'East'**
+
+### Convert *1hr_pm2.5* column to POSIXct type
+
+We will use *dmy_hm()* function from **lubridate** package:
+
+```{r}
+pm25_hourly <- pm25_hourly %>%
+  rename(DateTime = `1hr_pm2.5`) %>% # Rename '1hr_pm2.5' to 'DateTime'
+  mutate(DateTime = dmy_hm(DateTime)) # Convert 'DateTime' from character to POSIXct, assuming the time is in format "YYYY/MM/DD HH:MM"
+
+# Check that date column is now correct type
+class(pm25_hourly$DateTime)
+```
+
+### Filter desired period, 2020 to 2022
+
+```{r}
+pm25_hourly <- pm25_hourly %>%
+  filter(year(DateTime) >= 2020, year(DateTime) <= 2022) # Filter for the time period of 2021-2022
+
+# Check time period of data
+time_period_start <- min(pm25_hourly$DateTime)
+time_period_end <- max(pm25_hourly$DateTime)
+
+# Print the time period
+cat("The time period of the filtered dataset is from", format(time_period_start, "%Y-%m-%d"),"to", format(time_period_end, "%Y-%m-%d"), "\n")
+```
+
+### Rename columns
+
+We will rename the columns to capitalize the first letter of each region name, e.g. 'East'
+
+```{r}
+pm25_hourly <- pm25_hourly %>%
+  rename_with(~tools::toTitleCase(.), .cols = c("north", "south", "east", "west", "central"))
+
+# Check the new column names
+colnames(pm25_hourly)
+```
+
+### Check for duplicated rows
+
+We use the following code to check for duplicated data. If there is any duplicated data, it will be shown.
+
+```{r}
+# Check for duplicate rows
+duplicates <- pm25_hourly %>%
+  group_by(across(everything())) %>%   # Group by all columns
+  filter(n() > 1) %>%                  # Filter groups with more than one row
+  ungroup()                            # Remove the grouping
+
+# Count the number of duplicate rows
+num_duplicates <- nrow(duplicates)
+
+# Print the number of duplicates
+print(paste("Number of duplicate rows:", num_duplicates))
+```
+
+There are no duplicated rows in our dataset.
+
+### Check for missing values
+
+We will first visually assess if there are any missing values using `vis_miss()` from the **naniar** package.
+
+```{r}
+vis_miss(pm25_hourly)
+```
+
+There is no missing data.
+
+### View dataset structure and data
+
+```{r}
+str(pm25_hourly)
+```
+
+```{r}
+datatable(pm25_hourly, 
+            class= "compact",
+            rownames = FALSE,
+            width="100%", 
+            options = list(pageLength = 24,scrollX=T),
+          caption = 'pm25_hourly: Historical regional 1-hr PM2.5 value (µg/m3) for 2020 - 2022')
+```
+
+### Save data to rds
+
+Following code is used to export the imputed data table to csv.
+
+```{r}
+#| eval: false
+write_rds(pm25_hourly, "../data/pm25_hourly.rds")
+```
+
+To read data in the future, use the following code chunk:
+
+```{r}
+pm25_hourly_data <- read_rds("../data/pm25_hourly.rds")
+```
+
+## Data Preparation: *psi_24h*
+
+### Overview
+
+Below is the summary of data preparation steps:
+
+1.  Check data structure
+
+2.  Convert column time of datetime column
+
+3.  Filter for desired period, 2020 to 2022
+
+4.  Rename columns to be TitleCase
+
+5.  Check for duplicated rows
+
+6.  Check for missing values
+
+7.  Save data to rds
+
+### Check structure with `glimpse()`
+
+```{r}
+glimpse(psi_24h)
+```
+
+-   *24-hr_psi* <chr>: The datetime for each row is recorded in YYYY/MM/DD format, of type chr.
+
+    -   **We will need to convert this to date/time class**
+
+    -   **We will rename it to 'DateTime'.**
+
+    -   **We will also select the time period of 2021-2022 for this project.**
+
+-   *north, south, east, west, central* <dbl>: Each column contains data from the air monitoring sensors reported for [a region](#0) in Singapore.
+
+    -   **We will rename the columns to capitalize the first letter of each region name, e.g. 'East'**
+
+### Convert *psi_24h* column to POSIXct type
+
+We will use *dmy_hm()* function from **lubridate** package:
+
+```{r}
+psi_24h <- psi_24h %>%
+  rename(DateTime = `24-hr_psi`) %>% # Rename '24-hr_psi' to 'DateTime'
+  mutate(DateTime = dmy_hm(DateTime)) # Convert 'DateTime' from character to POSIXct, assuming the time is in format "YYYY/MM/DD HH:MM"
+
+# Check that date column is now correct type
+class(pm25_hourly$DateTime)
+```
+
+### Filter desired period, 2020 to 2022
+
+```{r}
+psi_24h <- psi_24h %>%
+  filter(year(DateTime) >= 2020, year(DateTime) <= 2022) # Filter for the time period of 2021-2022
+
+# Check time period of data
+time_period_start <- min(psi_24h$DateTime)
+time_period_end <- max(psi_24h$DateTime)
+
+# Print the time period
+cat("The time period of the filtered dataset is from", format(time_period_start, "%Y-%m-%d"),"to", format(time_period_end, "%Y-%m-%d"), "\n")
+```
+
+### Rename columns
+
+We will rename the columns to capitalize the first letter of each region name, e.g. 'East'
+
+```{r}
+psi_24h <- psi_24h %>%
+  rename_with(~tools::toTitleCase(.), .cols = c("north", "south", "east", "west", "central"))
+
+# Check the new column names
+colnames(psi_24h)
+```
+
+### Check for duplicated rows
+
+We use the following code to check for duplicated data. If there is any duplicated data, it will be shown.
+
+```{r}
+# Check for duplicate rows
+duplicates <- psi_24h %>%
+  group_by(across(everything())) %>%   # Group by all columns
+  filter(n() > 1) %>%                  # Filter groups with more than one row
+  ungroup()                            # Remove the grouping
+
+# Count the number of duplicate rows
+num_duplicates <- nrow(duplicates)
+
+# Print the number of duplicates
+print(paste("Number of duplicate rows:", num_duplicates))
+```
+
+There are no duplicated rows in this dataset.
+
+### Check for missing values
+
+We will first visually assess if there are any missing values using `vis_miss()` from the **naniar** package.
+
+```{r}
+vis_miss(psi_24h)
+```
+
+There is no missing data.
+
+### View dataset structure and data
+
+```{r}
+str(psi_24h)
+```
+
+```{r}
+datatable(psi_24h, 
+            class= "compact",
+            rownames = FALSE,
+            width="100%", 
+            options = list(pageLength = 24,scrollX=T),
+          caption = 'psi_24h: Historical regional 24-hr PSI, for 2020 - 2022')
+```
+
+### Save data to rds
+
+Following code is used to export the imputed data table to csv.
+
+```{r}
+#| eval: false
+write_rds(psi_24h, "../data/psi_24h.rds")
+```
+
+To read data in the future, use the following code chunk:
+
+```{r}
+psi_24h_data <- read_rds("../data/psi_24h.rds")
+```
+
+## Appendix
+
+### Understanding PM2.5
+
+According to Singapore's National Environment Agency (NEA), [1-hour PM~2.5~ values can be used as indication of air quality](https://www.haze.gov.sg/). However, the PM~2.5~ values in our *pollutants* dataset are daily values, not 1-hour values. Still, we will note that the PM~2.5~ values can be grouped by their concentration level:
+
+![](images/clipboard-3282286008.png)
+
+### Understanding PSI
+
+PSI can be grouped by index values and descriptors, explaining the effects of the levels, according to Singapore's National Environment Agency (NEA).
+
+|   PSI   |   Descriptor   |                                                          General Health Effects                                                           |
+|:----------------:|:----------------:|:----------------------------------:|
+|  0–50   |      Good      |                                                                   None                                                                    |
+| 51–100  |    Moderate    |                                                  Few or none for the general population                                                   |
+| 101–200 |   Unhealthy    | Everyone may begin to experience health effects; members of sensitive groups may experience more serious health effects. To stay indoors. |
+| 201–300 | Very unhealthy |                       Health warnings of emergency conditions. The entire population is more likely to be affected.                       |
+|  301+   |   Hazardous    |                                     Health alert: everyone may experience more serious health effects                                     |
+
+The PSI is computed based on the 24-hour average of concentration levels of 6 pollutants. A sub-index value is computed for each pollutant based on the pollutant’s ambient air concentration. The highest sub-index value is then taken as the PSI value. **In other words, the PSI is determined by the pollutant with the most significant concentration.** Technical details on how the PSI is calculated can be found here: [computation of PSI](http://www.haze.gov.sg/docs/default-source/faq/computation-of-the-pollutant-standards-index-(psi).pdf).
+
+::: callout-note
+For our *pollutants* dataset, due to the unavailability of PSI data for the time period, we will not use this variable.
+:::

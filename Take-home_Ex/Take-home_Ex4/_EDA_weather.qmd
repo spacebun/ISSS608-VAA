@@ -1,0 +1,401 @@
+---
+title: "Exploratory Data Analysis"
+subtitle: "Weather"
+date: February 29, 2024
+date-modified:  last-modified
+format:
+  html:
+    toc: true
+    number-sections: true
+    code-line-numbers: false
+    
+execute: 
+  eval: true
+  echo: true
+  warning: false  
+
+draft: true
+---
+
+page in draft mode
+
+## Overview
+
+Objective:
+
+-   perform spatial interpolation to estimate rainfall values at locations where you don't have direct measurements.
+
+## Getting Started
+
+### Load libraries
+
+First, we load packages required:
+
+```{r}
+pacman::p_load(naniar,
+               tidyverse, haven,
+               ggrepel, ggthemes,
+               ggridges, ggdist,
+               patchwork, ggpattern,
+               hrbrthemes, plotly,
+               sf, tmap,
+               lubridate,
+               DT)
+```
+
+### Import data
+
+We will import two datasets.
+
+-   *weather_imputed*: Data for 7 stations from 2021 to 2023, with missing values imputed using moving average
+-   *weather_data*: Data for 22 stations from 2014 to 2023. Missing values have not been imputed.
+
+```{r}
+weather_imputed <- read_rds("../data/weather_imputed.rds")
+```
+
+#### Clean and import *weather_data*
+
+```{r}
+weather_data <- read_csv("../data/climate_historical_daily_records.csv")
+```
+
+First we remove 41 stations that do not have complete data for all the variables, per Station Records.
+
+```{r}
+# Define the station names to remove
+stations_to_remove <- c("Macritchie Reservoir", "Lower Peirce Reservoir", "Pasir Ris (West)", "Kampong Bahru", "Jurong Pier", "Ulu Pandan", "Serangoon", "Jurong (East)", "Mandai", "Upper Thomson", "Buangkok", "Boon Lay (West)", "Bukit Panjang", "Kranji Reservoir", "Tanjong Pagar", "Admiralty West", "Queenstown", "Tanjong Katong", "Chai Chee", "Upper Peirce Reservoir", "Kent Ridge", "Somerset (Road)", "Punggol", "Tuas West", "Simei", "Toa Payoh", "Tuas", "Bukit Timah", "Yishun", "Buona Vista", "Pasir Ris (Central)", "Jurong (North)", "Choa Chu Kang (West)", "Serangoon North", "Lim Chu Kang", "Marine Parade", "Choa Chu Kang (Central)", "Dhoby Ghaut", "Nicoll Highway", "Botanic Garden", "Whampoa")
+
+# Remove rows with the specified station names
+weather_data <- weather_data[!weather_data$Station %in% stations_to_remove, ] # 29 Feb: replaced !weather with !weather_unique
+```
+
+Next we change column types to numeric:
+
+```{r}
+weather_variables <- c("Daily Rainfall Total (mm)", "Mean Temperature (°C)", "Maximum Temperature (°C)", 
+                       "Minimum Temperature (°C)", "Mean Wind Speed (km/h)", "Max Wind Speed (km/h)")
+weather_data <- weather_data %>% mutate_at(weather_variables, as.numeric)
+```
+
+Next we add the Date column.
+
+```{r}
+weather_data$Date <- as.Date(paste(weather_data$Year, weather_data$Month, weather_data$Day, sep = "-"))
+```
+
+Next we drop the following columns that we will not be using for this project:
+
+-   Highest 30 Min Rainfall (mm)
+-   Highest 60 Min Rainfall (mm)
+-   Highest 1200 Min Rainfall (mm)
+
+```{r}
+# Drop columns
+weather_data <- weather_data %>%
+  select(-c(`Highest 30 Min Rainfall (mm)`, 
+            `Highest 60 Min Rainfall (mm)`, 
+            `Highest 120 Min Rainfall (mm)`))
+         
+# Shift Date column to second place
+weather_data <- weather_data %>%
+  select(Station, Date, everything())
+```
+
+View the structure of the data to check that data cleaning and preparation was correctly done. Note that any missing values were coerced to NA.
+
+```{r}
+str(weather_data)
+```
+
+Save *weather_data* as *weather_22_stations.rds*
+
+```{r}
+write_rds(weather_data, "../data/weather_22_stations.rds")
+```
+
+Use code chunk below to import data in the future.
+
+```{r}
+weather_data <- read_rds("../data/weather_22_stations.rds")
+```
+
+### Understanding the data
+
+Number of stations
+
+```{r}
+print("weather_imputed has the following number of unique stations")
+print(length(unique(weather_imputed$Station)))
+print("weather_data has the following number of unique stations, for time period 2014 to 2023")
+print(length(unique(weather_data$Station)))
+```
+
+## Spatial Interpolation
+
+### Data Preparation
+
+First we load the required packages:
+
+```{r}
+pacman::p_load(sf,stars,gstat,automap,sp)
+```
+
+Next, we will select the data to be used.
+
+```{r}
+weather_data <- weather_data %>%
+  select(Station, Date, Year, Month, Day, `Daily Rainfall Total (mm)`, `Mean Temperature (°C)`, LAT, LONG)
+str(weather_data)
+```
+
+Let's focus on one year., 2023: 
+
+```{r}
+# Select for 2023
+weather_data_2023 <- weather_data %>%
+  filter(Year >= 2023)
+
+# Perform checks
+str(weather_data_2023)
+print(length(unique(weather_data_2023$Station))) # 20 stations left for 2023. 
+```
+
+Then we will create a dataframe similar to structure of: https://geobgu.xyz/r/tables-conditionals-and-loops.html#example-the-rainfall-csv-structure:
+
+```{r}
+# Group by month and calculate average rainfall
+monthly_avg_rainfall <- weather_data_2023 %>%
+  group_by(Station, LAT, LONG, Month) %>%
+  summarize(Avg_Rainfall = mean(`Daily Rainfall Total (mm)`, na.rm = TRUE)) %>%
+  ungroup()
+
+# Convert month numbers to month names
+monthly_avg_rainfall$Month <- month.abb[monthly_avg_rainfall$Month]
+
+# Pivot the data to have months as columns
+monthly_avg_rainfall_pivot <- pivot_wider(monthly_avg_rainfall, names_from = Month, values_from = Avg_Rainfall)
+
+# Calculate average temperature for each station across all months
+station_avg_temperature <- weather_data_2023 %>%
+  group_by(Station) %>%
+  summarize(Avg_Temperature = mean(`Mean Temperature (°C)`, na.rm = TRUE))
+
+# Merge average temperature with monthly average rainfall dataframe
+monthly_avg_weather <- left_join(monthly_avg_rainfall_pivot, station_avg_temperature, by = "Station")
+
+# View structure
+str(monthly_avg_weather)
+```
+
+Calculate the annual column and convert it to a point layer.
+```{r}
+# Store latitude and longitude columns
+latitude <- monthly_avg_weather$LAT
+longitude <- monthly_avg_weather$LONG
+
+# Convert your weather_data to a spatial points dataframe
+# coordinates(weather_data_2023) <- c("LONG", "LAT")
+monthly_avg_weather <- st_as_sf(monthly_avg_weather, coords = c("LONG", "LAT"), crs = 4326)
+
+
+m = c('Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec')
+# monthly_avg_weather$Annual_Rainfall <- rowSums(monthly_avg_weather[, m], na.rm = TRUE)
+monthly_avg_weather$Annual_Rainfall = apply(st_drop_geometry(monthly_avg_weather[, m]), 1, sum)
+
+# Add latitude and longitude columns back
+monthly_avg_weather$LAT <- latitude
+monthly_avg_weather$LONG <- longitude
+```
+
+Read in Singapore layer.
+```{r}
+singapore <- st_read(dsn = "../data/geospatial",
+                layer = "MP14_SUBZONE_WEB_PL")
+```
+
+Check if base layer and point layer have the same CRS. 
+```{r}
+# Code used to check the CRS of the base map and monthly_avg_weather
+st_crs(singapore)
+st_crs(monthly_avg_weather)
+```
+
+
+Since they do not have the same CRS, reproject *monthly_avg_weather* to SVY21. 
+```{r}
+# Reproject monthly_avg_weather to SVY21
+monthly_avg_weather_svy21 <- st_transform(monthly_avg_weather, crs = st_crs(singapore))
+```
+
+Then, plot.
+```{r}
+plot(singapore$geometry)
+plot(monthly_avg_weather_svy21$geometry, col = "red", pch = 16, add = TRUE)
+```
+
+```{r}
+# define groups for mapping
+cuts <- c(0,20,40,60,80,120)
+# set up a palette of interpolated colors
+blues <- colorRampPalette(c('yellow', 'orange', 'blue', 'dark blue'))
+plot(singapore$geometry, col="light gray", lwd=1, border="dark gray")
+plot(monthly_avg_weather_svy21$geometry, col = blues(10), pch = 16, cex = 2,
+     breaks = cuts, add = TRUE)
+
+```
+### NULL model
+
+We are going to interpolate (estimate for unsampled locations) the precipitation values. The simplest way would be to take the mean of all observations. We can consider that a “Null-model” that we can compare other approaches to. We’ll use the Root Mean Square Error (RMSE) as evaluation statistic.
+
+
+```{r}
+RMSE <- function(observed, predicted) {
+  sqrt(mean((predicted - observed)^2, na.rm=TRUE))
+}
+
+# Calculate the mean of observed values (Annual_Rainfall)
+mean_observed <- mean(monthly_avg_weather_svy21$Annual_Rainfall, na.rm = TRUE)
+
+# Calculate the RMSE using the observed mean as the predicted values
+null <- RMSE(monthly_avg_weather_svy21$Annual_Rainfall, mean_observed)
+null
+
+```
+```{r}
+pacman::p_load(rspat, terra)
+```
+
+```{r}
+# Load the required library
+pacman::p_load(deldir)
+
+# Extract coordinates from singapore object
+coords <- st_coordinates(singapore)
+
+# Compute Voronoi tessellation using deldir
+vor <- deldir(coords[,1], coords[,2])
+
+# Plot Voronoi diagram
+plot(vor, wlines = "tess", lty = 2, lwd = 1.5)
+
+
+```
+
+```{r}
+# Define bounding box coordinates for Singapore
+bbox <- c(xmin = 2667.538, ymin = 15748.72, xmax = 56396.44, ymax = 50256.33)
+
+# Create a spatial extent object
+singapore_extent <- st_bbox(bbox)
+
+# Print the spatial extent object
+singapore_extent
+```
+```{r}
+pacman::p_load(spatstat)
+```
+
+
+```{r}
+# Use the spatial extent object to crop your data
+# vca <- crop(vor, singapore_extent)
+# vca <- crop(vor, monthly_avg_weather_svy21)
+
+# Create a psp object from the Voronoi tessellation
+vor_psp <- as.psp(vor)
+
+# Convert to a windows object
+vor_win <- as.owin(vor_psp)
+
+# Convert to a spatstat polylist object
+vor_polylist <- as.psp(vor_win)
+
+# Plot Voronoi tessellation
+plot(vor_polylist)
+
+# Extract the polygons
+vor_polys <- as.owin(vor_win)
+
+# Convert to SpatialPolygonsDataFrame
+vor_sp <- as.SpatialPolygons(vor_polys)
+
+# Convert SpatialPolygonsDataFrame to sf object
+vor_sf <- st_as_sf(vor_sp)
+
+# Create a bounding box polygon
+bbox_polygon <- st_as_sfc(st_bbox(bbox))
+
+# Intersect the Voronoi tessellation with the bounding box polygon
+vca <- st_intersection(vor_sf, bbox_polygon)
+
+# Plot the cropped Voronoi tessellation
+plot(vca$geometry, col = "blue")
+```
+
+
+
+###  Inverse Distance Weighted interpolation
+
+To interpolate, we first need to create an object of class gstat, using a function of the same name: gstat. A gstat object contains all necessary information to conduct spatial interpolation, namely:
+
+-   The model definition
+-   The calibration data
+
+We are going to use three parameters of the gstat function:
+
+-   formula—The prediction “formula” specifying the dependent and the independent variables (covariates)
+-   data—The calibration data
+-   model—The variogram model
+
+`formula` objects are created using `~` operator. 
+Left of `~`: Names of dependent variables
+Right of `~`: Names of independent variables. If 1, means no independent variables. 
+To convert character values to formula: `as.formula('Annual_Rainfall ~ 1')`
+
+```{r}
+# Create a gstat object
+g = gstat(formula = Annual_Rainfall ~ 1, data = monthly_avg_weather_svy21)
+```
+Now that our model is defined, we can use the predict function to actually interpolate, i.e., to calculate predicted values. The predict function accepts:
+
+-   A raster—`stars` object, such as dem
+-   A model—`gstat` object, such as g
+
+
+The raster serves for two purposes:
+
+-   Specifying the locations where we want to make predictions (in all methods)
+-   Specifying covariate values (in Universal Kriging only)
+
+```{r}
+#[inverse distance weighted interpolation]
+z = predict(g)
+```
+
+
+## Using *tmap* to plot weather stations on interactive mode
+
+Below code chunks are not evaluated.
+
+```{r}
+#| eval: false
+# Convert the data frame to an sf object using the latitude and longitude
+weather_sf <- st_as_sf(weather_data, coords = c("LONG", "LAT"), crs = 4326)
+```
+
+```{r}
+#| eval: false
+# Just view where the weather stations are
+# Set tmap mode to view, interactive mode, 
+tmap_mode("plot")
+
+# Plot using tmap
+tm_basemap <- tm_basemap(server = "OpenStreetMap") # Choose a basemap server
+tm_shape() +
+  tm_basemap +
+  tm_dots(size = 0.1) +
+  tm_layout(title = "Weather Stations in Singapore")
+```
+
+![](images/clipboard-1430260426.png)

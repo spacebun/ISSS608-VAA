@@ -1,0 +1,170 @@
+---
+# title: "Hands-on Exercise 8"
+# subtitle: "Network Data Visualisation and Analysis"
+# date: March 2, 2024
+# date-modified: "last-modified"
+# format:
+#   html:
+#     toc: true
+#     number-sections: true
+#     code-line-numbers: true
+# 
+# execute:
+#   eval: true
+#   echo: true
+#   warning: false
+---
+
+## Overview
+
+In this exercise I will learn how to model, analyse and visualise network data using R.
+
+Through this hands-on exercise, I will:
+
+-   create graph object data frames, manipulate them using appropriate functions of *dplyr*, *lubridate*, and *tidygraph*,
+
+-   build network graph visualisation using appropriate functions of *ggraph*,
+
+-   compute network geometrics using *tidygraph*,
+
+-   build advanced graph visualisation by incorporating the network geometrics, and
+
+-   build interactive network visualisation using *visNetwork* package.
+
+## Loading libraries
+
+```{r}
+pacman::p_load(igraph, tidygraph, ggraph, 
+               visNetwork, lubridate, clock,
+               tidyverse, graphlayouts, knitr)
+```
+
+## The data
+
+### Import data
+
+```{r}
+GAStech_nodes <- read_csv("data/GAStech_email_node.csv")
+GAStech_edges <- read_csv("data/GAStech_email_edge-v2.csv")
+```
+
+### Examine data
+
+#### The edges data, *GAStech_edges*
+
+-   *GAStech-email_edges* consists of two weeks of 9063 emails correspondances between 55 employees.
+
+```{r}
+glimpse(GAStech_edges)
+```
+
+We will need to change *SentDate* to *date* data type:
+
+```{r}
+GAStech_edges <- GAStech_edges %>%
+  mutate(Weekday = wday(SentDate, # Create new column , Weekday
+                        label = TRUE,
+                        abbr = FALSE)) %>%
+  mutate(SentDate = dmy(SentDate))  # Change type to date and create a new column, Senddate
+
+# 
+# GAStech_edges <- GAStech_edges %>%
+#   mutate(SendDate = trimws(SendDate), 
+#          date = as.Date(SendDate, format="%Y/%m/%d"))
+```
+
+Let's check that the *SentDate* column is now of the correct type:
+
+```{r}
+glimpse(GAStech_edges)
+```
+
+#### The nodes data, *GAStech_nodes*
+
+-   *GAStech_email_nodes* consists of the names, department and title of the 55 employees.
+
+```{r}
+glimpse(GAStech_nodes)
+```
+
+### Wrangling attributes
+
+A close examination of GAStech_edges data.frame reveals that it consists of individual e-mail flow records. This is not very useful for visualisation.
+
+In view of this, we will aggregate the individual by date, senders, receivers, main subject and day of the week.
+
+```{r}
+GAStech_edges_aggregated <- GAStech_edges %>%
+  filter(MainSubject == "Work related") %>% # Focus only on rows that are 'Work related'
+  group_by(source, target, Weekday) %>%
+    summarise(Weight = n()) %>% # Add new field, Weight. Assigned based on summarise function..?
+  filter(source!=target) %>% # Exclude emails where recipient and sender are the same. 
+  filter(Weight > 1) %>% 
+  ungroup()
+```
+
+### Reviewing the revised edges file
+
+```{r}
+glimpse(GAStech_edges_aggregated)
+```
+
+### Creating network objects using tidygraph
+
+I will learn how to create a graph data model by using **tidygraph** package.
+
+Network data can be envisioned as two tidy tables, one for node data and one for edge data. tidygraph provides a way to switch between the two tables and provides dplyr verbs for manipulating them. Furthermore it provides access to a lot of graph algorithms with return values that facilitate their use in a tidy workflow.
+
+Before getting started, read these two articles:
+
+-   [Introducing tidygraph](https://www.data-imaginist.com/2017/introducing-tidygraph/)
+
+-   [tidygraph 1.1 - A tidy hope](https://www.data-imaginist.com/2018/tidygraph-1-1-a-tidy-hope/)
+
+### **The tbl_graph object**
+
+Two functions of the **tidygraph** package can be used to create network objects, they are:
+
+-   [`tbl_graph()`](https://tidygraph.data-imaginist.com/reference/tbl_graph.html) creates a **tbl_graph** network object from nodes and edges data.
+
+-   [`as_tbl_graph()`](https://tidygraph.data-imaginist.com/reference/tbl_graph.html) converts network data and objects to a **tbl_graph** network. Below are network data and objects supported by `as_tbl_graph()`
+
+    -   a node data.frame and an edge data.frame,
+
+    -   data.frame, list, matrix from base,
+
+    -   igraph from igraph,
+
+    -   network from network,
+
+    -   dendrogram and hclust from stats,
+
+    -   Node from data.tree,
+
+    -   phylo and evonet from ape, and
+
+    -   graphNEL, graphAM, graphBAM from graph (in Bioconductor).
+
+#### **Notes on the dplyr verbs in tidygraph**
+
+-   *activate()* verb from **tidygraph** serves as a switch between tibbles for nodes and edges. All dplyr verbs applied to **tbl_graph** object are applied to the active tibble.
+
+-   ![](images/clipboard-4232653906.png)
+
+-   In the above:
+
+    -   the *.N()* function is used to gain access to the node data while manipulating the edge data.
+
+    -   *.E()* will give you the edge data
+
+    -   *.G()* will give you the **tbl_graph** object itself.
+
+#### **Using `tbl_graph()` to build tidygraph data model**
+
+In this section, you will use `tbl_graph()` of **tinygraph** package to build an tidygraph’s network graph data.frame.
+
+Before typing the codes, you are recommended to review to reference guide of [`tbl_graph()`](https://tidygraph.data-imaginist.com/reference/tbl_graph.html)
+
+# References
+
+-   [**R for Visual Analytics: Chapter 27: Modelling, Visualising and Analysing Network Data with R**](https://r4va.netlify.app/chap27)

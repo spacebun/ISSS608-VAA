@@ -1,18 +1,18 @@
 ---
-# title: "Hands-on Exercise 8"
-# subtitle: "Network Data Visualisation and Analysis"
-# date: March 2, 2024
-# date-modified: "last-modified"
-# format:
-#   html:
-#     toc: true
-#     number-sections: true
-#     code-line-numbers: true
-# 
-# execute:
-#   eval: true
-#   echo: true
-#   warning: false
+title: "Hands-on Exercise 8"
+subtitle: "Network Data Visualisation and Analysis"
+date: March 2, 2024
+date-modified: "last-modified"
+format:
+  html:
+    toc: true
+    number-sections: true
+    code-line-numbers: true
+
+execute:
+  eval: true
+  echo: true
+  warning: false
 ---
 
 ## **Overview**

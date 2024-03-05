@@ -41,7 +41,7 @@ My submission includes:
 
 # Project details
 
-For our project, **AirWeather Analytics,** we aim to create a Shiny app with user-friendly functionalities, to effectively visualize and analyze climate and air quality data.
+For our project, we aim to create a Shiny app with user-friendly functionalities, to effectively visualize and analyze climate data.
 
 We will use the following data:
 
@@ -51,8 +51,8 @@ We will use the following data:
 
 The R Shiny app will consists of four sections:
 
--   Homepage tab: Users have an overview of the datasets used in application. It will include a map of Singapore and interactivity elements that allow users to view the datasets at different points in time.
--   EDA and CDA tab: Users can explore the distribution and trends in the datasets for specific periods or locations (station or region), and use statistical analysis to confirm the trends.
+-   Homepage tab: Users have an overview of the dataset used in application. It will include a map of Singapore and interactivity elements that allow users to view the dataset at different points in time.
+-   EDA and CDA tab: Users can explore the distribution and trends in the dataset for specific periods or locations (station or region), and use statistical analysis to confirm the trends.
 -   Time series analysis: Users can explore the time series decomposition of the different variables, and select the type of model that they would like to use for univariate time series forecasting.
 -   Clustering time series analysis: Users can explore grouping stations with similar weather patterns or grouping time periods with similar patterns. The user would then be able to choose different models to forecast the grouped data.
 

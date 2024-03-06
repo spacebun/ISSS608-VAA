@@ -46,7 +46,7 @@ For our project, we aim to create a Shiny app with user-friendly functionalities
 We will use the following data:
 
 | Cleaned Dataset | Description                                    | Period    | Source of raw data                                    |
-|-----------------|-----------------|-----------------|---------------------|
+|------------------|------------------|------------------|--------------------|
 | *weather_data*  | Historical climate data for 7 weather stations | 2021-2023 | <http://www.weather.gov.sg/climate-historical-daily/> |
 
 The R Shiny app will consists of four sections:
@@ -77,7 +77,7 @@ First, we load packages required:
 ```{r}
 pacman::p_load(tidyverse, naniar,imputeTS, DT, lubridate,
                ggplot2, patchwork, ggthemes,
-               tseries, ggHoriPlot)
+               tseries, ggHoriPlot, forecast)
 
 # pacman::p_load(ggplot2, patchwork, 
 #                ggridges, ggdist, ggstatsplot,
@@ -89,7 +89,7 @@ pacman::p_load(tidyverse, naniar,imputeTS, DT, lubridate,
 Details of dataset:
 
 | Dataset        | Description                                     | Period    | Source of raw data                                    |
-|-----------------|-----------------|-----------------|---------------------|
+|------------------|------------------|------------------|--------------------|
 | *weather_data* | Historical climate data for 63 weather stations | 2014-2023 | <http://www.weather.gov.sg/climate-historical-daily/> |
 
 # Data Preparation
@@ -122,7 +122,7 @@ weather_data <- read_rds("data/weather_imputed.rds")
 #### Details of the cleaned datasets:
 
 | Cleaned Dataset | Description                                    | Period    | Source of raw data                                    |
-|-----------------|-----------------|-----------------|---------------------|
+|------------------|------------------|------------------|--------------------|
 | *weather_data*  | Historical climate data for 7 weather stations | 2021-2023 | <http://www.weather.gov.sg/climate-historical-daily/> |
 
 # Climate data: *weather_data*
@@ -218,72 +218,6 @@ Examine the distribution of your variable to identify any skewness, kurtosis, or
 ggplot(ang_mo_kio_data, aes(x = `Daily Rainfall Total (mm)`)) +
   geom_histogram(bins = 30, fill = "blue", color = "black") +
   labs(title = "Distribution of Daily Rainfall at Ang Mo Kio", x = "Daily Rainfall Total (mm)", y = "Frequency") +
-  theme_minimal()
-```
-
-## UNIVARIATE TIME SERIES: Exploratory Data Analysis: Mean Temperature (°C). For Ang Mo Kio only.
-
-Extract the temperature data into a variable *temp_data*:
-
-```{r}
-temp_data <- weather_data %>%
-  select(c(Station, Date, `Mean Temperature (°C)`, LAT, LONG))
-
-str(temp_data)
-```
-
-```{r}
-# Filter for a single station, e.g., "Ang Mo Kio"
-ang_mo_kio_data <- temp_data %>% 
-  filter(Station == "Ang Mo Kio")
-```
-
-### Time series plot:
-
-```{r}
-# Plotting Mean Temperature as an example
-ggplot(ang_mo_kio_data, aes(x = Date, y = `Mean Temperature (°C)`)) +
-  geom_line() + 
-  labs(title = "Mean Temperature (°C) Over Time at Ang Mo Kio", x = "Date", y = "Mean Temperature (°C)") +
-  theme_minimal()
-```
-
-### Seasonality and Trend Analysis
-
-Done using the `stl()` function for seasonal-trend decomposition using LOESS.
-
-```{r}
-ts_data <- ts(ang_mo_kio_data$`Mean Temperature (°C)`, frequency = 365)
-
-decomposed_data <- stl(ts_data, s.window = "periodic")
-plot(decomposed_data)
-```
-
-### Autocorrelation Analysis
-
-To help with identifying how values are related to their lagged versions.
-
-```{r}
-acf(ts_data)
-pacf(ts_data)
-```
-
-### Stationarity Check
-
-Many forecasting models assume that the time series is stationary. Use the Augmented Dickey-Fuller (ADF) test to check for stationarity.
-
-```{r}
-adf.test(ts_data, alternative = "stationary")
-```
-
-### Distribution of the Variable
-
-Examine the distribution of your variable to identify any skewness, kurtosis, or outliers.
-
-```{r}
-ggplot(ang_mo_kio_data, aes(x = `Mean Temperature (°C)`)) +
-  geom_histogram(bins = 30, fill = "blue", color = "black") +
-  labs(title = "Distribution of Mean Temp at Ang Mo Kio", x = "Mean Temperature (°C)", y = "Frequency") +
   theme_minimal()
 ```
 
@@ -618,4 +552,303 @@ weather_data_2023 %>% ggplot() +
   xlab('Date') +
   ggtitle('Daily Rainfall Total (mm) for the year 2023',
           'across the stations')
+```
+
+## Univariate Forecasting
+
+### Data Wrangling
+
+Data: Ang Mo Kio 
+
+Time period: 2021-2023 
+
+Variable: Mean Temperature
+
+```{r}
+# Extract the temperature data into a variable *temp_data*
+temp_data <- weather_data %>%
+  select(c(Station, Date, `Mean Temperature (°C)`, LAT, LONG))
+
+# Filter for a single station, e.g., "Ang Mo Kio"
+ang_mo_kio_data <- temp_data %>% 
+  filter(Station == "Ang Mo Kio")
+```
+
+```{r}
+# Change Date to chr type for time series
+ang_mo_kio_data$Date <- as.character(ang_mo_kio_data$Date) 
+str(ang_mo_kio_data)
+```
+
+Split data into train test split (0.8)
+
+```{r}
+# Sort the data by Date if it's not already sorted
+ang_mo_kio_data <- ang_mo_kio_data[order(ang_mo_kio_data$Date), ]
+
+# Split data into training and testing sets based on the 'Date' column
+train_size <- floor(nrow(ang_mo_kio_data) * 0.8)  # Calculate the size of the training set
+train_data <- ang_mo_kio_data[1:train_size, ]
+test_data <- ang_mo_kio_data[(train_size + 1):nrow(ang_mo_kio_data), ]
+```
+
+Selecting column Date and Mean Temperature (°C)
+
+```{r}
+test_clean <- test_data %>% 
+                select(Date, `Mean Temperature (°C)`)
+
+train_clean <- train_data %>% 
+                select(Date, `Mean Temperature (°C)`)
+```
+
+Create time series object for data train
+
+```{r}
+ts_train <- ts(data = train_clean$`Mean Temperature (°C)`,
+                start = c(2021,01),
+                frequency = 365)
+autoplot(ts_train)
+```
+
+Create time series object for data test
+
+```{r}
+ts_test <- ts(data = test_clean$`Mean Temperature (°C)`,
+                start = c(2023,05,27),
+                frequency = 365)
+autoplot(ts_test)
+```
+
+
+### Exploratory plot
+
+#### Time series plot:
+
+```{r}
+# Plotting Mean Temperature
+ang_mo_kio_data$Date <- as.Date(ang_mo_kio_data$Date) 
+ggplot(ang_mo_kio_data, aes(x = Date, y = `Mean Temperature (°C)`)) +
+  geom_line() + 
+  labs(title = "Mean Temperature (°C) Over Time at Ang Mo Kio", x = "Date", y = "Mean Temperature (°C)") +
+  theme_minimal()
+```
+
+#### Decomposing a time series means separating it into its constituent components.
+
+```{r}
+climate_dc <- decompose(ts_train)
+plot(climate_dc)
+```
+
+### Create Holt-Winters Model
+
+```{r}
+climate_hw <- HoltWinters(ts_train,seasonal = "additive")
+
+```
+
+```{r}
+# Forecast model
+climate_forecast <- forecast(climate_hw, h=114)
+```
+
+```{r}
+# Check accuracy
+forecast::accuracy(climate_forecast, ts_test)
+```
+
+##### Visualization of Holt-Winters Model
+
+```{r}
+# Visualization
+ts_train %>% 
+  autoplot(series = "Actual") +
+  autolayer(climate_forecast$fitted, series = "Train") +
+  autolayer(climate_forecast$mean, series = "Test")
+```
+
+### Create ARIMA
+
+```{r}
+# Check stationarity. Must be stationary to proceed. (p-val <0.05)
+adf.test(ts_train)
+```
+
+
+```{r}
+# Create ARIMA on train
+climate_auto <- auto.arima(ts_train, seasonal = T)
+climate_auto
+```
+
+
+```{r}
+# Forecast
+climate_auto_f <- forecast(climate_auto, h=114)
+climate_auto_f
+```
+
+
+```{r}
+# Check accuracy
+accuracy(climate_auto_f, ts_test)
+```
+
+#### Visualization of ARIMA Model
+
+```{r}
+# Visualization
+ts_train %>% 
+  autoplot(series = "Actual") +
+  autolayer(climate_auto_f$fitted, series = "Train") +
+  autolayer(climate_auto_f$mean, series = "Test")
+```
+
+### Create STLM Model
+
+```{r}
+# Create STLM
+climate_stlm <- stlm(y= ts_train,
+                     s.window = 356,
+                     method = "arima")
+
+summary(climate_stlm$model)
+```
+
+```{r}
+# Forecast
+climate_stlm_forecast <- forecast(climate_stlm, h = 114)
+climate_stlm_forecast
+```
+
+```{r}
+# Check Accuracy
+
+accuracy(climate_stlm_forecast, ts_test)
+
+```
+
+#### Visualization of STLM using ARIMA method
+
+```{r}
+ts_train %>% 
+  autoplot(series = "Actual") +
+  autolayer(climate_stlm_forecast$fitted, series = "Train") +
+  autolayer(climate_stlm_forecast$mean, series = "Test")
+```
+
+
+
+## Not in use
+### Data Wrangling
+
+Data: Ang Mo Kio Time period: 2021-2023 Variable: Mean Temperature
+
+```{r}
+# Extract the temperature data into a variable *temp_data*
+temp_data <- weather_data %>%
+  select(c(Station, Date, `Mean Temperature (°C)`, LAT, LONG))
+
+# Filter for a single station, e.g., "Ang Mo Kio"
+ang_mo_kio_data <- temp_data %>% 
+  filter(Station == "Ang Mo Kio")
+```
+
+Change Date to chr type:
+
+```{r}
+# Change Date to chr type
+ang_mo_kio_data$Date <- as.character (ang_mo_kio_data$Date) 
+str(ang_mo_kio_data)
+```
+
+Split data into train test split (0.8)
+
+```{r}
+# Sort the data by Date if it's not already sorted
+ang_mo_kio_data <- ang_mo_kio_data[order(ang_mo_kio_data$Date), ]
+
+# Split data into training and testing sets based on the 'Date' column
+train_size <- floor(nrow(ang_mo_kio_data) * 0.8)  # Calculate the size of the training set
+train_data <- ang_mo_kio_data[1:train_size, ]
+test_data <- ang_mo_kio_data[(train_size + 1):nrow(ang_mo_kio_data), ]
+```
+
+
+```{r}
+# Create time series data
+
+# Convert 'Date' column to Date format if it's not already in Date format
+ang_mo_kio_data$Date <- as.Date(ang_mo_kio_data$Date)
+
+# Sort the data by Date if it's not already sorted
+ang_mo_kio_data <- ang_mo_kio_data[order(ang_mo_kio_data$Date), ]
+
+# Create a time series object
+# ts_data <- ts(ang_mo_kio_data$`Mean Temperature (°C)`, frequency = 365)
+ts_data <- ts(ang_mo_kio_data$`Mean Temperature (°C)`, 
+              start=c(year(min(ang_mo_kio_data$Date)), 
+                      month(min(ang_mo_kio_data$Date))), 
+              frequency=365)
+```
+
+### Exploratory Analysis of Time Series Data
+
+#### Time series plot:
+
+```{r}
+# Plotting Mean Temperature as an example
+ggplot(ang_mo_kio_data, aes(x = Date, y = `Mean Temperature (°C)`)) +
+  geom_line() + 
+  labs(title = "Mean Temperature (°C) Over Time at Ang Mo Kio", x = "Date", y = "Mean Temperature (°C)") +
+  theme_minimal()
+```
+
+#### Seasonality and Trend Analysis
+
+Done using the `stl()` function for seasonal-trend decomposition using LOESS.
+
+```{r}
+
+decomposed_data <- stl(ts_data, s.window = "periodic")
+plot(decomposed_data)
+```
+
+Data: This is the actual time series data for the mean temperature. It shows the fluctuations in temperature readings over the period from 2021 to 2023.
+
+Seasonal: This component captures the repeating pattern within each year, attributed to seasonal effects. Given that the frequency is set to 365, it assumes there is a yearly cycle in the data, which is common with weather data due to seasons.
+
+Trend: The trend component shows how the mean temperature changes over a longer period, disregarding the seasonal fluctuations. It helps to identify whether there is a general upward or downward trend in temperature over the years.
+
+Remainder: The remainder (sometimes called "irregular" or "residual") is what is left after the seasonal and trend components have been removed from the original data. It represents the noise or random variation that can't be attributed to the seasonal or trend components.
+
+#### Distribution of the Variable
+
+Examine the distribution of your variable to identify any skewness, kurtosis, or outliers.
+
+```{r}
+ggplot(ang_mo_kio_data, aes(x = `Mean Temperature (°C)`)) +
+  geom_histogram(bins = 30, fill = "blue", color = "black") +
+  labs(title = "Distribution of Mean Temp at Ang Mo Kio", x = "Mean Temperature (°C)", y = "Frequency") +
+  theme_minimal()
+```
+
+#### Autocorrelation Analysis
+
+To help with identifying how values are related to their lagged versions.
+
+```{r}
+acf(ts_data) 
+pacf(ts_data)
+```
+
+#### Stationarity Check
+
+Many forecasting models assume that the time series is stationary. Use the Augmented Dickey-Fuller (ADF) test to check for stationarity.
+
+Based on the result (p-value = 0.01), data is stationary.
+
+```{r}
+adf.test(ts_data, alternative = "stationary")
 ```

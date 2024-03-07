@@ -348,6 +348,6 @@ plot(tam_hc)
 rect.hclust(tam_hc, k =7)
 ```
 ```{r}
-cutree(tam_hc, k = 5)
+cutree(tam_hc, k = 6)
 ```
 

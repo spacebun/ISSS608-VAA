@@ -46,7 +46,7 @@ For our project, we aim to create a Shiny app with user-friendly functionalities
 We will use the following data:
 
 | Cleaned Dataset | Description                                    | Period    | Source of raw data                                    |
-|------------------|------------------|------------------|--------------------|
+|------------------|------------------|------------------|-------------------|
 | *weather_data*  | Historical climate data for 7 weather stations | 2021-2023 | <http://www.weather.gov.sg/climate-historical-daily/> |
 
 The R Shiny app will consists of four sections:
@@ -68,16 +68,15 @@ First, we load packages required:
 
 -   **naniar**: for using *miss_vis()* function to check data for missing values
 
--   **imputeTS**: for using *na_ma()* function to impute missing values
-
 -   **DT**: for using *datatable()* to view the dataset interactively
 
 -   **lubridate**: for handling date-time formats
 
 ```{r}
-pacman::p_load(tidyverse, naniar,imputeTS, DT, lubridate,
+pacman::p_load(tidyverse, naniar, imputeTS, DT, lubridate,
                ggplot2, patchwork, ggthemes,
-               tseries, ggHoriPlot, forecast)
+               tseries, ggHoriPlot,
+               TSclust)
 
 # pacman::p_load(ggplot2, patchwork, 
 #                ggridges, ggdist, ggstatsplot,
@@ -89,7 +88,7 @@ pacman::p_load(tidyverse, naniar,imputeTS, DT, lubridate,
 Details of dataset:
 
 | Dataset        | Description                                     | Period    | Source of raw data                                    |
-|------------------|------------------|------------------|--------------------|
+|------------------|------------------|------------------|-------------------|
 | *weather_data* | Historical climate data for 63 weather stations | 2014-2023 | <http://www.weather.gov.sg/climate-historical-daily/> |
 
 # Data Preparation
@@ -122,10 +121,8 @@ weather_data <- read_rds("data/weather_imputed.rds")
 #### Details of the cleaned datasets:
 
 | Cleaned Dataset | Description                                    | Period    | Source of raw data                                    |
-|------------------|------------------|------------------|--------------------|
+|------------------|------------------|------------------|-------------------|
 | *weather_data*  | Historical climate data for 7 weather stations | 2021-2023 | <http://www.weather.gov.sg/climate-historical-daily/> |
-
-# Climate data: *weather_data*
 
 Let's look at the structure of the data.
 
@@ -155,174 +152,14 @@ cat("\nThe time period of the filtered dataset is from", format(time_period_star
 -   Daily Rainfall Total (mm)
 -   Mean Temperature (°C)
 
-## UNIVARIATE TIME SERIES: Exploratory Data Analysis: Daily Rainfall Total (mm). For Ang Mo Kio only.
 
-Extract the rainfall data into a variable *rain_data*:
+## Exploratory Data Analysis of Time Series `Mean Temperature (°C)`
 
-```{r}
-rain_data <- weather_data %>%
-  select(c(Station, Date, `Daily Rainfall Total (mm)`, LAT, LONG))
+### Horizon Plots
 
-str(rain_data)
-```
+Horizon plots are a visualization technique used for displaying multiple time series data. Since the our data contains locations across different years for different stations, it would be valuable to allow users to use horizon plots for exploring patterns or trends across multiple time series data.
 
-```{r}
-# Filter for a single station, e.g., "Ang Mo Kio"
-ang_mo_kio_data <- rain_data %>% 
-  filter(Station == "Ang Mo Kio")
-```
-
-### Time series plot:
-
-```{r}
-# Plotting Mean Temperature as an example
-ggplot(ang_mo_kio_data, aes(x = Date, y = `Daily Rainfall Total (mm)`)) +
-  geom_line() + 
-  labs(title = "Daily Rainfall Total (mm) Over Time at Ang Mo Kio", x = "Date", y = "Daily Rainfall Total (mm)") +
-  theme_minimal()
-```
-
-### Seasonality and Trend Analysis
-
-Done using the `stl()` function for seasonal-trend decomposition using LOESS.
-
-```{r}
-ts_data <- ts(ang_mo_kio_data$`Daily Rainfall Total (mm)`, frequency = 365)
-
-decomposed_data <- stl(ts_data, s.window = "periodic")
-plot(decomposed_data)
-```
-
-### Autocorrelation Analysis
-
-To help with identifying how values are related to their lagged versions.
-
-```{r}
-acf(ts_data)
-pacf(ts_data)
-```
-
-### Stationarity Check
-
-Many forecasting models assume that the time series is stationary. Use the Augmented Dickey-Fuller (ADF) test to check for stationarity.
-
-```{r}
-adf.test(ts_data, alternative = "stationary")
-```
-
-### Distribution of the Variable
-
-Examine the distribution of your variable to identify any skewness, kurtosis, or outliers.
-
-```{r}
-ggplot(ang_mo_kio_data, aes(x = `Daily Rainfall Total (mm)`)) +
-  geom_histogram(bins = 30, fill = "blue", color = "black") +
-  labs(title = "Distribution of Daily Rainfall at Ang Mo Kio", x = "Daily Rainfall Total (mm)", y = "Frequency") +
-  theme_minimal()
-```
-
-### CLUSTERING EDA: Mean_Temperature
-
-To find similar patterns among stations, you might first perform a clustering analysis (e.g., using hierarchical clustering or k-means on station averages) and then visualize the clusters.
-
-```{r}
-# Example: Hierarchical Clustering on Average Temperature by Station
-# Compute average temperature per station first
-avg_temp <- weather_data %>%
-            group_by(Station) %>%
-            summarize(Avg_Temp = mean(`Mean Temperature (°C)`, na.rm = TRUE))
-# Hierarchical Clustering
-dist_matrix <- dist(avg_temp$Avg_Temp)
-hc <- hclust(dist_matrix)
-plot(hc)
-```
-
-### HORIZON PLOT: Mean Temperature (°C) across different weather stations (2021 - 2023)
-
-```{r}
-weather_data %>% 
-  ggplot() +
-  geom_horizon(aes(x = Date, y=`Mean Temperature (°C)`), 
-               origin = "midpoint", 
-               horizonscale = 6)+
-  facet_grid(`Station`~.) +
-    theme_few() +
-    scale_fill_hcl(palette = 'RdBu') +
-  theme(panel.spacing.y=unit(0, "lines"), strip.text.y = element_text(
-    size = 5, angle = 0, hjust = 0),
-    legend.position = 'none',
-    axis.text.y = element_blank(),
-    axis.text.x = element_text(size=7),
-    axis.title.y = element_blank(),
-    axis.title.x = element_blank(),
-    axis.ticks.y = element_blank(),
-    panel.border = element_blank()
-    ) +
-    scale_x_date(expand=c(0,0), date_breaks = "3 month", date_labels = "%b%y") +
-  ggtitle('Mean Temperature (°C) across different weather stations (2021 - 2023)')
-```
-
-### HORIZON PLOT: Daily Rainfall Total across all weather stations from 2021 to 2023
-
-This plot may not make sense as we may need to sum up rainfall for each day across all weather stations first before plotting.
-
-```{r}
-# Step 1: compute origin and  horizon scale cutpoints: 
-cutpoints <- weather_data %>% 
-  mutate(
-    outlier = between(
-      `Daily Rainfall Total (mm)`, 
-      quantile(`Daily Rainfall Total (mm)`, 0.25, na.rm = TRUE) -
-        1.5 * IQR(`Daily Rainfall Total (mm)`, na.rm = TRUE),
-      quantile(`Daily Rainfall Total (mm)`, 0.75, na.rm = TRUE) +
-        1.5 * IQR(`Daily Rainfall Total (mm)`, na.rm = TRUE))) %>% 
-  filter(outlier)
-
-ori <- sum(range(cutpoints$`Daily Rainfall Total (mm)`))/2
-sca <- seq(range(cutpoints$`Daily Rainfall Total (mm)`)[1], 
-           range(cutpoints$`Daily Rainfall Total (mm)`)[2], 
-           length.out = 7)[-4]
-
-round(ori, 2) # The origin
-round(sca, 2) # The horizon scale cutpoints
-
-
-# Step 2: Ensure data has Year, Month, Date column. Also create a Date_mine column for comparing across years
-weather_data <- weather_data %>% 
-  mutate(Year = year(Date)) %>%
-  mutate(Month = month(Date)) %>%
-  mutate(Day = day(Date)) %>%
-  mutate(Date_mine = make_date(2023, month(Date), day(Date)))
-
-# Step 3: Plot horizon plot
-weather_data %>% ggplot() +
-  geom_horizon(aes(x = Date_mine, 
-                   y = `Daily Rainfall Total (mm)`,
-                   fill = after_stat(Cutpoints)), 
-               origin = ori, horizonscale = sca) +
-  scale_fill_hcl(palette = 'RdBu', reverse = T) +
-  facet_grid(~Year ~ .) +
-  theme_few() +
-  theme(
-    panel.spacing.y = unit(0, "lines"),
-    strip.text.y = element_text(size = 7, angle = 0, hjust = 0),
-    axis.text.y = element_blank(),
-    axis.title.y = element_blank(),
-    axis.ticks.y = element_blank(),
-    panel.border = element_blank()
-    ) +
-  scale_x_date(expand = c(0, 0), 
-               date_breaks = "1 month", 
-               date_labels = "%b") +
-  xlab('Date') +
-  ggtitle('Daily Rainfall Total across all weather stations', 
-          'from 2021 to 2023')
-
-```
-
-### HORIZON PLOT: Mean Temperature (°C) across across all weather stations from 2021 to 2023
-
-This plot may not make sense as we may need to average the `Mean Temperature (°C)` across all stations for each day first before plotting. Or does this plot already consider the average across all stations for each day?
+#### Horizon Plot of Mean Temperature (°C) across different weather stations, for 2021 - 2023
 
 ```{r}
 #| fig-width: 10
@@ -346,21 +183,75 @@ sca <- seq(range(cutpoints$`Mean Temperature (°C)`)[1],
 round(ori, 2) # The origin
 round(sca, 2) # The horizon scale cutpoints
 
-# Step 2: Ensure data has Year, Month, Date column. Also create a Date_mine column for comparing across years
+# weather_data %>%
+#   ggplot() +
+#   geom_horizon(aes(x = Date, y=`Mean Temperature (°C)`),
+#                origin = "midpoint",
+#                horizonscale = 6)+
+weather_data %>% ggplot() +
+  geom_horizon(aes(x = Date,
+                   y = `Mean Temperature (°C)`,
+                   fill = after_stat(Cutpoints)),
+               origin = ori, horizonscale = sca) +
+  scale_fill_hcl(palette = 'RdBu', reverse = T) +
+  facet_grid(`Station`~.) +
+  theme_few() +
+  theme(panel.spacing.y=unit(0, "lines"), strip.text.y = element_text(
+    size = 5, angle = 0, hjust = 0),
+    # legend.position = 'none',
+    axis.text.y = element_blank(),
+    axis.text.x = element_text(size=7),
+    axis.title.y = element_blank(),
+    axis.title.x = element_blank(),
+    axis.ticks.y = element_blank(),
+    panel.border = element_blank()
+    ) +
+    scale_x_date(expand=c(0,0), date_breaks = "3 month", date_labels = "%b%y") +
+  ggtitle('Mean Temperature (°C) across different weather stations (2021 - 2023)')
+```
+#### Horizon Plot of Mean Temperature (°C) across different weather stations for a specified year, 2023
+
+```{r}
+#| fig-width: 10
+#| fig-height: 4
+# Ensure data has Year, Month, Date column
 weather_data <- weather_data %>% 
   mutate(Year = year(Date)) %>%
   mutate(Month = month(Date)) %>%
   mutate(Day = day(Date)) %>%
   mutate(Date_mine = make_date(2023, month(Date), day(Date)))
 
-# Step 3: Plot horizon plot
-weather_data %>% ggplot() +
+# Filter for specified year only
+weather_data_2023 <- weather_data %>% 
+  filter(Year == 2023) 
+
+# Step 1: compute origin and  horizon scale cutpoints: 
+cutpoints <- weather_data_2023 %>% 
+  mutate(
+    outlier = between(
+      `Mean Temperature (°C)`, 
+      quantile(`Mean Temperature (°C)`, 0.25, na.rm = TRUE) -
+        1.5 * IQR(`Mean Temperature (°C)`, na.rm = TRUE),
+      quantile(`Mean Temperature (°C)`, 0.75, na.rm = TRUE) +
+        1.5 * IQR(`Mean Temperature (°C)`, na.rm = TRUE))) %>% 
+  filter(outlier)
+
+ori <- sum(range(cutpoints$`Mean Temperature (°C)`))/2
+sca <- seq(range(cutpoints$`Mean Temperature (°C)`)[1], 
+           range(cutpoints$`Mean Temperature (°C)`)[2], 
+           length.out = 7)[-4]
+
+round(ori, 2) # The origin
+round(sca, 2) # The horizon scale cutpoints
+
+# Plot horizon plot
+weather_data_2023 %>% ggplot() +
   geom_horizon(aes(x = Date_mine, 
                    y = `Mean Temperature (°C)`,
                    fill = after_stat(Cutpoints)), 
                origin = ori, horizonscale = sca) +
   scale_fill_hcl(palette = 'RdBu', reverse = T) +
-  facet_grid(~Year ~ .) +
+  facet_grid(~Station ~ .) +
   theme_few() +
   theme(
     panel.spacing.y = unit(0, "lines"),
@@ -374,11 +265,11 @@ weather_data %>% ggplot() +
                date_breaks = "1 month", 
                date_labels = "%b") +
   xlab('Date') +
-  ggtitle('Mean Temperature (°C) across across all weather stations', 
-          'from 2021 to 2023')
+  ggtitle('Mean Temperature (°C) for the year 2023',
+          'across the stations')
 ```
 
-### HORIZON PLOT: Mean Temperature (°C) For Ang Mo Kio across the years
+#### Horizon Plot of Mean Temperature (°C) For Ang Mo Kio across the years
 
 ```{r}
 #| fig-width: 10
@@ -438,23 +329,20 @@ ang_mo_kio_data %>% ggplot() +
           'across the years 2021 to 2023')
 ```
 
-### HORIZON PLOT: Temperature across the stations for a specified year
+
+#### Horizon Plot of Mean Temperature (°C) across average of all weather stations from 2021 to 2023
 
 ```{r}
 #| fig-width: 10
 #| fig-height: 4
-# Ensure data has Year, Month, Date column
-weather_data <- weather_data %>% 
-  mutate(Year = year(Date)) %>%
-  mutate(Month = month(Date)) %>%
-  mutate(Day = day(Date))
 
-# Filter for specified year only
-weather_data_2023 <- weather_data %>% 
-  filter(Year == 2023)
+# Step 0: Compute average of Mean Temperature (°C) across all stations
+weather_data_all_stations <- weather_data %>%
+  group_by(Date) %>%
+  summarise(`Mean Temperature (°C)` = mean(`Mean Temperature (°C)`))
 
 # Step 1: compute origin and  horizon scale cutpoints: 
-cutpoints <- weather_data_2023 %>% 
+cutpoints <- weather_data_all_stations %>% 
   mutate(
     outlier = between(
       `Mean Temperature (°C)`, 
@@ -472,14 +360,21 @@ sca <- seq(range(cutpoints$`Mean Temperature (°C)`)[1],
 round(ori, 2) # The origin
 round(sca, 2) # The horizon scale cutpoints
 
-# Plot horizon plot
-weather_data_2023 %>% ggplot() +
+# Step 2: Ensure data has Year, Month, Date column. Also create a Date_mine column for comparing across years
+weather_data_all_stations <- weather_data_all_stations %>% 
+  mutate(Year = year(Date)) %>%
+  mutate(Month = month(Date)) %>%
+  mutate(Day = day(Date)) %>%
+  mutate(Date_mine = make_date(2023, month(Date), day(Date)))
+
+# Step 3: Plot horizon plot
+weather_data_all_stations %>% ggplot() +
   geom_horizon(aes(x = Date_mine, 
                    y = `Mean Temperature (°C)`,
                    fill = after_stat(Cutpoints)), 
                origin = ori, horizonscale = sca) +
   scale_fill_hcl(palette = 'RdBu', reverse = T) +
-  facet_grid(~Station ~ .) +
+  facet_grid(~Year ~ .) +
   theme_few() +
   theme(
     panel.spacing.y = unit(0, "lines"),
@@ -493,11 +388,283 @@ weather_data_2023 %>% ggplot() +
                date_breaks = "1 month", 
                date_labels = "%b") +
   xlab('Date') +
-  ggtitle('Mean Temperature (°C) for the year 2023',
-          'across the stations')
+  ggtitle('Mean Temperature (°C) across across all weather stations', 
+          'from 2021 to 2023')
 ```
 
-### HORIZON PLOT: Rainfall across the stations for a specified year
+
+### Clustering
+
+Clustering is the practice of finding hidden patterns or similar groups in data.
+
+Cluster analysis can be divided into three different parts: 
+
+a) determining a measure to quantify the similarity between observations 
+b) choosing the method to obtain the clustering 
+c) selecting the desired number of clusters
+
+To find similar patterns *among stations*, users might first perform a clustering analysis (e.g., using hierarchical clustering or k-means on station averages) and then visualize the clusters.
+
+Import data
+
+```{r}
+weather_data_uncleaned <- read_csv("data/climate_historical_daily_records.csv")
+```
+
+Create Date column and drop Year, Month, Day
+
+```{r}
+weather_data_uncleaned$Date <- as.Date(paste(weather_data_uncleaned$Year, weather_data_uncleaned$Month, weather_data_uncleaned$Day, sep = "-"))
+
+weather_data_uncleaned <- weather_data_uncleaned %>%
+  select(Station, Date, everything(), -Year, -Month, -Day)
+```
+
+Filter for specific station 
+
+```{r}
+weather_data_uncleaned <- weather_data_uncleaned %>%
+  filter(Station == "Changi")
+```
+
+
+Impute missing values
+
+```{r}
+weather_variables <- c("Daily Rainfall Total (mm)", "Mean Temperature (°C)", "Maximum Temperature (°C)", 
+                       "Minimum Temperature (°C)", "Mean Wind Speed (km/h)", "Max Wind Speed (km/h)")
+
+weather_unique_imputed <- weather_data_uncleaned
+
+for(variable in weather_variables) {
+  weather_unique_imputed[[variable]] <- as.numeric(as.character(weather_unique_imputed[[variable]]))
+  
+  # Impute missing values using a moving average, rounded to 1 decimal place
+  weather_unique_imputed <- weather_unique_imputed %>%
+    group_by(Station) %>%
+    arrange(Station, Date) %>%
+    mutate(!!variable := round(na_ma(!!sym(variable), k = 3, weighting = "simple"), 1)) %>%
+    ungroup()
+}
+```
+
+Check for no more missing values
+
+```{r}
+sum(is.na(weather_unique_imputed))
+# vis_miss(weather_unique_imputed)
+```
+
+First, we will extract temperature: 
+
+```{r}
+# Extract the temperature data into a variable *temp_data*
+temp_data <- weather_unique_imputed %>%
+  select(c(Station, Date, `Mean Temperature (°C)`, LAT, LONG))
+```
+
+```{r}
+# # Compute average of Mean Temperature (°C) across all stations
+# temp_data_avg <- temp_data %>%
+#   group_by(Date) %>%
+#   summarise(`Mean Temperature (°C)` = mean(`Mean Temperature (°C)`))
+```
+
+Then we will wrangle the data to get the (mean monthly) air temperature record of one weather station
+
+```{r}
+# Filter for a single station, e.g., "changi"
+changi_temp_data <- temp_data %>% 
+  filter(Station == "Changi")
+```
+
+Compute average of Mean Temperature (°C) for each month
+
+```{r}
+# Extract month from Date column
+changi_temp_data <- changi_temp_data %>%
+  mutate(Month = format(Date, "%Y-%m"))
+
+# Compute average of Mean Temperature (°C) for each month
+monthly_avg_temp <- changi_temp_data %>%
+  group_by(Month) %>%
+  summarise(Avg_Mean_Temperature = mean(`Mean Temperature (°C)`))
+```
+
+https://geomoer.github.io/moer-mpg-data-analysis/unit10/unit10-03_time_series_clustering.html
+To start with clustering, we will have to look at the individual years as different time series by transforming our data into a matrix with 12 columns (i.e. one for each month) and the required number of years. Thereby, we have to make sure that the original dataset is actually transformed into the matrix format by rows and not by columns. This will result in a matrix with one year per row
+
+
+```{r}
+# transforming our data into a matrix with 12 columns (i.e. one for each month) and the required number of years.
+tam_ta <- matrix(monthly_avg_temp$Avg_Mean_Temperature, ncol = 12, byrow = TRUE)
+row.names(tam_ta) <- paste0(seq(2014, 2023))
+tam_ta
+```
+
+This matrix can subsequently be used to compute the dissimilarity between the individual time series. Here we use the TSclust::diss function with method “DTWARP” (which is one of many, each leading to a different result; p gives the decaying of the auto-correlation coefficient to be considered).
+
+```{r}
+tam_dist <- TSclust::diss(tam_ta, "DTWARP", p = 0.05)
+tam_dist
+```
+
+This dissimilarity is now used for hierarchical clustering, which computes the distance between the individual samples. Plotting the result shows a cluster dendrogram:
+
+```{r}
+tam_hc <- hclust(tam_dist)
+plot(tam_hc)
+rect.hclust(tam_hc, k = 3)
+```
+
+Above, we derived three clusters of years with similar mean monthly air temperatures. 
+
+```{r}
+cutree(tam_hc, k = 3)
+```
+x
+
+## Exploratory Data Analysis of Time Series `Daily Rainfall Total (mm)`
+
+### Univariate Time Series Exploration 
+
+In this section, we focus on the variable "Daily Rainfall Total (mm)" for one weather station, Ang Mo Kio .
+
+#### Data preparation: Extract rainfall data for Ang Mo Kio
+
+```{r}
+# Extract the rainfall data into a variable *rain_data*
+rain_data <- weather_data %>%
+  select(c(Station, Date, `Daily Rainfall Total (mm)`, LAT, LONG))
+
+str(rain_data)
+
+# Filter for a single station, e.g., "Ang Mo Kio"
+ang_mo_kio_data <- rain_data %>% 
+  filter(Station == "Ang Mo Kio")
+
+str(ang_mo_kio_data)
+```
+
+
+#### Time series plot
+
+```{r}
+# Plotting Mean Temperature as an example
+ggplot(ang_mo_kio_data, aes(x = Date, y = `Daily Rainfall Total (mm)`)) +
+  geom_line() + 
+  labs(title = "Daily Rainfall Total (mm) Over Time at Ang Mo Kio", x = "Date", y = "Daily Rainfall Total (mm)") +
+  theme_minimal()
+```
+
+#### Seasonality and Trend Analysis
+
+Done using the `stl()` function for seasonal-trend decomposition using LOESS.
+
+```{r}
+ts_data <- ts(ang_mo_kio_data$`Daily Rainfall Total (mm)`, frequency = 365)
+
+decomposed_data <- stl(ts_data, s.window = "periodic")
+plot(decomposed_data)
+```
+
+#### Autocorrelation Analysis
+
+To help with identifying how values are related to their lagged versions.
+
+```{r}
+acf(ts_data)
+pacf(ts_data)
+```
+
+#### Stationarity Check
+
+Many forecasting models assume that the time series is stationary. Use the Augmented Dickey-Fuller (ADF) test to check for stationarity.
+
+```{r}
+adf.test(ts_data, alternative = "stationary")
+```
+
+#### Distribution of the Variable
+
+Examine the distribution of your variable to identify any skewness, kurtosis, or outliers.
+
+```{r}
+ggplot(ang_mo_kio_data, aes(x = `Daily Rainfall Total (mm)`)) +
+  geom_histogram(bins = 30, fill = "blue", color = "black") +
+  labs(title = "Distribution of Daily Rainfall at Ang Mo Kio", x = "Daily Rainfall Total (mm)", y = "Frequency") +
+  theme_minimal()
+```
+
+
+### Horizon Plots
+
+
+Horizon plots are a visualization technique used for displaying multiple time series data. Since the our data contains locations across different years for different stations, it would be valuable to allow users to use horizon plots for exploring patterns or trends across multiple time series data.
+
+
+
+
+#### Horizon Plot of Daily Rainfall Total across all weather stations from 2021 to 2023
+
+This plot may not make sense as we may need to sum up rainfall for each day across all weather stations first before plotting.
+
+```{r}
+# Step 1: compute origin and  horizon scale cutpoints: 
+cutpoints <- weather_data %>% 
+  mutate(
+    outlier = between(
+      `Daily Rainfall Total (mm)`, 
+      quantile(`Daily Rainfall Total (mm)`, 0.25, na.rm = TRUE) -
+        1.5 * IQR(`Daily Rainfall Total (mm)`, na.rm = TRUE),
+      quantile(`Daily Rainfall Total (mm)`, 0.75, na.rm = TRUE) +
+        1.5 * IQR(`Daily Rainfall Total (mm)`, na.rm = TRUE))) %>% 
+  filter(outlier)
+
+ori <- sum(range(cutpoints$`Daily Rainfall Total (mm)`))/2
+sca <- seq(range(cutpoints$`Daily Rainfall Total (mm)`)[1], 
+           range(cutpoints$`Daily Rainfall Total (mm)`)[2], 
+           length.out = 7)[-4]
+
+round(ori, 2) # The origin
+round(sca, 2) # The horizon scale cutpoints
+
+
+# Step 2: Ensure data has Year, Month, Date column. Also create a Date_mine column for comparing across years
+weather_data <- weather_data %>% 
+  mutate(Year = year(Date)) %>%
+  mutate(Month = month(Date)) %>%
+  mutate(Day = day(Date)) %>%
+  mutate(Date_mine = make_date(2023, month(Date), day(Date)))
+
+# Step 3: Plot horizon plot
+weather_data %>% ggplot() +
+  geom_horizon(aes(x = Date_mine, 
+                   y = `Daily Rainfall Total (mm)`,
+                   fill = after_stat(Cutpoints)), 
+               origin = ori, horizonscale = sca) +
+  scale_fill_hcl(palette = 'RdBu', reverse = T) +
+  facet_grid(~Year ~ .) +
+  theme_few() +
+  theme(
+    panel.spacing.y = unit(0, "lines"),
+    strip.text.y = element_text(size = 7, angle = 0, hjust = 0),
+    axis.text.y = element_blank(),
+    axis.title.y = element_blank(),
+    axis.ticks.y = element_blank(),
+    panel.border = element_blank()
+    ) +
+  scale_x_date(expand = c(0, 0), 
+               date_breaks = "1 month", 
+               date_labels = "%b") +
+  xlab('Date') +
+  ggtitle('Daily Rainfall Total across all weather stations', 
+          'from 2021 to 2023')
+
+```
+
+
+#### Horizon Plot of Daily Rainfall Total (mm) across all the stations for a specified year
 
 ```{r}
 # Ensure data has Year, Month, Date column
@@ -558,9 +725,9 @@ weather_data_2023 %>% ggplot() +
 
 ### Data Wrangling
 
-Data: Ang Mo Kio 
+Data: Ang Mo Kio
 
-Time period: 2021-2023 
+Time period: 2021-2023
 
 Variable: Mean Temperature
 
@@ -620,7 +787,6 @@ ts_test <- ts(data = test_clean$`Mean Temperature (°C)`,
 autoplot(ts_test)
 ```
 
-
 ### Exploratory plot
 
 #### Time series plot:
@@ -675,20 +841,17 @@ ts_train %>%
 adf.test(ts_train)
 ```
 
-
 ```{r}
 # Create ARIMA on train
 climate_auto <- auto.arima(ts_train, seasonal = T)
 climate_auto
 ```
 
-
 ```{r}
 # Forecast
 climate_auto_f <- forecast(climate_auto, h=114)
 climate_auto_f
 ```
-
 
 ```{r}
 # Check accuracy
@@ -736,119 +899,4 @@ ts_train %>%
   autoplot(series = "Actual") +
   autolayer(climate_stlm_forecast$fitted, series = "Train") +
   autolayer(climate_stlm_forecast$mean, series = "Test")
-```
-
-
-
-## Not in use
-### Data Wrangling
-
-Data: Ang Mo Kio Time period: 2021-2023 Variable: Mean Temperature
-
-```{r}
-# Extract the temperature data into a variable *temp_data*
-temp_data <- weather_data %>%
-  select(c(Station, Date, `Mean Temperature (°C)`, LAT, LONG))
-
-# Filter for a single station, e.g., "Ang Mo Kio"
-ang_mo_kio_data <- temp_data %>% 
-  filter(Station == "Ang Mo Kio")
-```
-
-Change Date to chr type:
-
-```{r}
-# Change Date to chr type
-ang_mo_kio_data$Date <- as.character (ang_mo_kio_data$Date) 
-str(ang_mo_kio_data)
-```
-
-Split data into train test split (0.8)
-
-```{r}
-# Sort the data by Date if it's not already sorted
-ang_mo_kio_data <- ang_mo_kio_data[order(ang_mo_kio_data$Date), ]
-
-# Split data into training and testing sets based on the 'Date' column
-train_size <- floor(nrow(ang_mo_kio_data) * 0.8)  # Calculate the size of the training set
-train_data <- ang_mo_kio_data[1:train_size, ]
-test_data <- ang_mo_kio_data[(train_size + 1):nrow(ang_mo_kio_data), ]
-```
-
-
-```{r}
-# Create time series data
-
-# Convert 'Date' column to Date format if it's not already in Date format
-ang_mo_kio_data$Date <- as.Date(ang_mo_kio_data$Date)
-
-# Sort the data by Date if it's not already sorted
-ang_mo_kio_data <- ang_mo_kio_data[order(ang_mo_kio_data$Date), ]
-
-# Create a time series object
-# ts_data <- ts(ang_mo_kio_data$`Mean Temperature (°C)`, frequency = 365)
-ts_data <- ts(ang_mo_kio_data$`Mean Temperature (°C)`, 
-              start=c(year(min(ang_mo_kio_data$Date)), 
-                      month(min(ang_mo_kio_data$Date))), 
-              frequency=365)
-```
-
-### Exploratory Analysis of Time Series Data
-
-#### Time series plot:
-
-```{r}
-# Plotting Mean Temperature as an example
-ggplot(ang_mo_kio_data, aes(x = Date, y = `Mean Temperature (°C)`)) +
-  geom_line() + 
-  labs(title = "Mean Temperature (°C) Over Time at Ang Mo Kio", x = "Date", y = "Mean Temperature (°C)") +
-  theme_minimal()
-```
-
-#### Seasonality and Trend Analysis
-
-Done using the `stl()` function for seasonal-trend decomposition using LOESS.
-
-```{r}
-
-decomposed_data <- stl(ts_data, s.window = "periodic")
-plot(decomposed_data)
-```
-
-Data: This is the actual time series data for the mean temperature. It shows the fluctuations in temperature readings over the period from 2021 to 2023.
-
-Seasonal: This component captures the repeating pattern within each year, attributed to seasonal effects. Given that the frequency is set to 365, it assumes there is a yearly cycle in the data, which is common with weather data due to seasons.
-
-Trend: The trend component shows how the mean temperature changes over a longer period, disregarding the seasonal fluctuations. It helps to identify whether there is a general upward or downward trend in temperature over the years.
-
-Remainder: The remainder (sometimes called "irregular" or "residual") is what is left after the seasonal and trend components have been removed from the original data. It represents the noise or random variation that can't be attributed to the seasonal or trend components.
-
-#### Distribution of the Variable
-
-Examine the distribution of your variable to identify any skewness, kurtosis, or outliers.
-
-```{r}
-ggplot(ang_mo_kio_data, aes(x = `Mean Temperature (°C)`)) +
-  geom_histogram(bins = 30, fill = "blue", color = "black") +
-  labs(title = "Distribution of Mean Temp at Ang Mo Kio", x = "Mean Temperature (°C)", y = "Frequency") +
-  theme_minimal()
-```
-
-#### Autocorrelation Analysis
-
-To help with identifying how values are related to their lagged versions.
-
-```{r}
-acf(ts_data) 
-pacf(ts_data)
-```
-
-#### Stationarity Check
-
-Many forecasting models assume that the time series is stationary. Use the Augmented Dickey-Fuller (ADF) test to check for stationarity.
-
-Based on the result (p-value = 0.01), data is stationary.
-
-```{r}
-adf.test(ts_data, alternative = "stationary")
 ```

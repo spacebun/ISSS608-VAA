@@ -515,7 +515,7 @@ According to Singapore's National Environment Agency (NEA), [1-hour PM~2.5~ valu
 PSI can be grouped by index values and descriptors, explaining the effects of the levels, according to Singapore's National Environment Agency (NEA).
 
 |   PSI   |   Descriptor   |                                                          General Health Effects                                                           |
-|:----------------:|:----------------:|:----------------------------------:|
+|:-------:|:--------------:|:-----------------------------------------------------------------------------------------------------------------------------------------:|
 |  0–50   |      Good      |                                                                   None                                                                    |
 | 51–100  |    Moderate    |                                                  Few or none for the general population                                                   |
 | 101–200 |   Unhealthy    | Everyone may begin to experience health effects; members of sensitive groups may experience more serious health effects. To stay indoors. |

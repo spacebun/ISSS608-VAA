@@ -391,124 +391,107 @@ weather_data_all_stations %>% ggplot() +
   ggtitle('Mean Temperature (°C) across across all weather stations', 
           'from 2021 to 2023')
 ```
-
-
-### Clustering
-
-Clustering is the practice of finding hidden patterns or similar groups in data.
-
-Cluster analysis can be divided into three different parts: 
-
-a) determining a measure to quantify the similarity between observations 
-b) choosing the method to obtain the clustering 
-c) selecting the desired number of clusters
-
-To find similar patterns *among stations*, users might first perform a clustering analysis (e.g., using hierarchical clustering or k-means on station averages) and then visualize the clusters.
-
-Import data
-
-```{r}
-weather_data_uncleaned <- read_csv("data/climate_historical_daily_records.csv")
-```
-
-Create Date column and drop Year, Month, Day
-
-```{r}
-weather_data_uncleaned$Date <- as.Date(paste(weather_data_uncleaned$Year, weather_data_uncleaned$Month, weather_data_uncleaned$Day, sep = "-"))
-
-weather_data_uncleaned <- weather_data_uncleaned %>%
-  select(Station, Date, everything(), -Year, -Month, -Day)
-```
-
-Filter for specific station 
-
-```{r}
-weather_data_uncleaned <- weather_data_uncleaned %>%
-  filter(Station == "Changi")
-```
-
-
-Impute missing values
-
-```{r}
-weather_variables <- c("Daily Rainfall Total (mm)", "Mean Temperature (°C)", "Maximum Temperature (°C)", 
-                       "Minimum Temperature (°C)", "Mean Wind Speed (km/h)", "Max Wind Speed (km/h)")
-
-weather_unique_imputed <- weather_data_uncleaned
-
-for(variable in weather_variables) {
-  weather_unique_imputed[[variable]] <- as.numeric(as.character(weather_unique_imputed[[variable]]))
-  
-  # Impute missing values using a moving average, rounded to 1 decimal place
-  weather_unique_imputed <- weather_unique_imputed %>%
-    group_by(Station) %>%
-    arrange(Station, Date) %>%
-    mutate(!!variable := round(na_ma(!!sym(variable), k = 3, weighting = "simple"), 1)) %>%
-    ungroup()
-}
-```
-
-Check for no more missing values
-
-```{r}
-sum(is.na(weather_unique_imputed))
-# vis_miss(weather_unique_imputed)
-```
-
-First, we will extract temperature: 
+### Calendar Heatmap
 
 ```{r}
 # Extract the temperature data into a variable *temp_data*
-temp_data <- weather_unique_imputed %>%
-  select(c(Station, Date, `Mean Temperature (°C)`, LAT, LONG))
+temp_data <- weather_data %>%
+  select(c(Station, Date, `Mean Temperature (°C)`))
+  
+str(temp_data)
+```
+Extract data for a single station
+
+```{r}
+pulau_ubin_data <- temp_data %>%
+  filter(Station == 'Pulau Ubin')
+```
+
+### Calendar Heatmap
+
+```{r}
+pulau_ubin_data <- pulau_ubin_data %>% 
+  mutate(
+    Weekday = wday(Date),
+    Day = mday(Date),
+    Month = factor(months(Date), levels = rev(month.name)),
+    Year = year(Date),
+    Week = isoweek(Date),
+    Year_Month = format(zoo::as.yearmon(Date), "%y-%m")
+  )
+
+calendar <- pulau_ubin_data %>%
+  group_by(Year, Day, Month) %>%
+  filter(Year == 2023) %>%
+  ungroup()
 ```
 
 ```{r}
-# # Compute average of Mean Temperature (°C) across all stations
-# temp_data_avg <- temp_data %>%
-#   group_by(Date) %>%
-#   summarise(`Mean Temperature (°C)` = mean(`Mean Temperature (°C)`))
+heat <- ggplot(calendar, aes(x = Day, y = Month, fill = `Mean Temperature (°C)`)) + 
+  geom_tile(color = "white", size = 1) + 
+  theme_tufte() + 
+  coord_equal() +
+  scale_fill_gradient(low = "blue", high = "red") +
+  labs(x = "Days of Month", 
+       y = "", 
+       title = "Temperature in 2023") +
+  theme(axis.ticks = element_blank(),
+        axis.text.x = element_text(size = 7),
+        plot.title = element_text(hjust = 0.5),
+        legend.title = element_text(size = 8),
+        legend.text = element_text(size = 6),
+        legend.position = "top") +
+  scale_x_continuous(breaks = seq(min(calendar$Day), max(calendar$Day), 
+                                  by = 2),
+                     labels = seq(min(calendar$Day), max(calendar$Day), 
+                                  by = 2)) 
+heat
 ```
 
-Then we will wrangle the data to get the (mean monthly) air temperature record of one weather station
+## Clustering of 7 weather stations
+
+Extract just data for temperature
 
 ```{r}
-# Filter for a single station, e.g., "changi"
-changi_temp_data <- temp_data %>% 
-  filter(Station == "Changi")
+temp_data <- weather_data %>%
+  select(c(Station, Date, `Mean Temperature (°C)`))
 ```
 
-Compute average of Mean Temperature (°C) for each month
+
+Normalize data
 
 ```{r}
-# Extract month from Date column
-changi_temp_data <- changi_temp_data %>%
-  mutate(Month = format(Date, "%Y-%m"))
+# # Calculate mean and standard deviation for each Station and normalize temperatures
+# temp_data <- temp_data %>%
+#   group_by(Station) %>%
+#   mutate(
+#     Mean_Temperature_Mean = mean(`Mean Temperature (°C)`), # Calculate mean for each group
+#     Mean_Temperature_SD = sd(`Mean Temperature (°C)`), # Calculate standard deviation for each group
+#     `Normalized Temperature` = (`Mean Temperature (°C)` - Mean_Temperature_Mean) / Mean_Temperature_SD # Normalize
+#   ) %>%
+#   select(-Mean_Temperature_Mean, -Mean_Temperature_SD) # Remove the mean and sd columns, keeping them if necessary
+temp_data$Normalized_Temp <- scale(temp_data$`Mean Temperature (°C)`)
 
-# Compute average of Mean Temperature (°C) for each month
-monthly_avg_temp <- changi_temp_data %>%
-  group_by(Month) %>%
-  summarise(Avg_Mean_Temperature = mean(`Mean Temperature (°C)`))
 ```
 
-https://geomoer.github.io/moer-mpg-data-analysis/unit10/unit10-03_time_series_clustering.html
-To start with clustering, we will have to look at the individual years as different time series by transforming our data into a matrix with 12 columns (i.e. one for each month) and the required number of years. Thereby, we have to make sure that the original dataset is actually transformed into the matrix format by rows and not by columns. This will result in a matrix with one year per row
 
+Format the data in a matrix
 
 ```{r}
-# transforming our data into a matrix with 12 columns (i.e. one for each month) and the required number of years.
-tam_ta <- matrix(monthly_avg_temp$Avg_Mean_Temperature, ncol = 12, byrow = TRUE)
-row.names(tam_ta) <- paste0(seq(2014, 2023))
-tam_ta
+tam_ta <- matrix(temp_data$Normalized_Temp, ncol = 1095, byrow = TRUE)
+row.names(tam_ta) <- paste0(c(unique(weather_data$Station)))
+# tam_ta
+# tam_ta <- matrix(temp_data$`Mean Temperature (°C)`, ncol = 1095, byrow = TRUE)
+# row.names(tam_ta) <- paste0(c(unique(weather_data$Station)))
+# tam_ta
 ```
 
-This matrix can subsequently be used to compute the dissimilarity between the individual time series. Here we use the TSclust::diss function with method “DTWARP” (which is one of many, each leading to a different result; p gives the decaying of the auto-correlation coefficient to be considered).
+Compute dissimilarity between time series: use the TSclust::diss function with method “DTWARP”
 
 ```{r}
 tam_dist <- TSclust::diss(tam_ta, "DTWARP", p = 0.05)
 tam_dist
 ```
-
 This dissimilarity is now used for hierarchical clustering, which computes the distance between the individual samples. Plotting the result shows a cluster dendrogram:
 
 ```{r}
@@ -517,93 +500,13 @@ plot(tam_hc)
 rect.hclust(tam_hc, k = 3)
 ```
 
-Above, we derived three clusters of years with similar mean monthly air temperatures. 
 
-```{r}
-cutree(tam_hc, k = 3)
-```
-x
 
 ## Exploratory Data Analysis of Time Series `Daily Rainfall Total (mm)`
 
-### Univariate Time Series Exploration 
-
-In this section, we focus on the variable "Daily Rainfall Total (mm)" for one weather station, Ang Mo Kio .
-
-#### Data preparation: Extract rainfall data for Ang Mo Kio
-
-```{r}
-# Extract the rainfall data into a variable *rain_data*
-rain_data <- weather_data %>%
-  select(c(Station, Date, `Daily Rainfall Total (mm)`, LAT, LONG))
-
-str(rain_data)
-
-# Filter for a single station, e.g., "Ang Mo Kio"
-ang_mo_kio_data <- rain_data %>% 
-  filter(Station == "Ang Mo Kio")
-
-str(ang_mo_kio_data)
-```
-
-
-#### Time series plot
-
-```{r}
-# Plotting Mean Temperature as an example
-ggplot(ang_mo_kio_data, aes(x = Date, y = `Daily Rainfall Total (mm)`)) +
-  geom_line() + 
-  labs(title = "Daily Rainfall Total (mm) Over Time at Ang Mo Kio", x = "Date", y = "Daily Rainfall Total (mm)") +
-  theme_minimal()
-```
-
-#### Seasonality and Trend Analysis
-
-Done using the `stl()` function for seasonal-trend decomposition using LOESS.
-
-```{r}
-ts_data <- ts(ang_mo_kio_data$`Daily Rainfall Total (mm)`, frequency = 365)
-
-decomposed_data <- stl(ts_data, s.window = "periodic")
-plot(decomposed_data)
-```
-
-#### Autocorrelation Analysis
-
-To help with identifying how values are related to their lagged versions.
-
-```{r}
-acf(ts_data)
-pacf(ts_data)
-```
-
-#### Stationarity Check
-
-Many forecasting models assume that the time series is stationary. Use the Augmented Dickey-Fuller (ADF) test to check for stationarity.
-
-```{r}
-adf.test(ts_data, alternative = "stationary")
-```
-
-#### Distribution of the Variable
-
-Examine the distribution of your variable to identify any skewness, kurtosis, or outliers.
-
-```{r}
-ggplot(ang_mo_kio_data, aes(x = `Daily Rainfall Total (mm)`)) +
-  geom_histogram(bins = 30, fill = "blue", color = "black") +
-  labs(title = "Distribution of Daily Rainfall at Ang Mo Kio", x = "Daily Rainfall Total (mm)", y = "Frequency") +
-  theme_minimal()
-```
-
-
 ### Horizon Plots
 
-
 Horizon plots are a visualization technique used for displaying multiple time series data. Since the our data contains locations across different years for different stations, it would be valuable to allow users to use horizon plots for exploring patterns or trends across multiple time series data.
-
-
-
 
 #### Horizon Plot of Daily Rainfall Total across all weather stations from 2021 to 2023
 
@@ -719,184 +622,4 @@ weather_data_2023 %>% ggplot() +
   xlab('Date') +
   ggtitle('Daily Rainfall Total (mm) for the year 2023',
           'across the stations')
-```
-
-## Univariate Forecasting
-
-### Data Wrangling
-
-Data: Ang Mo Kio
-
-Time period: 2021-2023
-
-Variable: Mean Temperature
-
-```{r}
-# Extract the temperature data into a variable *temp_data*
-temp_data <- weather_data %>%
-  select(c(Station, Date, `Mean Temperature (°C)`, LAT, LONG))
-
-# Filter for a single station, e.g., "Ang Mo Kio"
-ang_mo_kio_data <- temp_data %>% 
-  filter(Station == "Ang Mo Kio")
-```
-
-```{r}
-# Change Date to chr type for time series
-ang_mo_kio_data$Date <- as.character(ang_mo_kio_data$Date) 
-str(ang_mo_kio_data)
-```
-
-Split data into train test split (0.8)
-
-```{r}
-# Sort the data by Date if it's not already sorted
-ang_mo_kio_data <- ang_mo_kio_data[order(ang_mo_kio_data$Date), ]
-
-# Split data into training and testing sets based on the 'Date' column
-train_size <- floor(nrow(ang_mo_kio_data) * 0.8)  # Calculate the size of the training set
-train_data <- ang_mo_kio_data[1:train_size, ]
-test_data <- ang_mo_kio_data[(train_size + 1):nrow(ang_mo_kio_data), ]
-```
-
-Selecting column Date and Mean Temperature (°C)
-
-```{r}
-test_clean <- test_data %>% 
-                select(Date, `Mean Temperature (°C)`)
-
-train_clean <- train_data %>% 
-                select(Date, `Mean Temperature (°C)`)
-```
-
-Create time series object for data train
-
-```{r}
-ts_train <- ts(data = train_clean$`Mean Temperature (°C)`,
-                start = c(2021,01),
-                frequency = 365)
-autoplot(ts_train)
-```
-
-Create time series object for data test
-
-```{r}
-ts_test <- ts(data = test_clean$`Mean Temperature (°C)`,
-                start = c(2023,05,27),
-                frequency = 365)
-autoplot(ts_test)
-```
-
-### Exploratory plot
-
-#### Time series plot:
-
-```{r}
-# Plotting Mean Temperature
-ang_mo_kio_data$Date <- as.Date(ang_mo_kio_data$Date) 
-ggplot(ang_mo_kio_data, aes(x = Date, y = `Mean Temperature (°C)`)) +
-  geom_line() + 
-  labs(title = "Mean Temperature (°C) Over Time at Ang Mo Kio", x = "Date", y = "Mean Temperature (°C)") +
-  theme_minimal()
-```
-
-#### Decomposing a time series means separating it into its constituent components.
-
-```{r}
-climate_dc <- decompose(ts_train)
-plot(climate_dc)
-```
-
-### Create Holt-Winters Model
-
-```{r}
-climate_hw <- HoltWinters(ts_train,seasonal = "additive")
-
-```
-
-```{r}
-# Forecast model
-climate_forecast <- forecast(climate_hw, h=114)
-```
-
-```{r}
-# Check accuracy
-forecast::accuracy(climate_forecast, ts_test)
-```
-
-##### Visualization of Holt-Winters Model
-
-```{r}
-# Visualization
-ts_train %>% 
-  autoplot(series = "Actual") +
-  autolayer(climate_forecast$fitted, series = "Train") +
-  autolayer(climate_forecast$mean, series = "Test")
-```
-
-### Create ARIMA
-
-```{r}
-# Check stationarity. Must be stationary to proceed. (p-val <0.05)
-adf.test(ts_train)
-```
-
-```{r}
-# Create ARIMA on train
-climate_auto <- auto.arima(ts_train, seasonal = T)
-climate_auto
-```
-
-```{r}
-# Forecast
-climate_auto_f <- forecast(climate_auto, h=114)
-climate_auto_f
-```
-
-```{r}
-# Check accuracy
-accuracy(climate_auto_f, ts_test)
-```
-
-#### Visualization of ARIMA Model
-
-```{r}
-# Visualization
-ts_train %>% 
-  autoplot(series = "Actual") +
-  autolayer(climate_auto_f$fitted, series = "Train") +
-  autolayer(climate_auto_f$mean, series = "Test")
-```
-
-### Create STLM Model
-
-```{r}
-# Create STLM
-climate_stlm <- stlm(y= ts_train,
-                     s.window = 356,
-                     method = "arima")
-
-summary(climate_stlm$model)
-```
-
-```{r}
-# Forecast
-climate_stlm_forecast <- forecast(climate_stlm, h = 114)
-climate_stlm_forecast
-```
-
-```{r}
-# Check Accuracy
-
-accuracy(climate_stlm_forecast, ts_test)
-
-```
-
-#### Visualization of STLM using ARIMA method
-
-```{r}
-ts_train %>% 
-  autoplot(series = "Actual") +
-  autolayer(climate_stlm_forecast$fitted, series = "Train") +
-  autolayer(climate_stlm_forecast$mean, series = "Test")
 ```

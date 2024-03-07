@@ -1,6 +1,6 @@
 ---
 title: "Take-home Exercise 4"
-subtitle: "Prototyping Modules for Visual Analytics Shiny Application"
+subtitle: "Univariate Time Series"
 date: February 25, 2024
 date-modified:  last-modified
 format:
@@ -30,12 +30,11 @@ pacman::p_load(tidyverse, naniar,imputeTS, DT, lubridate,
 weather_data <- read_rds("data/weather_imputed.rds") 
 ```
 
-
 ## Data Wrangling
 
-Data: Ang Mo Kio 
+Data: Ang Mo Kio
 
-Time period: 2021-2023 
+Time period: 2021-2023
 
 Variable: Mean Temperature
 
@@ -93,7 +92,6 @@ ts_test <- ts(data = test_clean$`Mean Temperature (°C)`,
 autoplot(ts_test)
 ```
 
-
 ## Exploratory plot
 
 ### Decomposing a time series means separating it into its constituent components.
@@ -138,20 +136,17 @@ ts_train %>%
 adf.test(ts_train)
 ```
 
-
 ```{r}
 # Create ARIMA on train
 climate_auto <- auto.arima(ts_train, seasonal = T)
 climate_auto
 ```
 
-
 ```{r}
 # Forecast
 climate_auto_f <- forecast(climate_auto, h=114)
 climate_auto_f
 ```
-
 
 ```{r}
 # Check accuracy
@@ -199,4 +194,76 @@ ts_train %>%
   autoplot(series = "Actual") +
   autolayer(climate_stlm_forecast$fitted, series = "Train") +
   autolayer(climate_stlm_forecast$mean, series = "Test")
+```
+
+
+
+### Univariate Time Series Exploration of Rainfall
+
+In this section, we focus on the variable "Daily Rainfall Total (mm)" for one weather station, Ang Mo Kio .
+
+#### Data preparation: Extract rainfall data for Ang Mo Kio
+
+```{r}
+# Extract the rainfall data into a variable *rain_data*
+rain_data <- weather_data %>%
+  select(c(Station, Date, `Daily Rainfall Total (mm)`, LAT, LONG))
+
+str(rain_data)
+
+# Filter for a single station, e.g., "Ang Mo Kio"
+ang_mo_kio_data <- rain_data %>% 
+  filter(Station == "Ang Mo Kio")
+
+str(ang_mo_kio_data)
+```
+
+
+#### Time series plot
+
+```{r}
+# Plotting Mean Temperature as an example
+ggplot(ang_mo_kio_data, aes(x = Date, y = `Daily Rainfall Total (mm)`)) +
+  geom_line() + 
+  labs(title = "Daily Rainfall Total (mm) Over Time at Ang Mo Kio", x = "Date", y = "Daily Rainfall Total (mm)") +
+  theme_minimal()
+```
+
+#### Seasonality and Trend Analysis
+
+Done using the `stl()` function for seasonal-trend decomposition using LOESS.
+
+```{r}
+ts_data <- ts(ang_mo_kio_data$`Daily Rainfall Total (mm)`, frequency = 365)
+
+decomposed_data <- stl(ts_data, s.window = "periodic")
+plot(decomposed_data)
+```
+
+#### Autocorrelation Analysis
+
+To help with identifying how values are related to their lagged versions.
+
+```{r}
+acf(ts_data)
+pacf(ts_data)
+```
+
+#### Stationarity Check
+
+Many forecasting models assume that the time series is stationary. Use the Augmented Dickey-Fuller (ADF) test to check for stationarity.
+
+```{r}
+adf.test(ts_data, alternative = "stationary")
+```
+
+#### Distribution of the Variable
+
+Examine the distribution of your variable to identify any skewness, kurtosis, or outliers.
+
+```{r}
+ggplot(ang_mo_kio_data, aes(x = `Daily Rainfall Total (mm)`)) +
+  geom_histogram(bins = 30, fill = "blue", color = "black") +
+  labs(title = "Distribution of Daily Rainfall at Ang Mo Kio", x = "Daily Rainfall Total (mm)", y = "Frequency") +
+  theme_minimal()
 ```

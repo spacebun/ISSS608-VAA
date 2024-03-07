@@ -1,0 +1,353 @@
+---
+title: "Take-home Exercise 4"
+subtitle: "Time Series Clustering"
+date: February 25, 2024
+date-modified:  last-modified
+format:
+  html:
+    toc: true
+    number-sections: true
+    code-line-numbers: true
+    
+execute: 
+  eval: true
+  echo: true
+  warning: false  
+---
+
+## Load packages
+
+```{r}
+pacman::p_load(tidyverse, naniar,imputeTS, DT, lubridate,
+               ggplot2, patchwork, ggthemes,
+               tseries, ggHoriPlot, forecast)
+
+```
+
+### Clustering for a single station for 10 years
+
+Clustering is the practice of finding hidden patterns or similar groups in data.
+
+Cluster analysis can be divided into three different parts:
+
+a)  determining a measure to quantify the similarity between observations
+b)  choosing the method to obtain the clustering
+c)  selecting the desired number of clusters
+
+To find similar patterns *among stations*, users might first perform a clustering analysis (e.g., using hierarchical clustering or k-means on station averages) and then visualize the clusters.
+
+
+Here we use the data of one station for 10 years, and perform clustering. 
+Import data
+
+```{r}
+weather_data_uncleaned <- read_csv("data/climate_historical_daily_records.csv")
+```
+
+Create Date column and drop Year, Month, Day
+
+```{r}
+weather_data_uncleaned$Date <- as.Date(paste(weather_data_uncleaned$Year, weather_data_uncleaned$Month, weather_data_uncleaned$Day, sep = "-"))
+
+weather_data_uncleaned <- weather_data_uncleaned %>%
+  select(Station, Date, everything(), -Year, -Month, -Day)
+```
+
+Filter for specific station
+
+```{r}
+weather_data_uncleaned <- weather_data_uncleaned %>%
+  filter(Station == "Changi")
+```
+
+Impute missing values
+
+```{r}
+weather_variables <- c("Daily Rainfall Total (mm)", "Mean Temperature (°C)", "Maximum Temperature (°C)", 
+                       "Minimum Temperature (°C)", "Mean Wind Speed (km/h)", "Max Wind Speed (km/h)")
+
+weather_unique_imputed <- weather_data_uncleaned
+
+for(variable in weather_variables) {
+  weather_unique_imputed[[variable]] <- as.numeric(as.character(weather_unique_imputed[[variable]]))
+  
+  # Impute missing values using a moving average, rounded to 1 decimal place
+  weather_unique_imputed <- weather_unique_imputed %>%
+    group_by(Station) %>%
+    arrange(Station, Date) %>%
+    mutate(!!variable := round(na_ma(!!sym(variable), k = 3, weighting = "simple"), 1)) %>%
+    ungroup()
+}
+```
+
+Check for no more missing values
+
+```{r}
+sum(is.na(weather_unique_imputed))
+# vis_miss(weather_unique_imputed)
+```
+
+First, we will extract temperature:
+
+```{r}
+# Extract the temperature data into a variable *temp_data*
+temp_data <- weather_unique_imputed %>%
+  select(c(Station, Date, `Mean Temperature (°C)`, LAT, LONG))
+```
+
+```{r}
+# # Compute average of Mean Temperature (°C) across all stations
+# temp_data_avg <- temp_data %>%
+#   group_by(Date) %>%
+#   summarise(`Mean Temperature (°C)` = mean(`Mean Temperature (°C)`))
+```
+
+Then we will wrangle the data to get the (mean monthly) air temperature record of one weather station
+
+```{r}
+# Filter for a single station, e.g., "changi"
+changi_temp_data <- temp_data %>% 
+  filter(Station == "Changi")
+```
+
+Compute average of Mean Temperature (°C) for each month
+
+```{r}
+# Extract month from Date column
+changi_temp_data <- changi_temp_data %>%
+  mutate(Month = format(Date, "%Y-%m"))
+
+# Compute average of Mean Temperature (°C) for each month
+monthly_avg_temp <- changi_temp_data %>%
+  group_by(Month) %>%
+  summarise(Avg_Mean_Temperature = mean(`Mean Temperature (°C)`))
+```
+
+<https://geomoer.github.io/moer-mpg-data-analysis/unit10/unit10-03_time_series_clustering.html> To start with clustering, we will have to look at the individual years as different time series by transforming our data into a matrix with 12 columns (i.e. one for each month) and the required number of years. Thereby, we have to make sure that the original dataset is actually transformed into the matrix format by rows and not by columns. This will result in a matrix with one year per row
+
+```{r}
+# transforming our data into a matrix with 12 columns (i.e. one for each month) and the required number of years.
+tam_ta <- matrix(monthly_avg_temp$Avg_Mean_Temperature, ncol = 12, byrow = TRUE)
+row.names(tam_ta) <- paste0(seq(2014, 2023))
+tam_ta
+```
+
+This matrix can subsequently be used to compute the dissimilarity between the individual time series. Here we use the TSclust::diss function with method “DTWARP” (which is one of many, each leading to a different result; p gives the decaying of the auto-correlation coefficient to be considered).
+
+```{r}
+tam_dist <- TSclust::diss(tam_ta, "DTWARP", p = 0.05)
+tam_dist
+```
+
+This dissimilarity is now used for hierarchical clustering, which computes the distance between the individual samples. Plotting the result shows a cluster dendrogram:
+
+```{r}
+tam_hc <- hclust(tam_dist)
+plot(tam_hc)
+rect.hclust(tam_hc, k = 3)
+```
+
+Above, we derived three clusters of years with similar mean monthly air temperatures.
+
+```{r}
+cutree(tam_hc, k = 3)
+```
+
+
+
+### Clustering of 7 weather stations
+
+Import data
+
+
+```{r}
+weather_data <- read_rds("data/weather_imputed.rds") 
+```
+
+Extract just data for temperature
+
+```{r}
+temp_data <- weather_data %>%
+  select(c(Station, Date, `Mean Temperature (°C)`))
+```
+
+
+Normalize data
+
+```{r}
+# # Calculate mean and standard deviation for each Station and normalize temperatures
+# temp_data <- temp_data %>%
+#   group_by(Station) %>%
+#   mutate(
+#     Mean_Temperature_Mean = mean(`Mean Temperature (°C)`), # Calculate mean for each group
+#     Mean_Temperature_SD = sd(`Mean Temperature (°C)`), # Calculate standard deviation for each group
+#     `Normalized Temperature` = (`Mean Temperature (°C)` - Mean_Temperature_Mean) / Mean_Temperature_SD # Normalize
+#   ) %>%
+#   select(-Mean_Temperature_Mean, -Mean_Temperature_SD) # Remove the mean and sd columns, keeping them if necessary
+temp_data$Normalized_Temp <- scale(temp_data$`Mean Temperature (°C)`)
+
+```
+
+
+Format the data in a matrix
+
+```{r}
+tam_ta <- matrix(temp_data$Normalized_Temp, ncol = 1095, byrow = TRUE)
+row.names(tam_ta) <- paste0(c(unique(weather_data$Station)))
+# tam_ta
+# tam_ta <- matrix(temp_data$`Mean Temperature (°C)`, ncol = 1095, byrow = TRUE)
+# row.names(tam_ta) <- paste0(c(unique(weather_data$Station)))
+# tam_ta
+```
+
+Compute dissimilarity between time series: use the TSclust::diss function with method “DTWARP”
+
+```{r}
+tam_dist <- TSclust::diss(tam_ta, "DTWARP", p = 0.05)
+tam_dist
+```
+This dissimilarity is now used for hierarchical clustering, which computes the distance between the individual samples. Plotting the result shows a cluster dendrogram:
+
+```{r}
+tam_hc <- hclust(tam_dist)
+plot(tam_hc)
+rect.hclust(tam_hc, k = 3)
+```
+```{r}
+cutree(tam_hc, k = 3)
+```
+
+### Clustering for multiple stations
+
+Import data
+```{r}
+weather_data_uncleaned <- read_csv("data/climate_historical_daily_records.csv")
+```
+
+Clean data
+```{r}
+# Create Date Column
+weather_data_uncleaned <- weather_data_uncleaned %>%
+  mutate(Date = as.Date(paste(Year, Month, Day, sep = "-"))) %>%
+  relocate(Date, .after = 1)
+
+```
+
+```{r}
+
+stations_to_remove <- c("Macritchie Reservoir", "Lower Peirce Reservoir", "Pasir Ris (West)", "Kampong Bahru", "Jurong Pier", "Ulu Pandan", "Serangoon", "Jurong (East)", "Mandai", "Upper Thomson", "Buangkok", "Boon Lay (West)", "Bukit Panjang", "Kranji Reservoir", "Tanjong Pagar", "Admiralty West", "Queenstown", "Tanjong Katong", "Chai Chee", "Upper Peirce Reservoir", "Kent Ridge", "Somerset (Road)", "Punggol", "Tuas West", "Simei", "Toa Payoh", "Tuas", "Bukit Timah", "Yishun", "Buona Vista", "Pasir Ris (Central)", "Jurong (North)", "Choa Chu Kang (West)", "Serangoon North", "Lim Chu Kang", "Marine Parade", "Choa Chu Kang (Central)", "Dhoby Ghaut", "Nicoll Highway", "Botanic Garden", "Whampoa")
+
+
+weather_data_uncleaned <- weather_data_uncleaned[!weather_data_uncleaned$Station %in% stations_to_remove, ] # This will leave 22 stations in our data
+```
+
+
+Extract just data for temperature
+
+```{r}
+temp_data <- weather_data_uncleaned %>%
+  select(c(Station, Date, Year, Month, Day, `Mean Temperature (°C)`)) %>%
+  filter(Year == 2023)
+```
+
+
+```{r}
+# Drop station if one month of data missing
+
+# First, create a complete combination of Station, Year, and Month
+all_combinations <- expand.grid(
+  Station = unique(temp_data$Station),
+  Year = 2023,
+  Month = 1:12
+)
+
+# Then left join this with the original weather data to identify missing entries
+missing_months <- all_combinations %>%
+  left_join(temp_data, by = c("Station", "Year", "Month")) %>%
+  # Use is.na() to check for rows that didn't have a match in the original data
+  filter(is.na(Day)) %>%
+  # Select only the relevant columns for the final output
+  select(Station, Year, Month)
+
+# Now, create a summary table that lists out the missing months
+missing_months_summary <- missing_months %>%
+  group_by(Station, Year) %>%
+  summarise(MissingMonths = toString(sort(unique(Month))), .groups = 'drop')
+
+# List of station names to drop
+stations_to_drop <- unique(missing_months$Station)
+
+# Filter out rows with station names in the list
+temp_data <- temp_data %>%
+  filter(!Station %in% stations_to_drop)  %>%
+  filter(!Station %in% c("Marina Barrage"))
+
+```
+
+```{r}
+# Define the weather variables to loop through
+weather_variables <- c("Mean Temperature (°C)")
+
+# Loop through each weather variable to impute missing values
+for(variable in weather_variables) {
+  # Convert variable to numeric, as na_ma() requires numeric input
+  temp_data[[variable]] <- as.numeric(as.character(temp_data[[variable]]))
+  
+  # Impute missing values using a moving average
+  temp_data <- temp_data %>%
+    group_by(Station) %>%
+    arrange(Station, Date) %>%
+    mutate(!!variable := round(na_ma(!!sym(variable), k = 3, weighting = "simple"), 1)) %>%
+    ungroup()
+}
+```
+
+
+Normalize data
+
+```{r}
+# # Calculate mean and standard deviation for each Station and normalize temperatures
+# temp_data <- temp_data %>%
+#   group_by(Station) %>%
+#   mutate(
+#     Mean_Temperature_Mean = mean(`Mean Temperature (°C)`), # Calculate mean for each group
+#     Mean_Temperature_SD = sd(`Mean Temperature (°C)`), # Calculate standard deviation for each group
+#     `Normalized Temperature` = (`Mean Temperature (°C)` - Mean_Temperature_Mean) / Mean_Temperature_SD # Normalize
+#   ) %>%
+#   select(-Mean_Temperature_Mean, -Mean_Temperature_SD) # Remove the mean and sd columns, keeping them if necessary
+temp_data$Normalized_Temp <- scale(temp_data$`Mean Temperature (°C)`)
+
+```
+```{r}
+unique(temp_data$Station)
+```
+
+
+Format the data in a matrix
+
+```{r}
+tam_ta <- matrix(temp_data$Normalized_Temp, ncol = 365, byrow = TRUE)
+row.names(tam_ta) <- paste0(c(unique(temp_data$Station)))
+# tam_ta
+# tam_ta <- matrix(temp_data$`Mean Temperature (°C)`, ncol = 1095, byrow = TRUE)
+# row.names(tam_ta) <- paste0(c(unique(weather_data$Station)))
+# tam_ta
+```
+
+Compute dissimilarity between time series: use the TSclust::diss function with method “DTWARP”
+
+```{r}
+tam_dist <- TSclust::diss(tam_ta, "DTWARP", p = 0.05)
+tam_dist
+```
+This dissimilarity is now used for hierarchical clustering, which computes the distance between the individual samples. Plotting the result shows a cluster dendrogram:
+
+```{r}
+tam_hc <- hclust(tam_dist)
+plot(tam_hc)
+rect.hclust(tam_hc, k =7)
+```
+```{r}
+cutree(tam_hc, k = 3)
+```
+

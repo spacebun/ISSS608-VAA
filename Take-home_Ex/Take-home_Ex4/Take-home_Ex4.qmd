@@ -760,10 +760,102 @@ heat
 
 Clustering is the practice of finding hidden patterns or similar groups in data. 
 
-For our data, we would like to allow users to cluster by:
+
+
+To perform time series clustering, we will use the function [`tsclust`](https://www.rdocumentation.org/packages/dtwclust/versions/3.1.1/topics/tsclust) from [`dtwclust`](https://www.rdocumentation.org/link/dtwclust?package=dtwclust&version=3.1.1).
+
+https://cran.r-project.org/web/packages/dtwclust/vignettes/dtwclust.pdf
+We will divide cluster analysis into four different parts:
+
+-   Format data into list of series
+-   Choosing the clustering method: "partitional", "hierarchical", "tadpole" or "fuzzy"
+-   Choosing distance computation: Ignored for type = "tadpole".
+Determining a measure to quantify the similarity between observations 
+-   Selecting the desired number of clusters
+
+## Clustering of stations
+
+We will use the variable `temp_data` , and perform cluster analysis of time series of daily temperature readings from different weather stations for the same period.
+
+
+### Format data into list of series
+
+Users will be allowed to cluster by:
 
 -   Stations
--   Months
+-   Months, for a single station and given year
+
+#### By station
+
+```{r}
+# Extract the target variable, temperature data into a variable
+temp_data <- weather_data %>%
+  select(c(Station, Date, Year, Month, Day, `Mean Temperature (°C)`))
+
+# Ensure the data is ordered by Station and by Date
+temp_data <- temp_data %>%
+  arrange(Station, Date)
+
+# Format data into list of series. 
+list_of_series <- split(temp_data$`Mean Temperature (°C)`, temp_data$Station)
+```
+
+#### For a single selected station and year, by months 
+
+```{r}
+station_selected = "Changi"
+year_selected = "2023"
+
+# Extract the target variable, temperature data into a variable
+temp_data <- weather_data %>%
+  select(c(Station, Date, Year, Month, Day, `Mean Temperature (°C)`))
+
+# Filter for a single station and year e.g., "Changi", for 2023
+station_temp_data <- temp_data %>% 
+  filter(Station == station_selected) %>%
+  filter(Year == 2023)
+
+# Create column with Month Name 
+station_temp_data <- station_temp_data %>% 
+  mutate(
+    Month_Name = factor(months(Date), levels = month.name)
+  )
+
+# Format data in a list of series
+list_of_series <- station_temp_data %>%
+  group_by(Month_Name) %>%
+  summarise(`Mean Temperature (°C)` = list(`Mean Temperature (°C)`)) %>%
+  pull(`Mean Temperature (°C)`)
+```
+
+### Varying clustering method
+
+#### Hierarchical
+
+```{r}
+n_cluster = 6
+
+c <- tsclust(series = list_of_series, 
+        type = "hierarchical",  #  "partitional", "hierarchical", "tadpole" or "fuzzy"
+        k = n_cluster, # Number of desired clusters. Should not show for "partitional"
+        distance = "dtw", # Ignored for type = "tadpole"
+        control = hierarchical_control(method = "complete") 
+        )
+
+p <- fviz_dend(c, k = n_cluster,                 # Cut in four groups
+          cex = 0.5,                 # label size
+          k_colors = c("jco"),
+          color_labels_by_k = FALSE,  # color labels by groups
+          rect_border = "jco",
+          rect = TRUE,
+          rect_fill = TRUE)
+p
+```
+
+
+
+
+## Clustering of stations v0
 
 We will divide cluster analysis into four different parts:
 
@@ -773,9 +865,6 @@ We will divide cluster analysis into four different parts:
 4.  Choosing distance computation
 Determining a measure to quantify the similarity between observations 
 5.  Selecting the desired number of clusters
-
-Determining a measure to quantify the similarity between observations
-## Clustering of stations v0
 
 We will use the variable `temp_data` , and perform cluster analysis of time series of daily temperature readings from different weather stations for the same period.
 

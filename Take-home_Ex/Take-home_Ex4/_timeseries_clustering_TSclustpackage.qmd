@@ -1,0 +1,366 @@
+---
+title: "Take-home Exercise 4 (Work in Progress)"
+subtitle: "Prototyping Modules for Visual Analytics Shiny Application"
+date: February 25, 2024
+date-modified:  last-modified
+format:
+  html:
+    toc: true
+    number-sections: true
+    code-line-numbers: true
+    
+execute: 
+  eval: true
+  echo: true
+  warning: false  
+---
+
+
+# Overview
+
+This document contains the code for generating clusters using TSclust package. 
+
+## Load packages
+
+```{r}
+pacman::p_load(tidyverse, DT, knitr, lubridate,
+               ggplot2,TSclust)
+```
+
+## Import cleaned data
+
+```{r}
+weather_data <- read_rds("data/weather_imputed_11stations.rds") 
+```
+
+
+# Clustering of Multiple Time Series
+
+## Overview
+
+\<to be updated\>
+
+Clustering is the practice of finding hidden patterns or similar groups in data.
+
+We will divide cluster analysis can be divided into four different parts:
+
+1.  Determining the need and method to normalize the data
+2.  Determining a measure to quantify the similarity between observations
+3.  Choosing the method to obtain the clustering
+4.  Selecting the desired number of clusters
+
+To find similar patterns *among stations*, users might first perform a clustering analysis (e.g., using hierarchical clustering or k-means on station averages) and then visualize the clusters.
+
+## Clustering of weather stations
+
+We will use the variable `temp_data` , and perform cluster analysis of time series of daily temperature readings from different weather stations for the same period.
+
+### Step 1: Determining the need and method to normalize the data
+
+When comparing time series of daily temperature readings from different weather stations for the same period, whether or not to normalize the data depends on the **specific objectives of the analysis** and the **characteristics of the dataset:**
+
+-   **Objective of analysis:**
+
+    -   Normalization may not be necessary if the objective is to identify patterns over time across different stations. This is because the focus would be on relative changes within each time series, rather than comparison of temperature values across stations.
+
+    -   Normalization may be beneficial if the objective is to **cluster stations based on similarity in temperature profiles** regardless of their absolute temperature values.
+
+-   **Characteristics of dataset:**
+
+    -   **If the temperature ranges are similar** across stations (e.g., urban areas within the same climatic zone), the need for normalization might be less critical since the scales are already comparable.
+
+    -   **If the temperature ranges vary significantly** across stations (e.g., comparing stations from very different climatic zones), normalization can help to ensure that the analysis focuses on the pattern of temperature changes rather than the absolute values.
+
+In the case of our dataset, we do not expect the temperature ranges to vary significantly across stations since the stations are within a small climatic zone, Singapore.
+
+::: callout-tip
+### Design Considerations on Normalization
+
+-   Option to perform Normalization or not
+
+-   Option to perform Global or Group-Wise Normalization
+
+-   Option to choose Normalization method (Standardization, vs Min-Max Scaling)
+:::
+
+Below, we present different results of clustering when the normalization methods are varied:
+
+**No Normalization**
+
+```{r}
+#| code-fold: true
+#| code-summary: "show code"
+
+# Step 1: Normalization
+# No code as no normalization
+
+# Step 2: Determining a measure to quantify the similarity between observations
+# Format data into list of series
+# First, ensure the data is ordered by Station (and possibly by Date if you have a Date column)
+temp_data <- temp_data %>%
+  arrange(Station, Date)
+# Split the `Mean Temperature (°C)` column into a list of vectors, one per station
+list_of_series <- split(temp_data$`Mean Temperature (°C)`, temp_data$Station)
+# Optionally, name the list elements by unique station names
+names(list_of_series) <- unique(temp_data$Station)
+# Compute dissimilarity between time series, using the TSclust::diss function with method “DTWARP”
+tam_dist <- TSclust::diss(list_of_series, "DTWARP", p = 0.05)
+# tam_dist
+
+# Step 3 & 4: Choosing the method to obtain the clustering and Selecting the desired number of clusters
+# Use dissimilarity for hierarchical clustering, plotting a cluster dendrogram
+tam_hc <- hclust(tam_dist)
+plot(tam_hc)
+rect.hclust(tam_hc,
+            k = 5) # Change k based on number of clusters desired
+# cutree(tam_hc, k = 5)
+```
+
+**Global Normalization by Standardization**
+
+```{r}
+#| code-fold: true
+#| code-summary: "show code"
+
+# Step 1: Normalization
+# Global Normalization by Standardization 
+temp_data$Normalized_Temp <- scale(temp_data$`Mean Temperature (°C)`)
+
+# Step 2: Determining a measure to quantify the similarity between observations
+# Format data into a matrix
+tam_ta <- matrix(temp_data$Normalized_Temp,
+                 ncol = 1095,
+                 byrow = TRUE)
+row.names(tam_ta) <- paste0(c(unique(temp_data$Station)))
+# Compute dissimilarity between time series, using the TSclust::diss function with method “DTWARP”
+tam_dist <- TSclust::diss(tam_ta, "DTWARP", p = 0.05)
+# tam_dist
+
+# Step 3 & 4: Choosing the method to obtain the clustering and Selecting the desired number of clusters
+# Use dissimilarity for hierarchical clustering, plotting a cluster dendrogram
+tam_hc <- hclust(tam_dist)
+plot(tam_hc)
+rect.hclust(tam_hc, 
+            k = 5) # Change k based on number of clusters desired
+# cutree(tam_hc, k = 5)
+```
+
+**Group-wise (Station-by-Station) Normalization by Standardization**
+
+```{r}
+#| code-fold: true
+#| code-summary: "show code"
+
+# Step 1: Normalization
+# Group-wise (Station-by-Station) Normalization using Standardization
+temp_data <- temp_data %>%
+  group_by(Station) %>%
+  mutate(Normalized_Temp = scale(`Mean Temperature (°C)`)) %>%
+  ungroup()
+
+# Step 2: Determining a measure to quantify the similarity between observations
+# Format data into a matrix
+tam_ta <- matrix(temp_data$Normalized_Temp,
+                 ncol = 1095,
+                 byrow = TRUE)
+row.names(tam_ta) <- paste0(c(unique(temp_data$Station)))
+# Compute dissimilarity between time series, using the TSclust::diss function with method “DTWARP”
+tam_dist <- TSclust::diss(tam_ta, "DTWARP", p = 0.05)
+# tam_dist
+
+# Step 3 & 4: Choosing the method to obtain the clustering and Selecting the desired number of clusters
+# Use dissimilarity for hierarchical clustering, plotting a cluster dendrogram
+tam_hc <- hclust(tam_dist)
+plot(tam_hc)
+rect.hclust(tam_hc, 
+            k = 5) # Change k based on number of clusters desired
+# cutree(tam_hc, k = 5)
+```
+
+**Group-wise (Station-by-Station) Normalization by Min-Max Scaling**
+
+```{r}
+#| code-fold: true
+#| code-summary: "show code"
+
+# Step 1: Normalization
+# Group-wise (Station-by-Station) Normalization, applying Min-Max scaling within each station group
+temp_data <- temp_data %>%
+  group_by(Station) %>%
+  mutate(Normalized_Temp = (`Mean Temperature (°C)` - min(`Mean Temperature (°C)`, na.rm = TRUE)) / 
+                            (max(`Mean Temperature (°C)`, na.rm = TRUE) - min(`Mean Temperature (°C)`, na.rm = TRUE))) %>%
+  ungroup()
+
+# Step 2: Determining a measure to quantify the similarity between observations
+# Format data into a matrix
+tam_ta <- matrix(temp_data$Normalized_Temp,
+                 ncol = 1095,
+                 byrow = TRUE)
+row.names(tam_ta) <- paste0(c(unique(temp_data$Station)))
+# Compute dissimilarity between time series, using the TSclust::diss function with method “DTWARP”
+tam_dist <- TSclust::diss(tam_ta, "DTWARP", p = 0.05)
+# tam_dist
+
+# Step 3 & 4: Choosing the method to obtain the clustering and Selecting the desired number of clusters
+# Use dissimilarity for hierarchical clustering, plotting a cluster dendrogram
+tam_hc <- hclust(tam_dist)
+plot(tam_hc)
+rect.hclust(tam_hc, 
+            k = 5) # Change k based on number of clusters desired
+# cutree(tam_hc, k = 5)
+```
+
+### Step 2: Determining a measure to quantify the similarity between observations
+
+There are several methods for quantifying similarity between observations. 
+The [`TSclust::diss`](https://cran.r-project.org/web/packages/TSclust/TSclust.pdf) function offers a variety dissimilarity measures to be used. 
+
+::: callout-tip
+### Design Considerations on measures for quantifying similarity
+
+For this project we will present two options for the user to try:
+
+-   Euclidean Distance
+-   Dynamic Time Warping
+
+::: 
+
+Below, we show how this is implemented assuming normalization by groups using Min-Max scaling is done:
+
+**Euclidean Distance**
+
+```{r}
+#| code-fold: true
+#| code-summary: "show code"
+
+# Step 1: Normalization
+# Group-wise (Station-by-Station) Normalization, applying Min-Max scaling within each station group
+temp_data <- temp_data %>%
+  group_by(Station) %>%
+  mutate(Normalized_Temp = (`Mean Temperature (°C)` - min(`Mean Temperature (°C)`, na.rm = TRUE)) / 
+                            (max(`Mean Temperature (°C)`, na.rm = TRUE) - min(`Mean Temperature (°C)`, na.rm = TRUE))) %>%
+  ungroup()
+
+
+# Step 2: Determining a measure to quantify the similarity between observations
+# Format data into a matrix
+tam_ta <- matrix(temp_data$Normalized_Temp,
+                 ncol = 1095,
+                 byrow = TRUE)
+row.names(tam_ta) <- paste0(c(unique(temp_data$Station)))
+# Compute dissimilarity between time series, using the TSclust::diss function with method “EUCL”
+tam_dist <- TSclust::diss(tam_ta, "EUCL")
+# tam_dist
+
+
+# Step 3 & 4: Choosing the method to obtain the clustering and Selecting the desired number of clusters
+# Use dissimilarity for hierarchical clustering, plotting a cluster dendrogram
+tam_hc <- hclust(tam_dist)
+plot(tam_hc)
+rect.hclust(tam_hc, 
+            k = 5) # Change k based on number of clusters desired
+# cutree(tam_hc, k = 5)
+```
+
+**Dynamic Time Warping**
+
+```{r}
+#| code-fold: true
+#| code-summary: "show code"
+
+# Step 1: Normalization
+# Group-wise (Station-by-Station) Normalization, applying Min-Max scaling within each station group
+temp_data <- temp_data %>%
+  group_by(Station) %>%
+  mutate(Normalized_Temp = (`Mean Temperature (°C)` - min(`Mean Temperature (°C)`, na.rm = TRUE)) / 
+                            (max(`Mean Temperature (°C)`, na.rm = TRUE) - min(`Mean Temperature (°C)`, na.rm = TRUE))) %>%
+  ungroup()
+
+
+# Step 2: Determining a measure to quantify the similarity between observations
+# Format data into a matrix
+tam_ta <- matrix(temp_data$Normalized_Temp,
+                 ncol = 1095,
+                 byrow = TRUE)
+row.names(tam_ta) <- paste0(c(unique(temp_data$Station)))
+# Compute dissimilarity between time series, using the TSclust::diss function with method “DTWARP”
+tam_dist <- TSclust::diss(tam_ta, "DTWARP", p = 0.05)
+# tam_dist
+
+
+# Step 3 & 4: Choosing the method to obtain the clustering and Selecting the desired number of clusters
+# Use dissimilarity for hierarchical clustering, plotting a cluster dendrogram
+tam_hc <- hclust(tam_dist)
+plot(tam_hc)
+rect.hclust(tam_hc, 
+            k = 5) # Change k based on number of clusters desired
+# cutree(tam_hc, k = 5)
+```
+### Step 3: Choosing the method to obtain the clustering
+
+
+::: callout-tip
+### Design Considerations on measures for clustering methods
+
+For this project we will present three options for the user to try:
+
+-   Euclidean Distance
+-   Dynamic Time Warping
+
+::: 
+
+
+## Clustering of months
+
+Focusing on a single station and year, we will identify if there are months exhibiting similar characteristics.
+
+```{r}
+# Filter for a single station and year e.g., "Changi", for 2023
+changi_temp_data <- temp_data %>% 
+  filter(Station == "Changi") %>%
+  filter(Year == 2023)
+
+# Create column with Month Name 
+changi_temp_data <- changi_temp_data %>% 
+  mutate(
+    Month_Name = factor(months(Date), levels = month.name)
+  )
+
+# # Create column Month_Year e.g. Jan 2021
+# changi_temp_data <- changi_temp_data %>% 
+#   mutate(Month_Year = format(as.Date(Date), "%b %Y"))
+```
+
+The challenge here lies in handling months of differing lengths. DTW is a method that enables comparing time series of different lengths because it aligns sequences in time to minimize the distance between them.
+
+Hence, instead of creating a matrix to compute dissimilarity, we will create a list of series.
+
+```{r}
+#| code-fold: true
+#| code-summary: "show code"
+
+# Step 1: Normalization
+# Group-wise (Month_Name by Month_Name) Normalization, applying Min-Max scaling within each Month_Name
+changi_temp_data <- changi_temp_data %>%
+  group_by(Month_Name) %>%
+  mutate(Normalized_Temp = (`Mean Temperature (°C)` - min(`Mean Temperature (°C)`, na.rm = TRUE)) / 
+                            (max(`Mean Temperature (°C)`, na.rm = TRUE) - min(`Mean Temperature (°C)`, na.rm = TRUE))) %>%
+  ungroup()
+
+# Step 2: Determining a measure to quantify the similarity between observations
+# Format data in a list of series
+list_of_series <- changi_temp_data %>%
+  group_by(Month_Name) %>%
+  summarise(Normalized_Temp = list(Normalized_Temp)) %>%
+  pull(Normalized_Temp)
+# Compute dissimilarity between time series, using method DTWARP
+dissimilarity_matrix <- TSclust::diss(list_of_series, METHOD = "DTWARP", p = 0.05)
+
+# Step 3 & 4: Choosing the method to obtain the clustering and Selecting the desired number of clusters
+# Use dissimilarity for hierarchical clustering, plotting a cluster dendrogram
+tam_hc <- hclust(dissimilarity_matrix)
+plot(tam_hc)
+rect.hclust(tam_hc,
+            k = 5) # Change k based on number of clusters desired
+# cutree(tam_hc, k = 5)
+```

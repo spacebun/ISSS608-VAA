@@ -1,0 +1,1296 @@
+---
+title: "Take-home Exercise 4 (Work in Progress)"
+subtitle: "Prototyping Modules for Visual Analytics Shiny Application"
+date: February 25, 2024
+date-modified:  last-modified
+format:
+  html:
+    toc: true
+    number-sections: true
+    code-line-numbers: true
+    
+execute: 
+  eval: true
+  echo: true
+  warning: false  
+---
+
+# Overview
+
+In this exercise, I will use a module of the Shiny application for the Group Project component to fulfill the following objectives:
+
+-   To evaluate and determine what are the necessary R packages needed for the Shiny application supported in R CRAN,
+
+-   To prepare and test the specific R codes can be run and returned the correct output as expected,
+
+-   To determine the parameters and outputs that will be exposed on the Shiny applications, and
+
+-   To select the appropriate Shiny UI components for exposing the parameters determined above.
+
+My submission includes:
+
+-   The prototype module report, that provides detailed discussion and explanation of:
+
+    -   the **data preparation** process,
+
+    -   the selection of **data visualisation techniques** used,
+
+    -   and the data visualisation design and interactivity principles and best practices implemented.
+
+-   The proposed UI design for the different components of the UI.
+
+# Project details
+
+For our project, we aim to create a Shiny app with user-friendly functionalities, to effectively visualize and analyze climate data.
+
+The R Shiny app will consists of four sections:
+
+-   Homepage tab: Users have an overview of the dataset used in application. It will include a map of Singapore and interactivity elements that allow users to view the dataset at different points in time.
+-   EDA and CDA tab: Users can explore the distribution and trends in the dataset for specific periods or locations (station or region), and use statistical analysis to confirm the trends.
+-   Time series analysis: Users can explore the time series decomposition of the different variables, and select the type of model that they would like to use for univariate time series forecasting.
+-   Clustering time series analysis: Users can explore grouping stations with similar weather patterns or grouping time periods with similar patterns. The user would then be able to choose different models to forecast the grouped data.
+
+For this exercise, we will focus on the last module.
+
+# Getting started
+
+## Load packages
+
+First, we load packages required:
+
+-   **tidyverse**: this package includes a variety of R packages such as **ggplot2** and **dplyr**. the packages will be used to support tasks such as reading in packages or data manipulation or plotting
+
+-   **naniar**: for using *miss_vis()* function to check data for missing values
+
+-   **DT**: for using *datatable()* to view the dataset interactively
+
+-   **lubridate**: for handling date-time formats
+
+-   \<to be updated\>
+
+```{r}
+# To be updated
+pacman::p_load(tidyverse, naniar, imputeTS, DT, knitr, lubridate,
+               ggplot2, patchwork, ggthemes,
+               tseries, ggHoriPlot,
+               TSclust, fable, dtwclust, dendextend,
+               ggraph, plotly, factoextra, ggdendro)
+
+# pacman::p_load(ggplot2, patchwork, 
+#                ggridges, ggdist, ggstatsplot,
+#                plotly, ggiraph, ggdist, 
+#                ungeviz, crosstalk, 
+#                viridis)
+```
+
+# Data Preparation
+
+## Overview of data preparation
+
+\<to be updated\>
+
+::: {.callout-note}
+
+To skip ahead to view the cleaned data, you can click @sec-viewcleaneddataset.
+
+:::
+
+## Import data
+
+```{r}
+raw_weather_data <- read_csv("data/climate_historical_daily_records.csv")
+```
+
+Details of dataset:
+
+| Dataset            | Description                                                   | Period    | Source                                              |
+|-----------------|---------------------|-----------------|-----------------|
+| *raw_weather_data* | Climate Historical Daily Records for 63 stations in Singapore | 2014-2023 | http://www.weather.gov.sg/climate-historical-daily/ |
+
+This dataset was retrieved from the [Meteorological Service Singapore](http://www.weather.gov.sg/climate-historical-daily/) site, and had some basic [pre-processing steps performed in python](https://isss608-airweatheranalytics.netlify.app/code/data_retrieval) due to the large amount of files:
+
+-   Combine all downloaded CSV files into one dataframe.
+
+-   Performing cleaning to merge data of columns with slightly different names due to case sensitivity (e.g., “min” vs. “Min”)
+
+-   (‘Highest 30 **Min** Rainfall (mm)’, ‘Highest 30 **min** Rainfall (mm)’)
+
+-   (‘Highest 60 **Min** Rainfall (mm)’, ‘Highest 60 **min** Rainfall (mm)’)
+
+-   (‘Highest 120 **Min** Rainfall (mm)’, ‘Highest 120 **min** Rainfall (mm)’)
+
+-   Add the latitude and longitude of each station to the dataframe.
+
+## Check structure with `glimpse()`
+
+```{r}
+glimpse(raw_weather_data)
+```
+
+There are 202, 976 rows, and 15 columns in the dataset. In the next few steps, we will drop specific columns and rows based on the project focus.
+
+## Filter dataset for desired period
+
+While the dataset contains 10 years of data from 2014 to 2023, we will focus on the most recent dataset for a 3 year period, from **2021 to 2023**. This period was chosen to maximise the overall availability of data across the stations.
+
+```{r}
+raw_weather_data <- raw_weather_data %>%
+  filter(Year >= 2021)
+print(paste("The dataset covers the period from", min(raw_weather_data$Year, na.rm = TRUE), "to", max(raw_weather_data$Year, na.rm = TRUE), "."))
+```
+
+## Drop unused columns
+
+We will not be using all 15 columns for this project. The following columns will be dropped:
+
+-   `Highest 30 Min Rainfall (mm)`
+-   `Highest 60 Min Rainfall (mm)`
+-   `Highest 1200 Min Rainfall (mm)`
+-   `Mean Wind Speed (km/h)`
+-   `Max Wind Speed (km/h)`
+
+```{r}
+# Drop columns
+raw_weather_data <- raw_weather_data %>%
+  select(-c(`Highest 30 Min Rainfall (mm)`, 
+            `Highest 60 Min Rainfall (mm)`, 
+            `Highest 120 Min Rainfall (mm)`,
+            `Mean Wind Speed (km/h)`,
+            `Max Wind Speed (km/h)`))
+```
+
+## Remove rows for specific Stations
+
+The Meteorological Service Singapore also provides a file, [Station Records](http://www.weather.gov.sg/wp-content/uploads/2022/06/Station_Records.pdf) that has some information on the availability of data for each station. After examining the station records file, we found that 41 stations had missing information for some variables. We will hence drop rows for these stations.
+
+```{r}
+#| code-fold: true
+#| code-summary: "show code"
+# Drop rows of 41 stations
+# Define the station names to remove
+stations_to_remove <- c("Macritchie Reservoir", "Lower Peirce Reservoir", "Pasir Ris (West)", "Kampong Bahru", "Jurong Pier", "Ulu Pandan", "Serangoon", "Jurong (East)", "Mandai", "Upper Thomson", "Buangkok", "Boon Lay (West)", "Bukit Panjang", "Kranji Reservoir", "Tanjong Pagar", "Admiralty West", "Queenstown", "Tanjong Katong", "Chai Chee", "Upper Peirce Reservoir", "Kent Ridge", "Somerset (Road)", "Punggol", "Tuas West", "Simei", "Toa Payoh", "Tuas", "Bukit Timah", "Yishun", "Buona Vista", "Pasir Ris (Central)", "Jurong (North)", "Choa Chu Kang (West)", "Serangoon North", "Lim Chu Kang", "Marine Parade", "Choa Chu Kang (Central)", "Dhoby Ghaut", "Nicoll Highway", "Botanic Garden", "Whampoa")
+
+# Remove rows with the specified station names
+raw_weather_data <- raw_weather_data[!raw_weather_data$Station %in% stations_to_remove, ]
+
+# Print the number of stations left
+print(sprintf("There were %d stations removed.There are %d stations left.", length(stations_to_remove), n_distinct(raw_weather_data$Station)))
+```
+
+## Check for duplicates
+
+```{r}
+#| code-fold: true
+#| code-summary: "show code"
+# Identify duplicates
+duplicates <- raw_weather_data[duplicated(raw_weather_data[c("Station", "Year", "Month", "Day")]) | duplicated(raw_weather_data[c("Station", "Year", "Month", "Day")], fromLast = TRUE), ]
+
+# Check if 'duplicates' dataframe is empty
+if (nrow(duplicates) == 0) {
+  print("The combination of Station Name, Year, Month, and Day is unique.")
+} else {
+  print("There are duplicates in the combination of Station Name, Year, Month, and Day. Showing duplicated rows:")
+  print(duplicates)
+}
+```
+
+## Check and handle missing values
+
+### First check for missing values
+
+Missing values in this dataset can be represented by:
+
+-   `\u0097`
+
+-   `NA`
+
+-   `-`
+
+We first replace these values with actual NA values:
+
+```{r}
+raw_weather_data <- raw_weather_data %>%
+  mutate(across(where(is.character), ~na_if(.x, "\u0097"))) %>%
+  mutate(across(where(is.character), ~na_if(.x, "NA"))) %>%
+  mutate(across(where(is.character), ~na_if(.x, "-")))
+```
+
+Next, we visualize the missing values in the dataset:
+
+```{r}
+#| code-fold: true
+#| code-summary: "show code"
+vis_miss(raw_weather_data)
+```
+
+We will take steps to handle the missing data.
+
+### Remove Stations with significant missing data
+
+We have identified two checks to make:
+
+-   Check which stations have no recorded data for entire months.
+
+-   Check which stations have more than 7 consecutive days of missing data
+
+For both these checks, we will remove the entire station from the dataset as it would not be practical to impute such large amounts of missing values.
+
+#### Identify and remove Stations with no recorded data for entire months
+
+Some stations have no recorded data for entire months, as summarised in the table below:
+
+```{r}
+#| code-fold: true
+#| code-summary: "show code"
+# Create complete combination of Station, Year, and Month
+all_combinations <- expand.grid(
+  Station = unique(raw_weather_data$Station),
+  Year = 2021:2023,
+  Month = 1:12
+)
+
+# Left join this with the original weather data to identify missing entries
+missing_months <- all_combinations %>%
+  left_join(raw_weather_data, by = c("Station", "Year", "Month")) %>%
+  # Use is.na() to check for rows that didn't have a match in the original data
+  filter(is.na(Day)) %>%
+  # Select only the relevant columns for the final output
+  select(Station, Year, Month)
+
+# Create a summary table that lists out the missing months
+missing_months_summary <- missing_months %>%
+  group_by(Station, Year) %>%
+  summarise(MissingMonths = toString(sort(unique(Month))), .groups = 'drop')
+
+kable(missing_months_summary)
+```
+
+We hence drop these stations from our dataset:
+
+```{r}
+#| code-fold: true
+#| code-summary: "show code"
+raw_weather_data <- anti_join(raw_weather_data, missing_months, by = "Station")
+
+print(sprintf("The folowing %d stations were dropped: %s", n_distinct(missing_months$Station), paste(unique(missing_months$Station), collapse = ", ")))
+
+print(sprintf("There are %d stations left: ", n_distinct(raw_weather_data$Station)))
+
+kable(unique(raw_weather_data$Station),
+      row.names = TRUE,
+      col.names = "Station",
+      caption = "List of Remaining Stations")
+```
+
+#### Identify and remove Stations with excessive missing values
+
+If there are any missing values, we can try to impute these missing values. However, if there are 7 or more consecutive values missing, we will remove these stations first.
+
+```{r}
+#| code-fold: true
+#| code-summary: "show code"
+# Define a helper function to count the number of 7 or more consecutive NAs
+count_seven_consecutive_NAs <- function(x) {
+  na_runs <- rle(is.na(x))
+  total_consecutive_NAs <- sum(na_runs$lengths[na_runs$values & na_runs$lengths >= 7])
+  return(total_consecutive_NAs)
+}
+
+# Apply the helper function to each relevant column within grouped data
+weather_summary <- raw_weather_data %>%
+  group_by(Station, Year, Month) %>%
+  summarise(across(-Day, ~ count_seven_consecutive_NAs(.x), .names = "count_consec_NAs_{.col}"), .groups = "drop")
+
+# Filter to keep only rows where there is at least one column with 7 or more consecutive missing values
+weather_summary_with_consecutive_NAs <- weather_summary %>%
+  filter(if_any(starts_with("count_consec_NAs_"), ~ . > 0))
+
+# View the result
+print(sprintf("There are %d stations with 7 or more consecutive missing values.", n_distinct(weather_summary_with_consecutive_NAs$Station)))
+
+# kable(weather_summary_with_consecutive_NAs)
+datatable(weather_summary_with_consecutive_NAs, 
+            class= "compact",
+            rownames = FALSE,
+            width="100%", 
+            options = list(pageLength = 10, scrollX=T),
+          caption = 'Details of stations with >=7 missing values')
+```
+
+We hence drop these stations from our dataset:
+
+```{r}
+#| code-fold: true
+#| code-summary: "show code"
+raw_weather_data <- anti_join(raw_weather_data, weather_summary_with_consecutive_NAs, by = "Station")
+
+print(sprintf("The folowing %d stations were dropped: %s", n_distinct(weather_summary_with_consecutive_NAs$Station), paste(unique(weather_summary_with_consecutive_NAs$Station), collapse = ", ")))
+
+print(sprintf("There are %d stations left: ", n_distinct(raw_weather_data$Station)))
+
+kable(unique(raw_weather_data$Station),
+      row.names = TRUE,
+      col.names = "Station",
+      caption = "List of Remaining Stations")
+```
+
+### Second check for missing values
+
+From the check below we see there are still missing values in our data. We will impute these values in the next step.
+
+```{r}
+#| code-fold: true
+#| code-summary: "show code"
+vis_miss(raw_weather_data)
+```
+
+### Impute missing values
+
+To handle the missing values for the remaining Stations, we will impute missing values using simple moving average from **imputeTS** package.
+
+#### Create Date column
+
+```{r}
+raw_weather_data <- raw_weather_data %>%
+  mutate(Date = as.Date(paste(Year, Month, Day, sep = "-"))) %>%
+  relocate(Date, .after = 1)
+```
+
+#### Using `imputeTS` package
+
+```{r}
+# Define the weather variables to loop through
+weather_variables <- c("Daily Rainfall Total (mm)", "Mean Temperature (°C)", "Maximum Temperature (°C)", "Minimum Temperature (°C)")
+
+# Ensure raw_weather_data is correctly copied to a new data frame for imputation
+weather_data_imputed <- raw_weather_data
+
+# Loop through each weather variable to impute missing values
+for(variable in weather_variables) {
+  # Convert variable to numeric, ensuring that the conversion warnings are handled if necessary
+  weather_data_imputed[[variable]] <- as.numeric(as.character(weather_data_imputed[[variable]]))
+  
+  # Impute missing values using a moving average
+  weather_data_imputed <- weather_data_imputed %>%
+    group_by(Station) %>%
+    arrange(Station, Date) %>%
+    mutate("{variable}" := round(na_ma(.data[[variable]], k = 7, weighting = "simple"), 1)) %>%
+    ungroup()
+}
+```
+
+### Final visual check for missing values
+
+```{r}
+#| code-fold: true
+#| code-summary: "show code"
+vis_miss(weather_data_imputed)
+```
+
+## Summary of cleaned data {#sec-viewcleaneddataset}
+
+### Details of stations and time period of data
+
+```{r}
+#| code-fold: true
+#| code-summary: "show code"
+time_period_start <- min(weather_data_imputed$Date)
+time_period_end <- max(weather_data_imputed$Date)
+cat("\nThe time period of the dataset is from", format(time_period_start, "%Y-%m-%d"),"to", format(time_period_end, "%Y-%m-%d"), "\n")
+
+print(sprintf("There are %d stations: ", n_distinct(weather_data_imputed$Station)))
+
+kable(unique(weather_data_imputed$Station),
+      row.names = TRUE,
+      col.names = "Station",
+      caption = "List of Stations")
+```
+
+### Check structure with `glimpse()`
+
+```{r}
+glimpse(weather_data_imputed)
+```
+
+### View dataset as interactive table
+
+```{r}
+#| code-fold: true
+#| code-summary: "show code"
+datatable(weather_data_imputed, 
+            class= "compact",
+            rownames = FALSE,
+            width="100%", 
+            options = list(pageLength = 10, scrollX=T),
+          caption = 'Cleaned and imputed weather dataset')
+```
+
+## Save cleaned data to .rds
+
+```{r}
+write_rds(weather_data_imputed, "data/weather_imputed_11stations.rds")
+```
+
+## Import cleaned data
+
+The below code can be used to import the cleaned data.
+
+```{r}
+weather_data <- read_rds("data/weather_imputed_11stations.rds") 
+# weather_data <- read_rds("data/weather_imputed.rds") 
+```
+
+# Exploratory Data Analysis of Multiple Time Series (`Mean Temperature (°C)`)
+
+## Overview of Exploratory Data Analysis
+
+\<to be updated\>
+
+There are 4 variables in the dataset, *weather_data*, we can focus on for time series analysis:
+
+-   `Daily Rainfall Total (mm)`
+-   `Mean Temperature (°C)`
+-   `Min Temperature (°C)`
+-   `Max Temperature (°C)`
+
+**For this prototype report, we will focus on `Mean Temperature (°C)` .**
+
+## Select for **`Mean Temperature (°C)`**
+
+```{r}
+# Extract the temperature data into a variable *temp_data*
+temp_data <- weather_data %>%
+  select(c(Station, Date, Year, Month, Day, `Mean Temperature (°C)`))
+  
+glimpse(temp_data)
+```
+
+## Horizon Plots
+
+Horizon plots are a visualization technique used for displaying multiple time series data. Since the data contains data across **multiple** **years** for **multiple** **stations**, it would be valuable to allow users to use horizon plots to visually explore patterns or trends across multiple time series data.
+
+### Horizon Plot of Mean Temperature (°C) across different weather stations, for 2021 - 2023
+
+```{r}
+#| code-fold: true
+#| code-summary: "show code"
+#| fig-width: 10
+#| fig-height: 4
+# Step 1: compute origin and  horizon scale cutpoints: 
+cutpoints <- weather_data %>% 
+  mutate(
+    outlier = between(
+      `Mean Temperature (°C)`, 
+      quantile(`Mean Temperature (°C)`, 0.25, na.rm = TRUE) -
+        1.5 * IQR(`Mean Temperature (°C)`, na.rm = TRUE),
+      quantile(`Mean Temperature (°C)`, 0.75, na.rm = TRUE) +
+        1.5 * IQR(`Mean Temperature (°C)`, na.rm = TRUE))) %>% 
+  filter(outlier)
+
+ori <- sum(range(cutpoints$`Mean Temperature (°C)`))/2
+sca <- seq(range(cutpoints$`Mean Temperature (°C)`)[1], 
+           range(cutpoints$`Mean Temperature (°C)`)[2], 
+           length.out = 7)[-4]
+
+ori <- round(ori, 2) # The origin, rounded to 2 decimal places
+sca <- round(sca, 2) # The horizon scale cutpoints
+
+weather_data %>% ggplot() +
+  geom_horizon(aes(x = Date,
+                   y = `Mean Temperature (°C)`,
+                   fill = after_stat(Cutpoints)),
+               origin = ori, horizonscale = sca) +
+  scale_fill_hcl(palette = 'RdBu', reverse = T) +
+  facet_grid(`Station`~.) +
+  theme_few() +
+  theme(panel.spacing.y=unit(0, "lines"), strip.text.y = element_text(
+    size = 5, angle = 0, hjust = 0),
+    # legend.position = 'none',
+    axis.text.y = element_blank(),
+    axis.text.x = element_text(size=7),
+    axis.title.y = element_blank(),
+    axis.title.x = element_blank(),
+    axis.ticks.y = element_blank(),
+    panel.border = element_blank()
+    ) +
+    scale_x_date(expand=c(0,0), date_breaks = "3 month", date_labels = "%b%y") +
+  ggtitle('Mean Temperature (°C) across different weather stations (2021 - 2023)')
+```
+
+### Horizon Plot of Mean Temperature (°C) across different weather stations for a specified year, 2023
+
+```{r}
+#| code-fold: true
+#| code-summary: "show code"
+#| fig-width: 10
+#| fig-height: 4
+# Ensure data has Year, Month, Date column + Date_mine column
+weather_data <- weather_data %>% 
+  mutate(Year = year(Date)) %>%
+  mutate(Month = month(Date)) %>%
+  mutate(Day = day(Date)) %>%
+  mutate(Date_mine = make_date(2023, month(Date), day(Date)))
+
+# Filter for specified year only
+weather_data_2023 <- weather_data %>% 
+  filter(Year == 2023) 
+
+# Step 1: compute origin and  horizon scale cutpoints: 
+cutpoints <- weather_data_2023 %>% 
+  mutate(
+    outlier = between(
+      `Mean Temperature (°C)`, 
+      quantile(`Mean Temperature (°C)`, 0.25, na.rm = TRUE) -
+        1.5 * IQR(`Mean Temperature (°C)`, na.rm = TRUE),
+      quantile(`Mean Temperature (°C)`, 0.75, na.rm = TRUE) +
+        1.5 * IQR(`Mean Temperature (°C)`, na.rm = TRUE))) %>% 
+  filter(outlier)
+
+ori <- sum(range(cutpoints$`Mean Temperature (°C)`))/2
+sca <- seq(range(cutpoints$`Mean Temperature (°C)`)[1], 
+           range(cutpoints$`Mean Temperature (°C)`)[2], 
+           length.out = 7)[-4]
+
+ori <- round(ori, 2) # The origin, rounded to 2 decimal places
+sca <- round(sca, 2) # The horizon scale cutpoints
+
+# Plot horizon plot
+weather_data_2023 %>% ggplot() +
+  geom_horizon(aes(x = Date_mine, 
+                   y = `Mean Temperature (°C)`,
+                   fill = after_stat(Cutpoints)), 
+               origin = ori, horizonscale = sca) +
+  scale_fill_hcl(palette = 'RdBu', reverse = T) +
+  facet_grid(~Station ~ .) +
+  theme_few() +
+  theme(
+    panel.spacing.y = unit(0, "lines"),
+    strip.text.y = element_text(size = 7, angle = 0, hjust = 0),
+    axis.text.y = element_blank(),
+    axis.title.y = element_blank(),
+    axis.ticks.y = element_blank(),
+    panel.border = element_blank()
+    ) +
+  scale_x_date(expand = c(0, 0), 
+               date_breaks = "1 month", 
+               date_labels = "%b") +
+  xlab('Date') +
+  ggtitle('Mean Temperature (°C) for the year 2023',
+          'across the stations')
+```
+
+### Horizon Plot of Mean Temperature (°C) For Ang Mo Kio across the years
+
+```{r}
+#| code-fold: true
+#| code-summary: "show code"
+#| fig-width: 10
+#| fig-height: 4
+# Step 0: Filter for specified station only 
+ang_mo_kio_data <- weather_data %>% 
+  filter(Station == "Ang Mo Kio")
+
+# Step 1: compute origin and  horizon scale cutpoints: 
+cutpoints <- ang_mo_kio_data %>% 
+  mutate(
+    outlier = between(
+      `Mean Temperature (°C)`, 
+      quantile(`Mean Temperature (°C)`, 0.25, na.rm = TRUE) -
+        1.5 * IQR(`Mean Temperature (°C)`, na.rm = TRUE),
+      quantile(`Mean Temperature (°C)`, 0.75, na.rm = TRUE) +
+        1.5 * IQR(`Mean Temperature (°C)`, na.rm = TRUE))) %>% 
+  filter(outlier)
+
+ori <- sum(range(cutpoints$`Mean Temperature (°C)`))/2
+sca <- seq(range(cutpoints$`Mean Temperature (°C)`)[1], 
+           range(cutpoints$`Mean Temperature (°C)`)[2], 
+           length.out = 7)[-4]
+
+ori <- round(ori, 2) # The origin, rounded to 2 decimal places
+sca <- round(sca, 2) # The horizon scale cutpoints
+
+# Step 2: Ensure data has Year, Month, Date column. Also create a Date_mine column for comparing across years
+ang_mo_kio_data <- ang_mo_kio_data %>% 
+  mutate(Year = year(Date)) %>%
+  mutate(Month = month(Date)) %>%
+  mutate(Day = day(Date)) %>%
+  mutate(Date_mine = make_date(2023, month(Date), day(Date)))
+
+# Step 3: Plot horizon plot
+ang_mo_kio_data %>% ggplot() +
+  geom_horizon(aes(x = Date_mine, 
+                   y = `Mean Temperature (°C)`,
+                   fill = after_stat(Cutpoints)), 
+               origin = ori, horizonscale = sca) +
+  scale_fill_hcl(palette = 'RdBu', reverse = T) +
+  facet_grid(~Year ~ .) +
+  theme_few() +
+  theme(
+    panel.spacing.y = unit(0, "lines"),
+    strip.text.y = element_text(size = 7, angle = 0, hjust = 0),
+    axis.text.y = element_blank(),
+    axis.title.y = element_blank(),
+    axis.ticks.y = element_blank(),
+    panel.border = element_blank()
+    ) +
+  scale_x_date(expand = c(0, 0), 
+               date_breaks = "1 month", 
+               date_labels = "%b") +
+  xlab('Date') +
+  ggtitle('Mean Temperature (°C) For Ang Mo Kio',
+          'across the years 2021 to 2023')
+```
+
+### Horizon Plot of Mean Temperature (°C) across average of all weather stations from 2021 to 2023
+
+```{r}
+#| code-fold: true
+#| code-summary: "show code"
+#| fig-width: 10
+#| fig-height: 4
+
+# Step 0: Compute average of Mean Temperature (°C) across all stations
+weather_data_all_stations <- weather_data %>%
+  group_by(Date) %>%
+  summarise(`Mean Temperature (°C)` = mean(`Mean Temperature (°C)`))
+
+# Step 1: compute origin and  horizon scale cutpoints: 
+cutpoints <- weather_data_all_stations %>% 
+  mutate(
+    outlier = between(
+      `Mean Temperature (°C)`, 
+      quantile(`Mean Temperature (°C)`, 0.25, na.rm = TRUE) -
+        1.5 * IQR(`Mean Temperature (°C)`, na.rm = TRUE),
+      quantile(`Mean Temperature (°C)`, 0.75, na.rm = TRUE) +
+        1.5 * IQR(`Mean Temperature (°C)`, na.rm = TRUE))) %>% 
+  filter(outlier)
+
+ori <- sum(range(cutpoints$`Mean Temperature (°C)`))/2
+sca <- seq(range(cutpoints$`Mean Temperature (°C)`)[1], 
+           range(cutpoints$`Mean Temperature (°C)`)[2], 
+           length.out = 7)[-4]
+
+ori <- round(ori, 2) # The origin, rounded to 2 decimal places
+sca <- round(sca, 2) # The horizon scale cutpoints
+
+# Step 2: Ensure data has Year, Month, Date column. Also create a Date_mine column for comparing across years
+weather_data_all_stations <- weather_data_all_stations %>% 
+  mutate(Year = year(Date)) %>%
+  mutate(Month = month(Date)) %>%
+  mutate(Day = day(Date)) %>%
+  mutate(Date_mine = make_date(2023, month(Date), day(Date)))
+
+# Step 3: Plot horizon plot
+weather_data_all_stations %>% ggplot() +
+  geom_horizon(aes(x = Date_mine, 
+                   y = `Mean Temperature (°C)`,
+                   fill = after_stat(Cutpoints)), 
+               origin = ori, horizonscale = sca) +
+  scale_fill_hcl(palette = 'RdBu', reverse = T) +
+  facet_grid(~Year ~ .) +
+  theme_few() +
+  theme(
+    panel.spacing.y = unit(0, "lines"),
+    strip.text.y = element_text(size = 7, angle = 0, hjust = 0),
+    axis.text.y = element_blank(),
+    axis.title.y = element_blank(),
+    axis.ticks.y = element_blank(),
+    panel.border = element_blank()
+    ) +
+  scale_x_date(expand = c(0, 0), 
+               date_breaks = "1 month", 
+               date_labels = "%b") +
+  xlab('Date') +
+  ggtitle('Mean Temperature (°C) across across all weather stations', 
+          'from 2021 to 2023')
+```
+
+## Calendar Heatmap
+
+### Calendar Heatmap for a single station
+
+```{r}
+#| code-fold: true
+#| code-summary: "show code"
+
+# Extract data for single station
+pulau_ubin_data <- temp_data %>%
+  filter(Station == 'Pulau Ubin')
+
+pulau_ubin_data <- pulau_ubin_data %>% 
+  mutate(
+    Month_Name = factor(months(Date), levels = rev(month.name)), # reverse so that January will be at the top of the calendar heatmap
+  )
+
+calendar <- pulau_ubin_data %>%
+  group_by(Year, Day, Month_Name) %>%
+  filter(Year == 2023) %>%
+  ungroup()
+
+heat <- ggplot(calendar, aes(x = Day, 
+                             y = Month_Name, 
+                             fill = `Mean Temperature (°C)`)) + 
+  geom_tile(color = "white", 
+            size = 0.1) + 
+  coord_equal() +
+  scale_fill_gradient(low = "sky blue", 
+                      high = "red") +
+  labs(x = "Days of Month", 
+       y = "", 
+       title = "Temperature in 2023") +
+  theme(axis.ticks = element_blank(),
+        axis.text.x = element_text(size = 5),
+        plot.title = element_text(hjust = 0.5),
+        legend.title = element_text(size = 8),
+        legend.text = element_text(size = 6)) +
+  scale_x_continuous(breaks = seq(min(calendar$Day), 
+                                  max(calendar$Day), 
+                                  by = 2),
+                     labels = seq(min(calendar$Day), 
+                                  max(calendar$Day), 
+                                  by = 2)) 
+heat
+```
+
+# Clustering of Multiple Time Series
+
+## Overview
+
+\<to be updated\>
+
+Clustering is the practice of finding hidden patterns or similar groups in data. 
+
+For our data, we would like to allow users to cluster by:
+
+-   Stations
+-   Months
+
+We will divide cluster analysis into four different parts:
+
+1.  Determining the need and method to normalize the data
+2.  Format data into list of series
+3.  Choosing the clustering method
+4.  Choosing distance computation
+Determining a measure to quantify the similarity between observations 
+5.  Selecting the desired number of clusters
+
+Determining a measure to quantify the similarity between observations
+## Clustering of stations v0
+
+We will use the variable `temp_data` , and perform cluster analysis of time series of daily temperature readings from different weather stations for the same period.
+
+### Step 1: Determining the need and method to normalize the data
+
+When comparing time series of daily temperature readings from different weather stations for the same period, whether or not to normalize the data depends on the **specific objectives of the analysis** and the **characteristics of the dataset:**
+
+-   **Objective of analysis:**
+
+    -   Normalization may not be necessary if the objective is to identify patterns over time across different stations. This is because the focus would be on relative changes within each time series, rather than comparison of temperature values across stations.
+
+    -   Normalization may be beneficial if the objective is to **cluster stations based on similarity in temperature profiles** regardless of their absolute temperature values.
+
+-   **Characteristics of dataset:**
+
+    -   **If the temperature ranges are similar** across stations (e.g., urban areas within the same climatic zone), the need for normalization might be less critical since the scales are already comparable.
+
+    -   **If the temperature ranges vary significantly** across stations (e.g., comparing stations from very different climatic zones), normalization can help to ensure that the analysis focuses on the pattern of temperature changes rather than the absolute values.
+
+In the case of our dataset, we do not expect the temperature ranges to vary significantly across stations since the stations are within a small climatic zone, Singapore.
+
+::: callout-tip
+### Design Considerations on Normalization
+
+-   Option to perform Normalization or not
+
+-   Option to perform Global or Group-Wise Normalization
+
+-   Option to choose Normalization method (Standardization, vs Min-Max Scaling)
+:::
+
+Below, we present different results of clustering when the normalization methods are varied:
+
+**No Normalization**
+
+```{r}
+#| code-fold: true
+#| code-summary: "show code"
+
+# Step 1: Normalization
+# No code as no normalization
+
+# Step 2: Determining a measure to quantify the similarity between observations
+# Format data into list of series
+# First, ensure the data is ordered by Station and by Date
+temp_data <- temp_data %>%
+  arrange(Station, Date)
+# Split the `Mean Temperature (°C)` column into a list of vectors, one per station
+list_of_series <- split(temp_data$`Mean Temperature (°C)`, temp_data$Station)
+# Name the list elements by unique station names
+names(list_of_series) <- unique(temp_data$Station)
+
+hc <- tsclust(list_of_series,
+              distance = "dtw_basic",
+              type = "hierarchical",
+              k = 5,
+              control = hierarchical_control(method = "complete"))
+
+p <- fviz_dend(hc, k = 5,                 # Cut in four groups
+          cex = 0.5,                 # label size
+          k_colors = c("jco"),
+          color_labels_by_k = FALSE,  # color labels by groups
+          rect_border = "jco",
+          rect = TRUE,
+          rect_fill = TRUE)
+p
+```
+```{r}
+heatmap(hc@distmat,main = "Similarities between stations", 
+        cexRow = 1,cexCol = 1,
+        symm = TRUE)
+```
+
+
+**Global Normalization by Standardization**
+
+```{r}
+#| code-fold: true
+#| code-summary: "show code"
+
+# Step 1: Normalization
+# Global Normalization by Standardization 
+temp_data$Normalized_Temp <- scale(temp_data$`Mean Temperature (°C)`)
+
+# Step 2: Determining a measure to quantify the similarity between observations
+# Format data into a matrix
+tam_ta <- matrix(temp_data$Normalized_Temp,
+                 ncol = 1095,
+                 byrow = TRUE)
+row.names(tam_ta) <- paste0(c(unique(temp_data$Station)))
+# Compute dissimilarity between time series, using the TSclust::diss function with method “DTWARP”
+tam_dist <- TSclust::diss(tam_ta, "DTWARP", p = 0.05)
+# tam_dist
+
+# Step 3 & 4: Choosing the method to obtain the clustering and Selecting the desired number of clusters
+# Use dissimilarity for hierarchical clustering, plotting a cluster dendrogram
+tam_hc <- hclust(tam_dist)
+plot(tam_hc)
+rect.hclust(tam_hc, 
+            k = 5) # Change k based on number of clusters desired
+# cutree(tam_hc, k = 5)
+```
+
+**Group-wise (Station-by-Station) Normalization by Standardization**
+
+```{r}
+#| code-fold: true
+#| code-summary: "show code"
+
+# Step 1: Normalization
+# Group-wise (Station-by-Station) Normalization using Standardization
+temp_data <- temp_data %>%
+  group_by(Station) %>%
+  mutate(Normalized_Temp = scale(`Mean Temperature (°C)`)) %>%
+  ungroup()
+
+# Step 2: Determining a measure to quantify the similarity between observations
+# Format data into a matrix
+tam_ta <- matrix(temp_data$Normalized_Temp,
+                 ncol = 1095,
+                 byrow = TRUE)
+row.names(tam_ta) <- paste0(c(unique(temp_data$Station)))
+# Compute dissimilarity between time series, using the TSclust::diss function with method “DTWARP”
+tam_dist <- TSclust::diss(tam_ta, "DTWARP", p = 0.05)
+# tam_dist
+
+# Step 3 & 4: Choosing the method to obtain the clustering and Selecting the desired number of clusters
+# Use dissimilarity for hierarchical clustering, plotting a cluster dendrogram
+tam_hc <- hclust(tam_dist)
+plot(tam_hc)
+rect.hclust(tam_hc, 
+            k = 5) # Change k based on number of clusters desired
+# cutree(tam_hc, k = 5)
+```
+
+**Group-wise (Station-by-Station) Normalization by Min-Max Scaling**
+
+```{r}
+#| code-fold: true
+#| code-summary: "show code"
+
+# Step 1: Normalization
+# Group-wise (Station-by-Station) Normalization, applying Min-Max scaling within each station group
+temp_data <- temp_data %>%
+  group_by(Station) %>%
+  mutate(Normalized_Temp = (`Mean Temperature (°C)` - min(`Mean Temperature (°C)`, na.rm = TRUE)) / 
+                            (max(`Mean Temperature (°C)`, na.rm = TRUE) - min(`Mean Temperature (°C)`, na.rm = TRUE))) %>%
+  ungroup()
+
+# Step 2: Determining a measure to quantify the similarity between observations
+# Format data into a matrix
+tam_ta <- matrix(temp_data$Normalized_Temp,
+                 ncol = 1095,
+                 byrow = TRUE)
+row.names(tam_ta) <- paste0(c(unique(temp_data$Station)))
+# Compute dissimilarity between time series, using the TSclust::diss function with method “DTWARP”
+tam_dist <- TSclust::diss(tam_ta, "DTWARP", p = 0.05)
+# tam_dist
+
+# Step 3 & 4: Choosing the method to obtain the clustering and Selecting the desired number of clusters
+# Use dissimilarity for hierarchical clustering, plotting a cluster dendrogram
+tam_hc <- hclust(tam_dist)
+plot(tam_hc)
+rect.hclust(tam_hc, 
+            k = 5) # Change k based on number of clusters desired
+# cutree(tam_hc, k = 5)
+```
+
+### Step 2: Determining a measure to quantify the similarity between observations
+
+There are several methods for quantifying similarity between observations. 
+The [`TSclust::diss`](https://cran.r-project.org/web/packages/TSclust/TSclust.pdf) function offers a variety dissimilarity measures to be used. 
+
+::: callout-tip
+### Design Considerations on measures for quantifying similarity
+
+For this project we will present two options for the user to try:
+
+-   Euclidean Distance
+-   Dynamic Time Warping
+
+::: 
+
+Below, we show how this is implemented assuming normalization by groups using Min-Max scaling is done:
+
+**Euclidean Distance**
+
+```{r}
+#| code-fold: true
+#| code-summary: "show code"
+
+# Step 1: Normalization
+# Group-wise (Station-by-Station) Normalization, applying Min-Max scaling within each station group
+temp_data <- temp_data %>%
+  group_by(Station) %>%
+  mutate(Normalized_Temp = (`Mean Temperature (°C)` - min(`Mean Temperature (°C)`, na.rm = TRUE)) / 
+                            (max(`Mean Temperature (°C)`, na.rm = TRUE) - min(`Mean Temperature (°C)`, na.rm = TRUE))) %>%
+  ungroup()
+
+
+# Step 2: Determining a measure to quantify the similarity between observations
+# Format data into a matrix
+tam_ta <- matrix(temp_data$Normalized_Temp,
+                 ncol = 1095,
+                 byrow = TRUE)
+row.names(tam_ta) <- paste0(c(unique(temp_data$Station)))
+# Compute dissimilarity between time series, using the TSclust::diss function with method “EUCL”
+tam_dist <- TSclust::diss(tam_ta, "EUCL")
+# tam_dist
+
+
+# Step 3 & 4: Choosing the method to obtain the clustering and Selecting the desired number of clusters
+# Use dissimilarity for hierarchical clustering, plotting a cluster dendrogram
+tam_hc <- hclust(tam_dist)
+plot(tam_hc)
+rect.hclust(tam_hc, 
+            k = 5) # Change k based on number of clusters desired
+# cutree(tam_hc, k = 5)
+```
+
+**Dynamic Time Warping**
+
+```{r}
+#| code-fold: true
+#| code-summary: "show code"
+
+# Step 1: Normalization
+# Group-wise (Station-by-Station) Normalization, applying Min-Max scaling within each station group
+temp_data <- temp_data %>%
+  group_by(Station) %>%
+  mutate(Normalized_Temp = (`Mean Temperature (°C)` - min(`Mean Temperature (°C)`, na.rm = TRUE)) / 
+                            (max(`Mean Temperature (°C)`, na.rm = TRUE) - min(`Mean Temperature (°C)`, na.rm = TRUE))) %>%
+  ungroup()
+
+
+# Step 2: Determining a measure to quantify the similarity between observations
+# Format data into a matrix
+tam_ta <- matrix(temp_data$Normalized_Temp,
+                 ncol = 1095,
+                 byrow = TRUE)
+row.names(tam_ta) <- paste0(c(unique(temp_data$Station)))
+# Compute dissimilarity between time series, using the TSclust::diss function with method “DTWARP”
+tam_dist <- TSclust::diss(tam_ta, "DTWARP", p = 0.05)
+# tam_dist
+
+
+# Step 3 & 4: Choosing the method to obtain the clustering and Selecting the desired number of clusters
+# Use dissimilarity for hierarchical clustering, plotting a cluster dendrogram
+tam_hc <- hclust(tam_dist)
+plot(tam_hc)
+rect.hclust(tam_hc, 
+            k = 5) # Change k based on number of clusters desired
+# cutree(tam_hc, k = 5)
+```
+### Step 3: Choosing the method to obtain the clustering
+
+
+::: callout-tip
+### Design Considerations on measures for clustering methods
+
+For this project we will present three options for the user to try:
+
+-   Euclidean Distance
+-   Dynamic Time Warping
+
+::: 
+
+
+## Clustering of months
+
+Focusing on a single station and year, we will identify if there are months exhibiting similar characteristics.
+
+```{r}
+# Filter for a single station and year e.g., "Changi", for 2023
+changi_temp_data <- temp_data %>% 
+  filter(Station == "Changi") %>%
+  filter(Year == 2023)
+
+# Create column with Month Name 
+changi_temp_data <- changi_temp_data %>% 
+  mutate(
+    Month_Name = factor(months(Date), levels = month.name)
+  )
+
+# # Create column Month_Year e.g. Jan 2021
+# changi_temp_data <- changi_temp_data %>% 
+#   mutate(Month_Year = format(as.Date(Date), "%b %Y"))
+```
+
+The challenge here lies in handling months of differing lengths. DTW is a method that enables comparing time series of different lengths because it aligns sequences in time to minimize the distance between them.
+
+Hence, instead of creating a matrix to compute dissimilarity, we will create a list of series.
+
+```{r}
+#| code-fold: true
+#| code-summary: "show code"
+
+# Step 1: Normalization
+# Group-wise (Month_Name by Month_Name) Normalization, applying Min-Max scaling within each Month_Name
+changi_temp_data <- changi_temp_data %>%
+  group_by(Month_Name) %>%
+  mutate(Normalized_Temp = (`Mean Temperature (°C)` - min(`Mean Temperature (°C)`, na.rm = TRUE)) / 
+                            (max(`Mean Temperature (°C)`, na.rm = TRUE) - min(`Mean Temperature (°C)`, na.rm = TRUE))) %>%
+  ungroup()
+
+# Step 2: Determining a measure to quantify the similarity between observations
+# Format data in a list of series
+list_of_series <- changi_temp_data %>%
+  group_by(Month_Name) %>%
+  summarise(Normalized_Temp = list(Normalized_Temp)) %>%
+  pull(Normalized_Temp)
+# Compute dissimilarity between time series, using method DTWARP
+dissimilarity_matrix <- TSclust::diss(list_of_series, METHOD = "DTWARP", p = 0.05)
+
+# Step 3 & 4: Choosing the method to obtain the clustering and Selecting the desired number of clusters
+# Use dissimilarity for hierarchical clustering, plotting a cluster dendrogram
+tam_hc <- hclust(dissimilarity_matrix)
+plot(tam_hc)
+rect.hclust(tam_hc,
+            k = 5) # Change k based on number of clusters desired
+# cutree(tam_hc, k = 5)
+```
+
+## Clustering of months (dtwclust)
+
+Reference: https://www.rdocumentation.org/packages/dtwclust/versions/3.1.1/topics/dtwclust
+
+
+```{r}
+# Filter for a single station and year e.g., "Changi", for 2023
+changi_temp_data <- temp_data %>% 
+  filter(Station == "Changi") %>%
+  filter(Year == 2023)
+
+# Create column with Month Name 
+changi_temp_data <- changi_temp_data %>% 
+  mutate(
+    Month_Name = factor(months(Date), levels = month.name)
+  )
+```
+
+```{r}
+#| code-fold: true
+#| code-summary: "show code"
+
+# Step 1: Normalization
+# Group-wise (Month_Name by Month_Name) Normalization, applying Min-Max scaling within each Month_Name
+changi_temp_data <- changi_temp_data %>%
+  group_by(Month_Name) %>%
+  mutate(Normalized_Temp = (`Mean Temperature (°C)` - min(`Mean Temperature (°C)`, na.rm = TRUE)) / 
+                            (max(`Mean Temperature (°C)`, na.rm = TRUE) - min(`Mean Temperature (°C)`, na.rm = TRUE))) %>%
+  ungroup()
+
+# Step 2: Determining a measure to quantify the similarity between observations
+# Format data in a list of series
+list_of_series <- changi_temp_data %>%
+  group_by(Month_Name) %>%
+  summarise(Normalized_Temp = list(Normalized_Temp)) %>%
+  pull(Normalized_Temp)
+
+
+hc <- tsclust(list_of_series, type = "hierarchical", k = 5)
+plot(hc)
+```
+
+
+## Correlation plot between multiple time series
+
+```{r}
+temp_data_wide <- temp_data %>%
+  pivot_wider(names_from = Station, values_from = `Mean Temperature (°C)`, id_cols = Date)
+
+# Assuming temp_data_wide has Date as the first column and possibly other non-temperature columns
+cor_matrix <- cor(temp_data_wide[,-c(1)], use = "complete.obs")  # Adjust column indices as needed
+
+ggstatsplot::ggcorrmat(
+  data = temp_data_wide[,-c(1)], 
+  cor.vars = 1:11)
+
+```
+
+
+
+
+# Exploratory Data Analysis of Multiple Time Series (`Daily Rainfall Total (mm)`)
+
+### Horizon Plots
+
+Horizon plots are a visualization technique used for displaying multiple time series data. Since the our data contains locations across different years for different stations, it would be valuable to allow users to use horizon plots for exploring patterns or trends across multiple time series data.
+
+#### Horizon Plot of Daily Rainfall Total across all weather stations from 2021 to 2023
+
+This plot may not make sense as we may need to sum up rainfall for each day across all weather stations first before plotting.
+
+```{r}
+#| code-fold: true
+#| code-summary: "show code"
+#| fig-width: 10
+#| fig-height: 4
+# Step 1: compute origin and  horizon scale cutpoints: 
+cutpoints <- weather_data %>% 
+  mutate(
+    outlier = between(
+      `Daily Rainfall Total (mm)`, 
+      quantile(`Daily Rainfall Total (mm)`, 0.25, na.rm = TRUE) -
+        1.5 * IQR(`Daily Rainfall Total (mm)`, na.rm = TRUE),
+      quantile(`Daily Rainfall Total (mm)`, 0.75, na.rm = TRUE) +
+        1.5 * IQR(`Daily Rainfall Total (mm)`, na.rm = TRUE))) %>% 
+  filter(outlier)
+
+ori <- sum(range(cutpoints$`Daily Rainfall Total (mm)`))/2
+sca <- seq(range(cutpoints$`Daily Rainfall Total (mm)`)[1], 
+           range(cutpoints$`Daily Rainfall Total (mm)`)[2], 
+           length.out = 7)[-4]
+
+ori <- round(ori, 2) # The origin, rounded to 2 decimal places
+sca <- round(sca, 2) # The horizon scale cutpoints
+
+
+# Step 2: Ensure data has Year, Month, Date column. Also create a Date_mine column for comparing across years
+weather_data <- weather_data %>% 
+  mutate(Year = year(Date)) %>%
+  mutate(Month = month(Date)) %>%
+  mutate(Day = day(Date)) %>%
+  mutate(Date_mine = make_date(2023, month(Date), day(Date)))
+
+# Step 3: Plot horizon plot
+weather_data %>% ggplot() +
+  geom_horizon(aes(x = Date_mine, 
+                   y = `Daily Rainfall Total (mm)`,
+                   fill = after_stat(Cutpoints)), 
+               origin = ori, horizonscale = sca) +
+  scale_fill_hcl(palette = 'RdBu', reverse = T) +
+  facet_grid(~Year ~ .) +
+  theme_few() +
+  theme(
+    panel.spacing.y = unit(0, "lines"),
+    strip.text.y = element_text(size = 7, angle = 0, hjust = 0),
+    axis.text.y = element_blank(),
+    axis.title.y = element_blank(),
+    axis.ticks.y = element_blank(),
+    panel.border = element_blank()
+    ) +
+  scale_x_date(expand = c(0, 0), 
+               date_breaks = "1 month", 
+               date_labels = "%b") +
+  xlab('Date') +
+  ggtitle('Daily Rainfall Total across all weather stations', 
+          'from 2021 to 2023')
+
+```
+
+#### Horizon Plot of Daily Rainfall Total (mm) across all the stations for a specified year
+
+```{r}
+#| code-fold: true
+#| code-summary: "show code"
+#| fig-width: 10
+#| fig-height: 4
+# Ensure data has Year, Month, Date column
+weather_data <- weather_data %>% 
+  mutate(Year = year(Date)) %>%
+  mutate(Month = month(Date)) %>%
+  mutate(Day = day(Date))
+
+# Filter for specified year only
+weather_data_2023 <- weather_data %>% 
+  filter(Year == 2023)
+
+# Step 1: compute origin and  horizon scale cutpoints: 
+cutpoints <- weather_data_2023 %>% 
+  mutate(
+    outlier = between(
+      `Daily Rainfall Total (mm)`, 
+      quantile(`Daily Rainfall Total (mm)`, 0.25, na.rm = TRUE) -
+        1.5 * IQR(`Daily Rainfall Total (mm)`, na.rm = TRUE),
+      quantile(`Daily Rainfall Total (mm)`, 0.75, na.rm = TRUE) +
+        1.5 * IQR(`Daily Rainfall Total (mm)`, na.rm = TRUE))) %>% 
+  filter(outlier)
+
+ori <- sum(range(cutpoints$`Daily Rainfall Total (mm)`))/2
+sca <- seq(range(cutpoints$`Daily Rainfall Total (mm)`)[1], 
+           range(cutpoints$`Daily Rainfall Total (mm)`)[2], 
+           length.out = 7)[-4]
+
+ori <- round(ori, 2) # The origin, rounded to 2 decimal places
+sca <- round(sca, 2) # The horizon scale cutpoints
+
+# Plot horizon plot
+weather_data_2023 %>% ggplot() +
+  geom_horizon(aes(x = Date_mine, 
+                   y = `Daily Rainfall Total (mm)`,
+                   fill = after_stat(Cutpoints)), 
+               origin = ori, horizonscale = sca) +
+  scale_fill_hcl(palette = 'RdBu', reverse = T) +
+  facet_grid(~Station ~ .) +
+  theme_few() +
+  theme(
+    panel.spacing.y = unit(0, "lines"),
+    strip.text.y = element_text(size = 7, angle = 0, hjust = 0),
+    axis.text.y = element_blank(),
+    axis.title.y = element_blank(),
+    axis.ticks.y = element_blank(),
+    panel.border = element_blank()
+    ) +
+  scale_x_date(expand = c(0, 0), 
+               date_breaks = "1 month", 
+               date_labels = "%b") +
+  xlab('Date') +
+  ggtitle('Daily Rainfall Total (mm) for the year 2023',
+          'across the stations')
+```
+
+# References
+
+-   [Time series clustering](https://geomoer.github.io/moer-mpg-data-analysis/unit10/unit10-03_time_series_clustering.html)
+-   https://plotly.com/ggplot2/dendrogram/
+-   https://www.rdocumentation.org/packages/factoextra/versions/1.0.7/topics/fviz_dend

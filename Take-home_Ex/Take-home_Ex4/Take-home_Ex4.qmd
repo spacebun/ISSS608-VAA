@@ -102,7 +102,7 @@ raw_weather_data <- read_csv("data/climate_historical_daily_records.csv")
 Details of dataset:
 
 | Dataset            | Description                                                   | Period    | Source                                              |
-|-------------|-------------------------|-------------|---------------------|
+|----------------|----------------------|----------------|-------------------|
 | *raw_weather_data* | Climate Historical Daily Records for 63 stations in Singapore | 2014-2023 | http://www.weather.gov.sg/climate-historical-daily/ |
 
 This dataset was retrieved from the [Meteorological Service Singapore](http://www.weather.gov.sg/climate-historical-daily/) site, and had some basic [pre-processing steps performed in python](https://isss608-airweatheranalytics.netlify.app/code/data_retrieval) due to the large amount of files:
@@ -442,16 +442,12 @@ weather_data <- read_rds("data/weather_imputed_11stations.rds")
 
 ## Overview of Exploratory Data Analysis
 
-\<to be updated\>
-
 There are 4 variables in the dataset, *weather_data*, we can focus on for time series analysis:
 
 -   `Daily Rainfall Total (mm)`
 -   `Mean Temperature (°C)`
 -   `Minimum Temperature (°C)`
 -   `Maximum Temperature (°C)`
-
-**For this prototype report, we will focus on `Mean Temperature (°C)` .**
 
 ## Select for **`Mean Temperature (°C)`**
 
@@ -466,12 +462,6 @@ glimpse(temp_data)
 ## Horizon Plots
 
 Horizon plots are a visualization technique used for displaying multiple time series data. Since the data contains data across **multiple years** for **multiple stations**, it would be valuable to allow users to use horizon plots to visually explore patterns or trends across multiple time series data.
-
-Design Considerations
-
--   Radio button selection for selecting variable to plot
--   Radio button selection for viewing across stations or viewing across years
--   
 
 The plots below show the experimented views for this horizon plot feature.
 
@@ -711,6 +701,130 @@ weather_data_all_stations %>% ggplot() +
           'from 2021 to 2023')
 ```
 
+#### Horizon Plot of Daily Rainfall Total across all weather stations from 2021 to 2023
+
+This plot may not make sense as we may need to sum up rainfall for each day across all weather stations first before plotting.
+
+```{r}
+#| code-fold: true
+#| code-summary: "show code"
+#| fig-width: 10
+#| fig-height: 4
+# Step 1: compute origin and  horizon scale cutpoints: 
+cutpoints <- weather_data %>% 
+  mutate(
+    outlier = between(
+      `Daily Rainfall Total (mm)`, 
+      quantile(`Daily Rainfall Total (mm)`, 0.25, na.rm = TRUE) -
+        1.5 * IQR(`Daily Rainfall Total (mm)`, na.rm = TRUE),
+      quantile(`Daily Rainfall Total (mm)`, 0.75, na.rm = TRUE) +
+        1.5 * IQR(`Daily Rainfall Total (mm)`, na.rm = TRUE))) %>% 
+  filter(outlier)
+
+ori <- sum(range(cutpoints$`Daily Rainfall Total (mm)`))/2
+sca <- seq(range(cutpoints$`Daily Rainfall Total (mm)`)[1], 
+           range(cutpoints$`Daily Rainfall Total (mm)`)[2], 
+           length.out = 7)[-4]
+
+ori <- round(ori, 2) # The origin, rounded to 2 decimal places
+sca <- round(sca, 2) # The horizon scale cutpoints
+
+
+# Step 2: Ensure data has Year, Month, Date column. Also create a Date_mine column for comparing across years
+weather_data <- weather_data %>% 
+  mutate(Year = year(Date)) %>%
+  mutate(Month = month(Date)) %>%
+  mutate(Day = day(Date)) %>%
+  mutate(Date_mine = make_date(2023, month(Date), day(Date)))
+
+# Step 3: Plot horizon plot
+weather_data %>% ggplot() +
+  geom_horizon(aes(x = Date_mine, 
+                   y = `Daily Rainfall Total (mm)`,
+                   fill = after_stat(Cutpoints)), 
+               origin = ori, horizonscale = sca) +
+  scale_fill_hcl(palette = 'RdBu', reverse = T) +
+  facet_grid(~Year ~ .) +
+  theme_few() +
+  theme(
+    panel.spacing.y = unit(0, "lines"),
+    strip.text.y = element_text(size = 7, angle = 0, hjust = 0),
+    axis.text.y = element_blank(),
+    axis.title.y = element_blank(),
+    axis.ticks.y = element_blank(),
+    panel.border = element_blank()
+    ) +
+  scale_x_date(expand = c(0, 0), 
+               date_breaks = "1 month", 
+               date_labels = "%b") +
+  xlab('Date') +
+  ggtitle('Daily Rainfall Total across all weather stations', 
+          'from 2021 to 2023')
+
+```
+
+#### Horizon Plot of Daily Rainfall Total (mm) across all the stations for a specified year
+
+```{r}
+#| code-fold: true
+#| code-summary: "show code"
+#| fig-width: 10
+#| fig-height: 4
+# Ensure data has Year, Month, Date column
+weather_data <- weather_data %>% 
+  mutate(Year = year(Date)) %>%
+  mutate(Month = month(Date)) %>%
+  mutate(Day = day(Date)) %>%
+  mutate(Date_mine = make_date(2023, month(Date), day(Date)))
+
+# Filter for specified year only
+weather_data_2023 <- weather_data %>% 
+  filter(Year == 2023)
+
+# Step 1: compute origin and  horizon scale cutpoints: 
+cutpoints <- weather_data_2023 %>% 
+  mutate(
+    outlier = between(
+      `Daily Rainfall Total (mm)`, 
+      quantile(`Daily Rainfall Total (mm)`, 0.25, na.rm = TRUE) -
+        1.5 * IQR(`Daily Rainfall Total (mm)`, na.rm = TRUE),
+      quantile(`Daily Rainfall Total (mm)`, 0.75, na.rm = TRUE) +
+        1.5 * IQR(`Daily Rainfall Total (mm)`, na.rm = TRUE))) %>% 
+  filter(outlier)
+
+ori <- sum(range(cutpoints$`Daily Rainfall Total (mm)`))/2
+sca <- seq(range(cutpoints$`Daily Rainfall Total (mm)`)[1], 
+           range(cutpoints$`Daily Rainfall Total (mm)`)[2], 
+           length.out = 7)[-4]
+
+ori <- round(ori, 2) # The origin, rounded to 2 decimal places
+sca <- round(sca, 2) # The horizon scale cutpoints
+
+# Plot horizon plot
+weather_data_2023 %>% ggplot() +
+  geom_horizon(aes(x = Date_mine, 
+                   y = `Daily Rainfall Total (mm)`,
+                   fill = after_stat(Cutpoints)), 
+               origin = ori, horizonscale = sca) +
+  scale_fill_hcl(palette = 'RdBu', reverse = T) +
+  facet_grid(~Station ~ .) +
+  theme_few() +
+  theme(
+    panel.spacing.y = unit(0, "lines"),
+    strip.text.y = element_text(size = 7, angle = 0, hjust = 0),
+    axis.text.y = element_blank(),
+    axis.title.y = element_blank(),
+    axis.ticks.y = element_blank(),
+    panel.border = element_blank()
+    ) +
+  scale_x_date(expand = c(0, 0), 
+               date_breaks = "1 month", 
+               date_labels = "%b") +
+  xlab('Date') +
+  ggtitle('Daily Rainfall Total (mm) for the year 2023',
+          'across the stations')
+```
+
 ## Calendar Heatmap
 
 ### Calendar Heatmap for a single station
@@ -853,135 +967,7 @@ p <- fviz_dend(c, k = n_cluster,                 # Cut in four groups
 p
 ```
 
-# Exploratory Data Analysis of Multiple Time Series (`Daily Rainfall Total (mm)`)
-
-### Horizon Plots
-
-Horizon plots are a visualization technique used for displaying multiple time series data. Since the our data contains locations across different years for different stations, it would be valuable to allow users to use horizon plots for exploring patterns or trends across multiple time series data.
-
-#### Horizon Plot of Daily Rainfall Total across all weather stations from 2021 to 2023
-
-This plot may not make sense as we may need to sum up rainfall for each day across all weather stations first before plotting.
-
-```{r}
-#| code-fold: true
-#| code-summary: "show code"
-#| fig-width: 10
-#| fig-height: 4
-# Step 1: compute origin and  horizon scale cutpoints: 
-cutpoints <- weather_data %>% 
-  mutate(
-    outlier = between(
-      `Daily Rainfall Total (mm)`, 
-      quantile(`Daily Rainfall Total (mm)`, 0.25, na.rm = TRUE) -
-        1.5 * IQR(`Daily Rainfall Total (mm)`, na.rm = TRUE),
-      quantile(`Daily Rainfall Total (mm)`, 0.75, na.rm = TRUE) +
-        1.5 * IQR(`Daily Rainfall Total (mm)`, na.rm = TRUE))) %>% 
-  filter(outlier)
-
-ori <- sum(range(cutpoints$`Daily Rainfall Total (mm)`))/2
-sca <- seq(range(cutpoints$`Daily Rainfall Total (mm)`)[1], 
-           range(cutpoints$`Daily Rainfall Total (mm)`)[2], 
-           length.out = 7)[-4]
-
-ori <- round(ori, 2) # The origin, rounded to 2 decimal places
-sca <- round(sca, 2) # The horizon scale cutpoints
-
-
-# Step 2: Ensure data has Year, Month, Date column. Also create a Date_mine column for comparing across years
-weather_data <- weather_data %>% 
-  mutate(Year = year(Date)) %>%
-  mutate(Month = month(Date)) %>%
-  mutate(Day = day(Date)) %>%
-  mutate(Date_mine = make_date(2023, month(Date), day(Date)))
-
-# Step 3: Plot horizon plot
-weather_data %>% ggplot() +
-  geom_horizon(aes(x = Date_mine, 
-                   y = `Daily Rainfall Total (mm)`,
-                   fill = after_stat(Cutpoints)), 
-               origin = ori, horizonscale = sca) +
-  scale_fill_hcl(palette = 'RdBu', reverse = T) +
-  facet_grid(~Year ~ .) +
-  theme_few() +
-  theme(
-    panel.spacing.y = unit(0, "lines"),
-    strip.text.y = element_text(size = 7, angle = 0, hjust = 0),
-    axis.text.y = element_blank(),
-    axis.title.y = element_blank(),
-    axis.ticks.y = element_blank(),
-    panel.border = element_blank()
-    ) +
-  scale_x_date(expand = c(0, 0), 
-               date_breaks = "1 month", 
-               date_labels = "%b") +
-  xlab('Date') +
-  ggtitle('Daily Rainfall Total across all weather stations', 
-          'from 2021 to 2023')
-
-```
-
-#### Horizon Plot of Daily Rainfall Total (mm) across all the stations for a specified year
-
-```{r}
-#| code-fold: true
-#| code-summary: "show code"
-#| fig-width: 10
-#| fig-height: 4
-# Ensure data has Year, Month, Date column
-weather_data <- weather_data %>% 
-  mutate(Year = year(Date)) %>%
-  mutate(Month = month(Date)) %>%
-  mutate(Day = day(Date)) %>%
-  mutate(Date_mine = make_date(2023, month(Date), day(Date)))
-
-# Filter for specified year only
-weather_data_2023 <- weather_data %>% 
-  filter(Year == 2023)
-
-# Step 1: compute origin and  horizon scale cutpoints: 
-cutpoints <- weather_data_2023 %>% 
-  mutate(
-    outlier = between(
-      `Daily Rainfall Total (mm)`, 
-      quantile(`Daily Rainfall Total (mm)`, 0.25, na.rm = TRUE) -
-        1.5 * IQR(`Daily Rainfall Total (mm)`, na.rm = TRUE),
-      quantile(`Daily Rainfall Total (mm)`, 0.75, na.rm = TRUE) +
-        1.5 * IQR(`Daily Rainfall Total (mm)`, na.rm = TRUE))) %>% 
-  filter(outlier)
-
-ori <- sum(range(cutpoints$`Daily Rainfall Total (mm)`))/2
-sca <- seq(range(cutpoints$`Daily Rainfall Total (mm)`)[1], 
-           range(cutpoints$`Daily Rainfall Total (mm)`)[2], 
-           length.out = 7)[-4]
-
-ori <- round(ori, 2) # The origin, rounded to 2 decimal places
-sca <- round(sca, 2) # The horizon scale cutpoints
-
-# Plot horizon plot
-weather_data_2023 %>% ggplot() +
-  geom_horizon(aes(x = Date_mine, 
-                   y = `Daily Rainfall Total (mm)`,
-                   fill = after_stat(Cutpoints)), 
-               origin = ori, horizonscale = sca) +
-  scale_fill_hcl(palette = 'RdBu', reverse = T) +
-  facet_grid(~Station ~ .) +
-  theme_few() +
-  theme(
-    panel.spacing.y = unit(0, "lines"),
-    strip.text.y = element_text(size = 7, angle = 0, hjust = 0),
-    axis.text.y = element_blank(),
-    axis.title.y = element_blank(),
-    axis.ticks.y = element_blank(),
-    panel.border = element_blank()
-    ) +
-  scale_x_date(expand = c(0, 0), 
-               date_breaks = "1 month", 
-               date_labels = "%b") +
-  xlab('Date') +
-  ggtitle('Daily Rainfall Total (mm) for the year 2023',
-          'across the stations')
-```
+# Group Forecasting
 
 # UI Design
 
@@ -992,6 +978,8 @@ This module will contain three tabs:
 -   Forecasting of grouped time series
 
 ## Tab 1: Horizon Plot
+
+![](images/clipboard-3800135536.png)
 
 ```{r}
 

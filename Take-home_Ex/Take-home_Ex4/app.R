@@ -1,10 +1,12 @@
 ##### Set up #####
-pacman::p_load(shiny, shinydashboard, tidyverse, ggplot2, dplyr, lubridate, plotly, ggHoriPlot, dtwclust, factoextra)
+pacman::p_load(shiny, shinydashboard, tidyverse, ggplot2, dplyr, lubridate, ggthemes, plotly, ggHoriPlot, dtwclust, factoextra)
 
 weather_data <- read_rds("data/weather_imputed_11stations.rds") 
 
 weather_data <- weather_data %>% 
-  mutate(Date_mine = make_date(2023, month(Date), day(Date)))
+  mutate(Date_mine = make_date(2023, month(Date), day(Date)),
+         Month_Name = factor(months(Date), levels = month.name)
+  )
 
 variables <- c("Daily Rainfall Total (mm)", "Mean Temperature (°C)", "Minimum Temperature (°C)", "Maximum Temperature (°C)")
 
@@ -12,33 +14,52 @@ variables <- c("Daily Rainfall Total (mm)", "Mean Temperature (°C)", "Minimum T
 header <- dashboardHeader(title = "Singapore Weather Analytics (2021-2023)")
 
 sidebar <- dashboardSidebar(
+  width = 100,
+  tags$head(tags$style(HTML("
+      .sidebar-menu > li > a {
+        white-space: normal; 
+        line-height: 1.2;
+      }
+    "))
+  ),
   sidebarMenu(
-    menuItem("Landing Page", tabName = "Cluster"),
+    menuItem("Landing Page", tabName = "LandingPage"),
     menuItem("EDA & CDA", tabName = "EDACDA"),
     menuItem("Univariate Forecasting", tabName = "Univariate"),
-    menuItem("Cluster & Group Forecasting", tabName = "LandingPage")
+    menuItem("Cluster & Group Forecasting", tabName = "Cluster")
     )
   )
 
 ##### HoriPlot ##### 
-HoriPlot <-fluidRow(
-  # Control 
-  box(
-    title = "Control for Horizon Plot for 1 Station", width = 3, status = "primary", solidHeader = TRUE,
-    radioButtons("selectedVariable", "Choose variable", 
-                 variables),
-    selectInput("selectedStation", "Choose station", 
-                choices = unique(weather_data$Station),
-                selected = unique(weather_data$Station)
-                ),
-    actionButton("updatePlot", "Update Plot")
+HoriPlot <-fluidPage(
+  # Row 1
+  fluidRow(
+    # Control 
+    box(
+      title = "Controls", width = 3, status = "primary", solidHeader = TRUE,
+      radioButtons("selectedVariable", "Choose variable", variables),
+      radioButtons("compareAcrossHorizon", "Compare across", c("Stations", "Years")),
+      uiOutput("dynamicUIHoriPlot"),  # Placeholder for dynamic UI components
+      actionButton("updateHoriPlot", "Update Plot")
+    ),
+    
+    # Output Plot
+    box(
+      title = "Horizon Plot", width = 9, status = "primary", solidHeader = TRUE,
+      collapsible = TRUE,
+      plotOutput("horizonPlot")
+    )
   ),
-  # Output Plot
-  box(
-    title = "Horizon Plot for 1 Station", width = 9, status = "primary", solidHeader = TRUE,
-    collapsible = TRUE,
-    plotOutput("horizonPlot")
-  ),
+  
+  # Row 2
+  fluidRow(
+    # Output table
+    box(
+      title = "Table", width = 12, status = "primary", solidHeader = TRUE,
+      DT::dataTableOutput("horizonDataTable")
+    )
+    
+  )
 )
 
 ##### Clustering ##### 
@@ -114,31 +135,58 @@ server <- function(input, output) {
     hist(data)
   })
   
-  ##### For HoriPlot ##### 
-  # stationData <- eventReactive(input$updatePlot, {
-  #   weather_data %>%
-  #     filter(Station %in% input$selectedStation)
-  # })
-  # 
-  reactiveDataHoriPlot <- eventReactive(input$updatePlot, {
-    # Filter for the selected station
-    stationData <- weather_data %>% filter(Station %in% input$selectedStation)
-    
-    # Dynamically reference selected variable
-    selected_var <- input$selectedVariable
-    
-    # Continue with your data processing and return the final dataset
-    return(list(data = stationData, var = selected_var))
+  ##### For HoriPlot #####
+  # Dynamic UI
+  output$dynamicUIHoriPlot <- renderUI({
+    if (input$compareAcrossHorizon == "Years") {
+      list(
+        selectInput("selectedStation", "Choose station", choices = unique(weather_data$Station), selected = unique(weather_data$Station)[1])
+      )
+    } else if (input$compareAcrossHorizon == "Stations") {
+      list(
+        selectInput("selectedStations", "Choose stations", 
+                    choices = unique(weather_data$Station), 
+                    multiple = TRUE,
+                    selected = unique(weather_data$Station)[1]),
+        selectInput("selectedYear", "Choose Year", choices = unique(weather_data$Year), selected = unique(weather_data$Year)[1])
+      )
+    }
   })
   
+  # Reactive update button
+  reactiveDataHoriPlot <- eventReactive(input$updateHoriPlot, {
+    
+    selected_var <- input$selectedVariable
+    
+    
+    if (input$compareAcrossHorizon == "Years") {
+      filtered_data <- weather_data %>%
+        filter(Station %in% input$selectedStation)
+    } else if (input$compareAcrossHorizon == "Stations") {
+      filtered_data <- weather_data %>%
+        filter(Station %in% input$selectedStations, Year == input$selectedYear)
+    }
+    
+    facet_var = ifelse(input$compareAcrossHorizon == "Years", "Year", "Station")
+    
+    title <- ifelse(input$compareAcrossHorizon == "Years",
+                            paste(selected_var, "for", input$selectedStation, "across the years 2021 to 2023"),
+                            paste(selected_var, "for", input$selectedYear, "across station(s)"))
+    
+    return(list(data = filtered_data, var = selected_var, facet = facet_var, title = title))
+  })
+  
+  # Output plot
   output$horizonPlot <- renderPlot({
     # Obtain the reactive data
     res <- reactiveDataHoriPlot()
     data_to_plot <- res$data
     selected_var <- res$var
+    facet_var <- res$facet
+    title <- res$title
     
     
-    # Step 1: compute origin and  horizon scale cutpoints: 
+    # Compute origin and  horizon scale cutpoints: 
     cutpoints <- data_to_plot %>% 
       mutate(
         outlier = between(
@@ -148,24 +196,21 @@ server <- function(input, output) {
           quantile(.data[[selected_var]], 0.75, na.rm = TRUE) +
             1.5 * IQR(.data[[selected_var]], na.rm = TRUE))) %>% 
       filter(outlier)
+    
     ori <- sum(range(cutpoints[[selected_var]]))/2
     sca <- seq(range(cutpoints[[selected_var]])[1], range(cutpoints[[selected_var]])[2], length.out = 7)[-4]
-    # ori <- sum(range(cutpoints$selected_var))/2
-    # sca <- seq(range(cutpoints$selected_var)[1], 
-    #            range(cutpoints$selected_var)[2], 
-    #            length.out = 7)[-4]
     
     ori <- round(ori, 2) # The origin, rounded to 2 decimal places
     sca <- round(sca, 2) # The horizon scale cutpoints
 
-    # Step 3: Plot horizon plot
+    # Plot horizon plot
     data_to_plot %>% ggplot() +
       geom_horizon(aes(x = Date_mine, 
                        y = .data[[selected_var]],
                        fill = after_stat(Cutpoints)), 
                    origin = ori, horizonscale = sca) +
       scale_fill_hcl(palette = 'RdBu', reverse = T) +
-      facet_grid(~Year ~ .) +
+      facet_grid(as.formula(paste(facet_var, "~ ."))) +
       theme_few() +
       theme(
         panel.spacing.y = unit(0, "lines"),
@@ -179,9 +224,21 @@ server <- function(input, output) {
                    date_breaks = "1 month", 
                    date_labels = "%b") +
       xlab('Date') +
-      ggtitle(paste(selected_var, "for",  input$selectedStation),
-              "across the years 2021 to 2023")
-    })  
+      ggtitle(title)
+    })
+  output$horizonDataTable <- DT::renderDataTable({
+    res <- reactiveDataHoriPlot()
+    data_to_plot <- res$data
+    selected_var <- res$var
+    data_to_table <- data_to_plot %>%
+      select(c(Station, Date, Year, Month, Day, selected_var))
+      
+    DT::datatable(data_to_table,
+                  class= "compact",
+                  rownames = FALSE,
+                  width="100%", 
+                  options = list(pageLength = 10, scrollX=T))  # Assuming 'weather_data' is your dataframe
+  })
   
 }
 

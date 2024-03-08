@@ -75,19 +75,9 @@ pacman::p_load(tidyverse, naniar, imputeTS, DT, knitr, lubridate,
                tseries, ggHoriPlot,
                TSclust, fable, dtwclust, dendextend,
                ggraph, plotly, factoextra, ggdendro)
-
-# pacman::p_load(ggplot2, patchwork, 
-#                ggridges, ggdist, ggstatsplot,
-#                plotly, ggiraph, ggdist, 
-#                ungeviz, crosstalk, 
-#                viridis)
 ```
 
 # Data Preparation
-
-## Overview of data preparation
-
-\<to be updated\>
 
 ::: callout-note
 To skip ahead to view the cleaned data, you can click @sec-viewcleaneddataset.
@@ -438,32 +428,24 @@ weather_data <- read_rds("data/weather_imputed_11stations.rds")
 # weather_data <- read_rds("data/weather_imputed.rds") 
 ```
 
-# Exploratory Data Analysis of Multiple Time Series (`Mean Temperature (°C)`)
+# Exploratory Data Analysis of Multiple Time Series
 
 ## Overview of Exploratory Data Analysis
 
-There are 4 variables in the dataset, *weather_data*, we can focus on for time series analysis:
+There are 4 variables in the dataset, *weather_data*, that we can use for time series analysis:
 
 -   `Daily Rainfall Total (mm)`
 -   `Mean Temperature (°C)`
 -   `Minimum Temperature (°C)`
 -   `Maximum Temperature (°C)`
 
-## Select for **`Mean Temperature (°C)`**
-
-```{r}
-# Extract the temperature data into a variable *temp_data*
-temp_data <- weather_data %>%
-  select(c(Station, Date, Year, Month, Day, `Mean Temperature (°C)`))
-  
-glimpse(temp_data)
-```
+For this exercise, we will utilise Horizon Plots to visualize multiple time series data. Future work on the project may include other exploratory plots for visualizing multiple time series data.
 
 ## Horizon Plots
 
 Horizon plots are a visualization technique used for displaying multiple time series data. Since the data contains data across **multiple years** for **multiple stations**, it would be valuable to allow users to use horizon plots to visually explore patterns or trends across multiple time series data.
 
-The plots below show the experimented views for this horizon plot feature.
+The plots below show the different versions of horizon plots.
 
 ### Horizon Plot of Mean Temperature (°C) across different weather stations, for 2021 - 2023
 
@@ -825,68 +807,22 @@ weather_data_2023 %>% ggplot() +
           'across the stations')
 ```
 
-## Calendar Heatmap
-
-### Calendar Heatmap for a single station
-
-```{r}
-#| code-fold: true
-#| code-summary: "show code"
-
-# Extract data for single station
-pulau_ubin_data <- temp_data %>%
-  filter(Station == 'Pulau Ubin')
-
-pulau_ubin_data <- pulau_ubin_data %>% 
-  mutate(
-    Month_Name = factor(months(Date), levels = rev(month.name)), # reverse so that January will be at the top of the calendar heatmap
-  )
-
-calendar <- pulau_ubin_data %>%
-  group_by(Year, Day, Month_Name) %>%
-  filter(Year == 2023) %>%
-  ungroup()
-
-heat <- ggplot(calendar, aes(x = Day, 
-                             y = Month_Name, 
-                             fill = `Mean Temperature (°C)`)) + 
-  geom_tile(color = "white", 
-            size = 0.1) + 
-  coord_equal() +
-  scale_fill_gradient(low = "sky blue", 
-                      high = "red") +
-  labs(x = "Days of Month", 
-       y = "", 
-       title = "Temperature in 2023") +
-  theme(axis.ticks = element_blank(),
-        axis.text.x = element_text(size = 5),
-        plot.title = element_text(hjust = 0.5),
-        legend.title = element_text(size = 8),
-        legend.text = element_text(size = 6)) +
-  scale_x_continuous(breaks = seq(min(calendar$Day), 
-                                  max(calendar$Day), 
-                                  by = 2),
-                     labels = seq(min(calendar$Day), 
-                                  max(calendar$Day), 
-                                  by = 2)) 
-heat
-```
-
 # Clustering of Multiple Time Series
 
 ## Overview
-
-\<to be updated\>
 
 Clustering is the practice of finding hidden patterns or similar groups in data.
 
 To perform time series clustering, we will use the function [`tsclust`](https://www.rdocumentation.org/packages/dtwclust/versions/3.1.1/topics/tsclust) from [`dtwclust`](https://www.rdocumentation.org/link/dtwclust?package=dtwclust&version=3.1.1).
 
-https://cran.r-project.org/web/packages/dtwclust/vignettes/dtwclust.pdf We will divide cluster analysis into four different parts:
+https://cran.r-project.org/web/packages/dtwclust/vignettes/dtwclust.pdf
 
--   Format data into list of series
+We will divide cluster analysis into the following parts:
+
+-   Format data into list of series for input to clustering function
 -   Choosing the clustering method: "partitional", "hierarchical", "tadpole" or "fuzzy"
--   Choosing distance computation: Ignored for type = "tadpole". Determining a measure to quantify the similarity between observations
+-   Choosing distance computation: Ignored for type = "tadpole".
+-   Determining a measure to quantify the similarity between observations
 -   Selecting the desired number of clusters
 
 ## Clustering of stations
@@ -895,7 +831,7 @@ We will use the variable `temp_data` , and perform cluster analysis of time seri
 
 ### Format data into list of series
 
-Users will be allowed to cluster by:
+Users should be allowed to cluster by:
 
 -   Stations
 -   Months, for a single station and given year
@@ -957,7 +893,7 @@ c <- tsclust(series = list_of_series,
         control = hierarchical_control(method = "complete") 
         )
 
-p <- fviz_dend(c, k = n_cluster,                 # Cut in four groups
+p <- fviz_dend(c, k = n_cluster,                 # Cut in n_cluster groups
           cex = 0.5,                 # label size
           k_colors = c("jco"),
           color_labels_by_k = FALSE,  # color labels by groups
@@ -967,7 +903,9 @@ p <- fviz_dend(c, k = n_cluster,                 # Cut in four groups
 p
 ```
 
-# Group Forecasting
+# Forecasting of grouped time series
+
+\<to be updated\>
 
 # UI Design
 
@@ -979,11 +917,23 @@ This module will contain three tabs:
 
 ## Tab 1: Horizon Plot
 
+\<to be updated\>
+
 ![](images/clipboard-3800135536.png)
 
 ```{r}
 
 ```
+
+## Tab 2: Clustering
+
+\<to be updated\>
+
+![](images/clipboard-2326084344.png)
+
+## Tab 3: Forecasting
+
+\<to be updated\>
 
 # References
 

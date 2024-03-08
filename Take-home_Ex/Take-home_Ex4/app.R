@@ -56,6 +56,7 @@ HoriPlot <-fluidPage(
     # Output table
     box(
       title = "Table", width = 12, status = "primary", solidHeader = TRUE,
+      collapsible = TRUE,
       DT::dataTableOutput("horizonDataTable")
     )
     
@@ -64,7 +65,19 @@ HoriPlot <-fluidPage(
 
 ##### Clustering ##### 
 Clustering <-fluidRow(
-  box()
+  box(title = "Controls", width = 3, status = "primary", solidHeader = TRUE,
+      radioButtons("selectedVariable", "Choose variable", variables),
+      radioButtons("clusterBy", "Cluster by", c("Stations", "Months") ),
+      selectInput("selectedClusterMethod", "Choose cluster method", c("partitional", "hierarchical", "tadpole","fuzzy")),
+      sliderInput("numClusters", "Number of Clusters", 
+                  min = 2, max = 10, value = 6),
+      uiOutput("dynamicUIClustering"),  # Placeholder for dynamic UI components
+      actionButton("updateClustering", "Update Clustering")
+      ),
+  box(title = "Clusters", width = 9, status = "primary", solidHeader = TRUE,
+      collapsible = TRUE,
+    plotOutput("clusterDendrogram")
+  )
 )
 
 ##### Forecasting ##### 
@@ -238,6 +251,68 @@ server <- function(input, output) {
                   rownames = FALSE,
                   width="100%", 
                   options = list(pageLength = 10, scrollX=T))  # Assuming 'weather_data' is your dataframe
+  })
+  
+  ##### For Clustering #####
+  # Dynamic UI
+  output$dynamicUIClustering <- renderUI({
+    if (input$clusterBy == "Months") {
+      list(
+        selectInput("selectedStation", "Choose station", choices = unique(weather_data$Station), selected = unique(weather_data$Station)[1]),
+        selectInput("selectedYear", "Choose Year", choices = unique(weather_data$Year), selected = unique(weather_data$Year)[1])
+      )
+    } else if (input$clusterBy == "Stations") {
+      list(
+        selectInput("selectedStations", "Choose stations", 
+                    choices = unique(weather_data$Station), 
+                    multiple = TRUE,
+                    selected = unique(weather_data$Station)[1])
+      )
+    }
+  })
+  
+  reactiveDataClustering <- eventReactive(input$updateClustering, {
+    selected_var <- input$selectedVariable
+    
+    selected_data <- weather_data %>%
+      select(Station, Date, Year, Month, Day, .data[[selected_var]])
+    
+    if (input$clusterBy == "Months") {
+      selected_data <- selected_data %>% 
+        filter(Station %in% input$selectedStation, Year == input$selectedYear) %>%
+        group_by(Month) %>%
+        summarise(data_list = list(.data[[selected_var]]), .groups = 'drop')
+      
+      list_of_series <- selected_data$data_list
+    } else if (input$clusterBy == "Stations") {
+      # Placeholder for when 'Stations' is the selected clusterBy option
+      # Implement according to your specific requirements
+    }
+    
+    # Ensure to return relevant data that your subsequent plotting/logic expects
+    return(list(data = selected_data, var = selected_var))
+  })
+  
+  
+  # Output clusterDendrogram
+  output$clusterDendrogram <- renderPlot({
+    res <- reactiveDataClustering()
+    list_of_series <- res$data$data_list
+    print(str(list_of_series))
+    n_cluster <- input$numClusters # Need to shift this to reactive
+    c <- tsclust(series = list_of_series, 
+                 type = "hierarchical",
+                 k = n_cluster, 
+                 distance = "dtw", 
+                 control = hierarchical_control(method = "complete"))
+    p <- fviz_dend(c, k = n_cluster,
+                   cex = 0.5, 
+                   k_colors = c("jco"),
+                   color_labels_by_k = FALSE,
+                   rect_border = "jco",
+                   rect = TRUE,
+                   rect_fill = TRUE)
+    print(p)
   })
   
 }

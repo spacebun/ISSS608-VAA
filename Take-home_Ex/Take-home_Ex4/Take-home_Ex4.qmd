@@ -92,7 +92,7 @@ raw_weather_data <- read_csv("data/climate_historical_daily_records.csv")
 Details of dataset:
 
 | Dataset            | Description                                                   | Period    | Source                                              |
-|----------------|----------------------|----------------|-------------------|
+|-----------------|---------------------|-----------------|------------------|
 | *raw_weather_data* | Climate Historical Daily Records for 63 stations in Singapore | 2014-2023 | http://www.weather.gov.sg/climate-historical-daily/ |
 
 This dataset was retrieved from the [Meteorological Service Singapore](http://www.weather.gov.sg/climate-historical-daily/) site, and had some basic [pre-processing steps performed in python](https://isss608-airweatheranalytics.netlify.app/code/data_retrieval) due to the large amount of files:
@@ -375,6 +375,19 @@ for(variable in weather_variables) {
 vis_miss(weather_data_imputed)
 ```
 
+### Add specific columns to data \[NEW\]
+
+These columns are added as they may be used in plots later.
+
+```{r}
+weather_data_imputed <- weather_data_imputed %>% 
+  mutate(Date_mine = make_date(2023, month(Date), day(Date)),
+         Month_Name = factor(months(Date), levels = month.name),
+         Week = isoweek(Date),
+         Weekday = wday(Date)
+  )
+```
+
 ## Summary of cleaned data {#sec-viewcleaneddataset}
 
 ### Details of stations and time period of data
@@ -447,6 +460,10 @@ Horizon plots are a visualization technique used for displaying multiple time se
 
 The plots below show the different versions of horizon plots.
 
+::: callout-note
+To make the code reproducible, efforts were made to avoid hard-coding values that may need adjustments. Instead, variable assignments were used to allow for flexibility and easier modifications in the future.
+:::
+
 ### Horizon Plot of Mean Temperature (°C) across different weather stations, for 2021 - 2023
 
 ```{r}
@@ -454,15 +471,18 @@ The plots below show the different versions of horizon plots.
 #| code-summary: "show code"
 #| fig-width: 10
 #| fig-height: 4
-# Step 1: compute origin and  horizon scale cutpoints: 
+
+selected_var = "Mean Temperature (°C)"
+
+# Compute origin and  horizon scale cutpoints: 
 cutpoints <- weather_data %>% 
   mutate(
     outlier = between(
-      `Mean Temperature (°C)`, 
-      quantile(`Mean Temperature (°C)`, 0.25, na.rm = TRUE) -
-        1.5 * IQR(`Mean Temperature (°C)`, na.rm = TRUE),
-      quantile(`Mean Temperature (°C)`, 0.75, na.rm = TRUE) +
-        1.5 * IQR(`Mean Temperature (°C)`, na.rm = TRUE))) %>% 
+      .data[[selected_var]], 
+      quantile(.data[[selected_var]], 0.25, na.rm = TRUE) -
+        1.5 * IQR(.data[[selected_var]], na.rm = TRUE),
+      quantile(.data[[selected_var]], 0.75, na.rm = TRUE) +
+        1.5 * IQR(.data[[selected_var]], na.rm = TRUE))) %>% 
   filter(outlier)
 
 ori <- sum(range(cutpoints$`Mean Temperature (°C)`))/2
@@ -482,8 +502,7 @@ weather_data %>% ggplot() +
   facet_grid(`Station`~.) +
   theme_few() +
   theme(panel.spacing.y=unit(0, "lines"), strip.text.y = element_text(
-    size = 5, angle = 0, hjust = 0),
-    # legend.position = 'none',
+    linewidth = 5, angle = 0, hjust = 0),
     axis.text.y = element_blank(),
     axis.text.x = element_text(size=7),
     axis.title.y = element_blank(),
@@ -833,68 +852,74 @@ We will use the variable `temp_data` , and perform cluster analysis of time seri
 
 Users should be allowed to cluster by:
 
--   Stations
--   Months, for a single station and given year
+-   Stations, for multiple stations and multiple years
+-   Months, for a single station and a given year
 
-#### By station
+#### For multiple stations and multiple years, by station
 
 ```{r}
 # Extract the target variable, temperature data into a variable
 temp_data <- weather_data %>%
   select(c(Station, Date, Year, Month, Day, `Mean Temperature (°C)`))
 
+# Filter for all stations and years 
+stations_selected = unique(weather_data$Station) # note: not station_selected
+years_selected = unique(weather_data$Year) # note: not stations_selected
+station_temp_data <- temp_data %>% 
+  filter(Station %in% station_selected) %>%
+  filter(Year %in% year_selected)
+
 # Ensure the data is ordered by Station and by Date
 temp_data <- temp_data %>%
   arrange(Station, Date)
 
-# Format data into list of series. 
+# Format data into list of series, by Station
 list_of_series <- split(temp_data$`Mean Temperature (°C)`, temp_data$Station)
 ```
 
 #### For a single selected station and year, by months
 
 ```{r}
-station_selected = "Changi"
-year_selected = "2023"
-
 # Extract the target variable, temperature data into a variable
 temp_data <- weather_data %>%
-  select(c(Station, Date, Year, Month, Day, `Mean Temperature (°C)`))
+  select(c(Station, Date, Year, Month, Month_Name, Day, `Mean Temperature (°C)`))
 
-# Filter for a single station and year e.g., "Changi", for 2023
+# Filter for station(s) and year(s) e.g., "Changi", for 2023
+stations_selected = "Changi"
+years_selected = "2023"
 station_temp_data <- temp_data %>% 
-  filter(Station == station_selected) %>%
-  filter(Year == 2023)
+  filter(Station %in% stations_selected) %>%
+  filter(Year %in% years_selected)
 
-# Create column with Month Name 
-station_temp_data <- station_temp_data %>% 
-  mutate(
-    Month_Name = factor(months(Date), levels = month.name)
-  )
+# Ensure the data is ordered by Month_Name and by Date
+station_temp_data <- station_temp_data %>%
+  arrange(Month_Name, Date)
 
-# Format data in a list of series
-list_of_series <- station_temp_data %>%
-  group_by(Month_Name) %>%
-  summarise(`Mean Temperature (°C)` = list(`Mean Temperature (°C)`)) %>%
-  pull(`Mean Temperature (°C)`)
+# Format data into list of series, by Month_Name
+list_of_series <- split(station_temp_data$`Mean Temperature (°C)`, station_temp_data$Month_Name)
 ```
 
 ### Varying clustering method
 
 #### Hierarchical
 
+Assume that users are trying to perform clustering for a single selected station and year, by months.
+
 ```{r}
-n_cluster = 6
+n_cluster = 5 # Number of desired clusters. Should not show if cluster_type == "partitional"
+cluster_type = "hierarchical" #  "partitional", "hierarchical", "tadpole" or "fuzzy"
+distance = "dtw" # Ignored for type = "tadpole"
+control = hierarchical_control(method = "complete") 
 
 c <- tsclust(series = list_of_series, 
-        type = "hierarchical",  #  "partitional", "hierarchical", "tadpole" or "fuzzy"
-        k = n_cluster, # Number of desired clusters. Should not show for "partitional"
-        distance = "dtw", # Ignored for type = "tadpole"
-        control = hierarchical_control(method = "complete") 
+        type = cluster_type,  
+        k = n_cluster, 
+        distance = distance, 
+        control = control
         )
 
-p <- fviz_dend(c, k = n_cluster,                 # Cut in n_cluster groups
-          cex = 0.5,                 # label size
+p <- fviz_dend(c, k = n_cluster, # Cut in n_cluster groups
+          cex = 0.5, # label size
           k_colors = c("jco"),
           color_labels_by_k = FALSE,  # color labels by groups
           rect_border = "jco",

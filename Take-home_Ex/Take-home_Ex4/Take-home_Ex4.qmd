@@ -92,7 +92,7 @@ raw_weather_data <- read_csv("data/climate_historical_daily_records.csv")
 Details of dataset:
 
 | Dataset            | Description                                                   | Period    | Source                                              |
-|-----------------|---------------------|-----------------|------------------|
+|------------------|-------------------|------------------|------------------|
 | *raw_weather_data* | Climate Historical Daily Records for 63 stations in Singapore | 2014-2023 | http://www.weather.gov.sg/climate-historical-daily/ |
 
 This dataset was retrieved from the [Meteorological Service Singapore](http://www.weather.gov.sg/climate-historical-daily/) site, and had some basic [pre-processing steps performed in python](https://isss608-airweatheranalytics.netlify.app/code/data_retrieval) due to the large amount of files:
@@ -464,15 +464,32 @@ The plots below show the different versions of horizon plots.
 To make the code reproducible, efforts were made to avoid hard-coding values that may need adjustments. Instead, variable assignments were used to allow for flexibility and easier modifications in the future.
 :::
 
-### Horizon Plot of Mean Temperature (°C) across different weather stations, for 2021 - 2023
+### Horizon Plot (Reproducible)
 
 ```{r}
 #| code-fold: true
 #| code-summary: "show code"
 #| fig-width: 10
 #| fig-height: 4
-
+#| echo: false
+#| eval: false
+compareAcrossHorizon = "Stations"
+selectedYear = 2021 # Need to update below code for selection of year
 selected_var = "Mean Temperature (°C)"
+date_breaks = "3 month"
+title <- ifelse(compareAcrossHorizon == "Years",
+                paste(selected_var, "for", selectedStation, "across the years 2021 to 2023"),
+                paste(selected_var, "for", selectedYear, "across station(s)"))
+
+# if (input$compareAcrossHorizon == "Years") {
+#   filtered_data <- weather_data %>%
+#     filter(Station %in% input$selectedStation)
+# } else if (input$compareAcrossHorizon == "Stations") {
+#   filtered_data <- weather_data %>%
+#     filter(Station %in% input$selectedStations, Year == input$selectedYear)
+# }
+
+# facet_var = ifelse(input$compareAcrossHorizon == "Years", "Year", "Station")
 
 # Compute origin and  horizon scale cutpoints: 
 cutpoints <- weather_data %>% 
@@ -495,6 +512,51 @@ sca <- round(sca, 2) # The horizon scale cutpoints
 
 weather_data %>% ggplot() +
   geom_horizon(aes(x = Date,
+                   y = .data[[selected_var]],
+                   fill = after_stat(Cutpoints)),
+               origin = ori, horizonscale = sca) +
+  scale_fill_hcl(palette = 'RdBu', reverse = T) +
+  facet_grid(`Station`~.) +
+  theme_few() +
+  theme(panel.spacing.y=unit(0, "lines"), strip.text.y = element_text(
+    size = 5, angle = 0, hjust = 0),
+    axis.text.y = element_blank(),
+    axis.text.x = element_text(size=7),
+    axis.title.y = element_blank(),
+    axis.title.x = element_blank(),
+    axis.ticks.y = element_blank(),
+    panel.border = element_blank()
+    ) +
+    scale_x_date(expand=c(0,0), date_breaks = date_breaks, date_labels = "%b%y") +
+  ggtitle(title)
+```
+
+### Horizon Plot of Mean Temperature (°C) across different weather stations, for 2021 - 2023
+
+```{r}
+#| code-fold: true
+#| code-summary: "show code"
+#| fig-width: 10
+#| fig-height: 4
+#| 
+# Step 1: compute origin and  horizon scale cutpoints: 
+cutpoints <- weather_data %>% 
+  mutate(
+    outlier = between(
+      `Mean Temperature (°C)`, 
+      quantile(`Mean Temperature (°C)`, 0.25, na.rm = TRUE) -
+        1.5 * IQR(`Mean Temperature (°C)`, na.rm = TRUE),
+      quantile(`Mean Temperature (°C)`, 0.75, na.rm = TRUE) +
+        1.5 * IQR(`Mean Temperature (°C)`, na.rm = TRUE))) %>% 
+  filter(outlier)
+ori <- sum(range(cutpoints$`Mean Temperature (°C)`))/2
+sca <- seq(range(cutpoints$`Mean Temperature (°C)`)[1], 
+           range(cutpoints$`Mean Temperature (°C)`)[2], 
+           length.out = 7)[-4]
+ori <- round(ori, 2) # The origin, rounded to 2 decimal places
+sca <- round(sca, 2) # The horizon scale cutpoints
+weather_data %>% ggplot() +
+  geom_horizon(aes(x = Date,
                    y = `Mean Temperature (°C)`,
                    fill = after_stat(Cutpoints)),
                origin = ori, horizonscale = sca) +
@@ -502,7 +564,8 @@ weather_data %>% ggplot() +
   facet_grid(`Station`~.) +
   theme_few() +
   theme(panel.spacing.y=unit(0, "lines"), strip.text.y = element_text(
-    linewidth = 5, angle = 0, hjust = 0),
+    size = 5, angle = 0, hjust = 0),
+    # legend.position = 'none',
     axis.text.y = element_blank(),
     axis.text.x = element_text(size=7),
     axis.title.y = element_blank(),
@@ -866,15 +929,24 @@ temp_data <- weather_data %>%
 stations_selected = unique(weather_data$Station) # note: not station_selected
 years_selected = unique(weather_data$Year) # note: not stations_selected
 station_temp_data <- temp_data %>% 
-  filter(Station %in% station_selected) %>%
-  filter(Year %in% year_selected)
+  filter(Station %in% stations_selected) %>%
+  filter(Year %in% years_selected)
+
+
+# Group-wise (Station-by-Station) Normalization, applying Min-Max scaling within each station group
+station_temp_data <- station_temp_data %>%
+  group_by(Station) %>%
+  mutate(Normalized_Temp = (`Mean Temperature (°C)` - min(`Mean Temperature (°C)`, na.rm = TRUE)) / 
+                            (max(`Mean Temperature (°C)`, na.rm = TRUE) - min(`Mean Temperature (°C)`, na.rm = TRUE))) %>%
+  ungroup()
+
 
 # Ensure the data is ordered by Station and by Date
-temp_data <- temp_data %>%
+station_temp_data <- station_temp_data %>%
   arrange(Station, Date)
 
 # Format data into list of series, by Station
-list_of_series <- split(temp_data$`Mean Temperature (°C)`, temp_data$Station)
+list_of_series <- split(station_temp_data$Normalized_Temp, station_temp_data$Station)
 ```
 
 #### For a single selected station and year, by months
@@ -886,7 +958,7 @@ temp_data <- weather_data %>%
 
 # Filter for station(s) and year(s) e.g., "Changi", for 2023
 stations_selected = "Changi"
-years_selected = "2023"
+years_selected = "2021"
 station_temp_data <- temp_data %>% 
   filter(Station %in% stations_selected) %>%
   filter(Year %in% years_selected)
@@ -903,12 +975,14 @@ list_of_series <- split(station_temp_data$`Mean Temperature (°C)`, station_temp
 
 #### Hierarchical
 
-Assume that users are trying to perform clustering for a single selected station and year, by months.
+Assume clustering for several stations across 2021 - 2023.
+
+~~Assume that users are trying to perform clustering for a single selected station and year, by months.~~
 
 ```{r}
 n_cluster = 5 # Number of desired clusters. Should not show if cluster_type == "partitional"
 cluster_type = "hierarchical" #  "partitional", "hierarchical", "tadpole" or "fuzzy"
-distance = "dtw" # Ignored for type = "tadpole"
+distance = "dtw_basic" # Ignored for type = "tadpole"
 control = hierarchical_control(method = "complete") 
 
 c <- tsclust(series = list_of_series, 
@@ -930,7 +1004,22 @@ p
 
 # Forecasting of grouped time series
 
-\<to be updated\>
+Say we have the following groups:\
+![](images/clipboard-2703185754.png)
+
+We will attempt to apply forecasting models to these groups.
+
+[Source](https://cran.rstudio.com/web/packages/sweep/vignettes/SW01_Forecasting_Time_Series_Groups.html)
+
+The forecasting workflow involves a few basic steps:
+
+1.  Step 1: Coerce to a `ts` object class.
+
+2.  Step 2: Apply a model (or set of models)
+
+3.  Step 3: Forecast the models (similar to predict)
+
+4.  Step 4: Tidy the forecast
 
 # UI Design
 

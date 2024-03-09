@@ -49,6 +49,8 @@ website:
             href: In-class_Ex/In-class_Ex1/In-class_Ex1.html
           - text: In-class Exercise 6
             href: In-class_Ex/In-class_Ex6/In-class_Ex6.html
+          - text: In-class Exercise 7
+            href: In-class_Ex/In-class_Ex7/In-class_Ex7.html
       - text: "{{< iconify fxemoji schoolsatchel >}} Take-home Exercises"
         menu: 
           - text: Take-home Exercise 1

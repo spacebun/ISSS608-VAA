@@ -307,32 +307,28 @@ We can also display derived statistics.
 
 ```{r}
 #| echo: False
-# Create object for tooltip information  
-tooltip <- function(ymin, lower, middle, upper, ymax, accuracy = .01) {
-  sem <- scales::number((ymax - ymin) / 2, accuracy = accuracy) # SEM for 90% CI
-  median <- scales::number(middle, accuracy = accuracy)
-  lower_quartile <- scales::number(lower, accuracy = accuracy)
-  upper_quartile <- scales::number(upper, accuracy = accuracy)
-  
-  paste("Median:", median, 
-        "\n25th Quartile:", lower_quartile, 
-        "\n75th Quartile:", upper_quartile,
-        "\n95% CI: [", scales::number(ymin, accuracy = accuracy), 
-        ", ", scales::number(ymax, accuracy = accuracy), "]")
+tooltip <- function(y, ymax, accuracy = .01) {
+  mean <- scales::number(y, accuracy = accuracy)
+  sem <- scales::number(ymax - y, accuracy = accuracy)
+  paste("Mean maths scores:", mean, "+/-", sem)
 }
 
-# Create ggplot object
-gg_boxplot <- ggplot(data = exam_data, aes(x = GENDER, y = ENGLISH)) +
-  geom_boxplot_interactive(
-    aes(tooltip = after_stat(tooltip(ymin, lower, middle, upper, ymax))), # Pass in after_stat of tooltip information 
-    stat = "boxplot"
+gg_point <- ggplot(data=exam_data, 
+                   aes(x = RACE),
+) +
+  stat_summary(aes(y = MATHS, 
+                   tooltip = after_stat(  
+                     tooltip(y, ymax))),  
+    fun.data = "mean_se", 
+    geom = GeomInteractiveCol,  
+    fill = "light blue"
   ) +
-  labs(title = "Boxplot of English Scores by Gender",
-       x = "Gender",
-       y = "English Scores")
+  stat_summary(aes(y = MATHS),
+    fun.data = mean_se,
+    geom = "errorbar", width = 0.2, size = 0.2
+  )
 
-# Pass in ggobject into girafe
-girafe(ggobj = gg_boxplot,
+girafe(ggobj = gg_point,
        width_svg = 8,
        height_svg = 8*0.618)
 
@@ -343,31 +339,28 @@ girafe(ggobj = gg_boxplot,
 ```{r}
 #| eval: False
 # Create object for tooltip information  
-tooltip <- function(ymin, lower, middle, upper, ymax, accuracy = .01) {
-  sem <- scales::number((ymax - ymin) / 2, accuracy = accuracy) # SEM for 90% CI
-  median <- scales::number(middle, accuracy = accuracy)
-  lower_quartile <- scales::number(lower, accuracy = accuracy)
-  upper_quartile <- scales::number(upper, accuracy = accuracy)
-  
-  paste("Median:", median, 
-        "\n25th Quartile:", lower_quartile, 
-        "\n75th Quartile:", upper_quartile,
-        "\n95% CI: [", scales::number(ymin, accuracy = accuracy), 
-        ", ", scales::number(ymax, accuracy = accuracy), "]")
+tooltip <- function(y, ymax, accuracy = .01) {
+  mean <- scales::number(y, accuracy = accuracy)
+  sem <- scales::number(ymax - y, accuracy = accuracy)
+  paste("Mean maths scores:", mean, "+/-", sem)
 }
 
-# Create ggplot object
-gg_boxplot <- ggplot(data = exam_data, aes(x = GENDER, y = ENGLISH)) +
-  geom_boxplot_interactive(
-    aes(tooltip = after_stat(tooltip(ymin, lower, middle, upper, ymax))), # Pass in after_stat of tooltip information 
-    stat = "boxplot"
+gg_point <- ggplot(data=exam_data, 
+                   aes(x = RACE),
+) +
+  stat_summary(aes(y = MATHS, 
+                   tooltip = after_stat(  
+                     tooltip(y, ymax))),  
+    fun.data = "mean_se", 
+    geom = GeomInteractiveCol,  
+    fill = "light blue"
   ) +
-  labs(title = "Boxplot of English Scores by Gender",
-       x = "Gender",
-       y = "English Scores")
+  stat_summary(aes(y = MATHS),
+    fun.data = mean_se,
+    geom = "errorbar", width = 0.2, size = 0.2
+  )
 
-# Pass in ggobject into girafe
-girafe(ggobj = gg_boxplot,
+girafe(ggobj = gg_point,
        width_svg = 8,
        height_svg = 8*0.618)
 

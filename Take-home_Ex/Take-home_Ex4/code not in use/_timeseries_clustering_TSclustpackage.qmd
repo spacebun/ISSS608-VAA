@@ -15,10 +15,9 @@ execute:
   warning: false  
 ---
 
-
 # Overview
 
-This document contains the code for generating clusters using TSclust package. 
+This document contains the code for generating clusters using TSclust package.
 
 ## Load packages
 
@@ -32,7 +31,6 @@ pacman::p_load(tidyverse, DT, knitr, lubridate,
 ```{r}
 weather_data <- read_rds("data/weather_imputed_11stations.rds") 
 ```
-
 
 # Clustering of Multiple Time Series
 
@@ -212,8 +210,7 @@ rect.hclust(tam_hc,
 
 ### Step 2: Determining a measure to quantify the similarity between observations
 
-There are several methods for quantifying similarity between observations. 
-The [`TSclust::diss`](https://cran.r-project.org/web/packages/TSclust/TSclust.pdf) function offers a variety dissimilarity measures to be used. 
+There are several methods for quantifying similarity between observations. The [`TSclust::diss`](https://cran.r-project.org/web/packages/TSclust/TSclust.pdf) function offers a variety dissimilarity measures to be used.
 
 ::: callout-tip
 ### Design Considerations on measures for quantifying similarity
@@ -222,8 +219,7 @@ For this project we will present two options for the user to try:
 
 -   Euclidean Distance
 -   Dynamic Time Warping
-
-::: 
+:::
 
 Below, we show how this is implemented assuming normalization by groups using Min-Max scaling is done:
 
@@ -296,8 +292,8 @@ rect.hclust(tam_hc,
             k = 5) # Change k based on number of clusters desired
 # cutree(tam_hc, k = 5)
 ```
-### Step 3: Choosing the method to obtain the clustering
 
+### Step 3: Choosing the method to obtain the clustering
 
 ::: callout-tip
 ### Design Considerations on measures for clustering methods
@@ -306,9 +302,7 @@ For this project we will present three options for the user to try:
 
 -   Euclidean Distance
 -   Dynamic Time Warping
-
-::: 
-
+:::
 
 ## Clustering of months
 

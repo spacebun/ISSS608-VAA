@@ -227,7 +227,7 @@ server <- function(input, output) {
       theme_few() +
       theme(
         panel.spacing.y = unit(0, "lines"),
-        strip.text.y = element_text(linewidth = 7, angle = 0, hjust = 0),
+        strip.text.y = element_text(size = 7, angle = 0, hjust = 0),
         axis.text.y = element_blank(),
         axis.title.y = element_blank(),
         axis.ticks.y = element_blank(),

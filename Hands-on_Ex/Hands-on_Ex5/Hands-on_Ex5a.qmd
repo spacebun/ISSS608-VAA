@@ -66,23 +66,30 @@ agpop_mutated <- pop_data %>%
 We can first plot a simple ternary plot.
 
 ```{r}
-ggtern(data=agpop_mutated,aes(x=YOUNG,y=ACTIVE, z=OLD)) +
-  geom_point() +
-  labs(title = "Population Distribution by Age Groups in 2018: A Ternary Perspective") +
-  theme(plot.title = element_text(size = 12))
+# Code commented out due to error. See https://github.com/nicholasehamilton/ggtern/issues/57
+
+# ggtern(data=agpop_mutated,aes(x=YOUNG,y=ACTIVE, z=OLD)) +
+#   geom_point() +
+#   labs(title = "Population Distribution by Age Groups in 2018: A Ternary Perspective") +
+#   theme(plot.title = element_text(size = 12))
+# ggtern(data=agpop_mutated,aes(x=YOUNG,y=ACTIVE, z=OLD)) +
+#   geom_point()
 ```
+
+![](images/clipboard-3228190924.png)
 
 We further customise the themes. We can find a list of ggtern themes [here](https://rdrr.io/cran/ggtern/man/ggtern_themes.html).
 
 ```{r}
-#Building the static ternary plot
-ggtern(data=agpop_mutated, aes(x=YOUNG,y=ACTIVE, z=OLD)) +
-  geom_point() +
-  labs(title="Population structure, 2018") +
-  theme_tropical()
+# Code commented out due to error. See https://github.com/nicholasehamilton/ggtern/issues/57
+# #Building the static ternary plot
+# ggtern(data=agpop_mutated, aes(x=YOUNG,y=ACTIVE, z=OLD)) +
+#   geom_point() +
+#   labs(title="Population structure, 2018") +
+#   theme_tropical()
 ```
 
-### Plotting an interative ternary diagram using `plotly()`
+### ![](images/clipboard-666877747.png)Plotting an interative ternary diagram using `plotly()`
 
 ```{r}
 # Create annotation 

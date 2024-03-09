@@ -1,0 +1,236 @@
+---
+title: "In-class Exercise 7"
+subtitle: "Interpolation with GeoSpatial Data"
+date: March 9, 2024
+date-modified: "last-modified"
+format:
+  html:
+    toc: true
+    number-sections: false
+    code-line-numbers: false
+    
+execute: 
+  eval: true
+  echo: true
+  warning: false
+  message: false
+---
+
+## Overview
+
+Objective of this exercise is to create interpolation for rainfall data.
+
+## Load libraries
+
+```{r}
+pacman::p_load(sf, 
+               terra, 
+               gstat,# used for interpolation
+               tmap, 
+               viridis, 
+               tidyverse)
+```
+
+## Import data
+
+Read in aspatial data, where latitude and longitude of the data is provided for each station:
+
+```{r}
+rfstations <- read_csv("data/aspatial/RainfallStation.csv")
+```
+
+```{r}
+glimpse(rfstations)
+```
+
+Read in attribute data and select for desired variables:
+
+```{r}
+rfdata<- read_csv("data/aspatial/DAILYDATA_202402.csv") %>% 
+  select(c(1,5)) %>% # select column 1 to 5
+  group_by(Station) %>% # Group by rainfall station
+  summarise(MONTHSUM = sum(`Daily Rainfall Total (mm)`)) %>%
+  ungroup()
+```
+
+## Data preparation
+
+Do a left join to add the latitude and longitude to our data.
+
+```{r}
+rfdata <- rfdata %>%
+  left_join(rfstations)
+```
+
+Make it spatial data:
+
+```{r}
+rfdata_sf <- st_as_sf(rfdata,
+                      coords = c("Longitude", # X axis must be called first 
+                                 "Latitude"),
+                      crs = 4236) %>% # Y axis
+              st_transform(crs = 3414) # To project this into SVY21
+```
+
+Use tmap to plot
+
+```{r}
+# This is a shape file, read in with st_read
+mpsz2019 <- st_read(dsn = "data/geospatial",
+                    layer = "MPSZ-2019") %>%
+  st_transform(crs = 3414)
+```
+
+Notice it has a MULTIPOLYGON for the geometry column:
+
+![](images/clipboard-4082827819.png)
+
+Within each there are multple polygon pairs:
+
+![](images/clipboard-926487031.png)
+
+Use tmap function:
+
+```{r}
+tmap_options(check.and.fix = TRUE) # Some geo data may be topological data. Use this code to fix topo error without changing the data. 
+tmap_mode("view") # Make your map interactive
+
+# Instead of using polygon we use tm_shape
+tm_shape(mpsz2019) + # Plot boundary map
+  tm_borders() +
+  tm_shape(rfdata_sf) + # Plot rainfall station 
+  tm_dots(col = "MONTHSUM") # Use color to differentiate the total rainfall data
+tmap_mode("plot")
+```
+
+You can call tm_polygon() and put the fill or you can do tm_fill(). (for your consideration
+
+In order to generate interpolation, we need a raster layer. We need to define the number of cols and rows in this later.
+
+```{r}
+mpsz2019
+```
+
+Inputs required for raster layer:
+
+-   calculate difference between xmax, xmin and ymax, ymin
+
+-   choose resolutions (e.g. 50m by 50m)
+
+Use these inputs to calculate the number of rows and number columns:
+
+-   nrows = (ymax - ymin)/res
+
+-   ncol = (xmax - xmin)/res
+
+Front end user sees the option to adjust resolution (*res*) of the grid.
+
+take ymax - ymin divided by the raster grid resolution (e.g. 50 meters or 100 meters)
+
+We will create this raster layer:
+
+```{r}
+# Create a raster layer, grid,  from an existing spatial object mpsz2019
+grid <- terra::rast(mpsz2019, 
+                   nrows = 690, # (ymax - ymin)/50 (where 50 is chosen res)
+                   ncols = 1075) # (xmax - xmin)/50 (where 50 is chosen res)
+
+# Generate coordinates for each cell of the raster 
+xy <- terra::xyFromCell(grid,
+                         1:ncell(grid))
+```
+
+```{r}
+# Converting coordinates of raster into a spatial (sf) object
+coop <- st_as_sf(as.data.frame(xy),
+                 coords = c("x","y"),
+                 crs = st_crs(mpsz2019)) # Assign CRS based on mpsz2019
+coop <- st_filter(coop,mpsz2019) # Filter to only only includes points within mpsz2019
+```
+
+## Method 1: inverse distance weighted interpolation
+
+```{r}
+res <- gstat(formula = MONTHSUM ~ 1, # specify  dependent variable
+             locations = rfdata_sf,
+             nmax= 15, # number of nearest neighbors considered for interpolation. Parameter to expose for UI
+             set = list(idp = 0))
+
+# Predict values at new locations (coop) based on the spatial data (rfdata_sf)
+resp <- predict(res,coop)
+
+# Extract x and y coordinates and the predicted values into resp
+resp$x <- st_coordinates(resp)[,1]
+resp$y <- st_coordinates(resp)[,2]
+resp$pred <- resp$var1.pred
+
+
+# Predictions are rasterized over a predefined grid, using the mean of predictions where multiple values fall into a single grid cell
+# This results in a raster layer pred representing spatially interpolated values of MONTHSUM.
+pred <- terra:: rasterize(resp, grid, # resp$pred contains the spatially interpolated variables. grid is raster layer.
+                         field="pred",
+                         fun="mean")
+```
+
+Plot the result
+
+```{r}
+tmap_options(check.and.fix = TRUE)
+tmap_mode("plot")
+tm_shape(pred) +
+  tm_raster(alpha=0.6,
+            palette = "viridis")
+```
+
+## Method 2: ordinary kriging
+
+Variogram model, no covariates
+
+We are going to use three parameters of the `gstat` function:
+
+-   `formula`—The prediction **“formula”** specifying the dependent and the independent variables (covariates)
+
+-   `data`—The calibration **data**
+
+-   `model`—The **variogram** model
+
+```{r}
+v <- variogram(log(MONTHSUM) ~ 1,
+               data = rfdata_sf)
+plot(v)
+```
+
+```{r}
+fv <- fit.variogram(object = v,
+                    model = vgm(psill = 0.5, model = "Sph",
+                                range = 900, nugget = 0.1))
+
+fv
+plot(v, fv, cex = 1.5)
+```
+
+```{r}
+k <- gstat(formula = log(MONTHSUM) ~ 1,
+           data = rfdata_sf,
+           model = fv)
+```
+
+```{r}
+resp <- predict(k,coop)
+resp$x <- st_coordinates(resp)[,1]
+resp$y <- st_coordinates(resp)[,2]
+resp$pred <- resp$var1.pred
+
+kpred <- terra::rasterize(resp, grid,
+                          field = "pred")
+```
+
+```{r}
+tmap_options(check.and.fix = TRUE)
+tmap_mode("plot")
+tm_shape(kpred) +
+  tm_raster(alpha = 0.6,
+            palette = "viridis")
+```
+
+You don't need to expose every option.

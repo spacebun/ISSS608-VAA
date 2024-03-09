@@ -33,7 +33,7 @@ For our project, we aim to create a Shiny app with user-friendly functionalities
 
 The R Shiny app will consists of four modules:
 
--   Homepage module: Users have an overview of the dataset used in application.
+-   Homepage module: Users have an overview of the dataset used in application. 
 -   EDA and CDA module: Users can explore the distribution and trends in the dataset for specific periods or locations (station or region), and use statistical analysis to confirm the trends.
 -   Univariate forecasting module: Users can explore the time series decomposition of the different variables, and select the type of model that they would like to use for univariate time series forecasting.
 -   Clustering and Group Forecasting module: Users can explore grouping stations with similar weather patterns or grouping time periods with similar patterns. The user would then be able to choose different models to forecast the grouped data.
@@ -46,18 +46,17 @@ For this exercise, we will focus on the last two modules.
 ## Load packages
 
 ```{r}
-pacman::p_load(gstat)
-```
-
-```{r}
 pacman::p_load(tidyverse, naniar, imputeTS, DT, knitr, lubridate,
                ggplot2, patchwork, ggthemes,
                tseries, tsibble, ggHoriPlot, feasts,
                TSclust, fable, dtwclust, dendextend,
                ggraph, plotly, factoextra, ggdendro,
                sf, terra, viridis)
+```
 
+```{r}
 library(tmap)
+library(gstat)
 ```
 
 # Data Preparation
@@ -898,29 +897,6 @@ Users should be allowed to cluster by:
 -   Stations, for multiple stations and multiple years
 -   Months, for a single station and a given year
 
-
-#### For a single selected station and year, by months
-
-```{r}
-# Extract the target variable, temperature data into a variable
-temp_data <- weather_data %>%
-  select(c(Station, Date, Year, Month, Month_Name, Day, `Mean Temperature (°C)`))
-
-# Filter for station(s) and year(s) e.g., "Changi", for 2023
-stations_selected = "Changi"
-years_selected = "2021"
-station_temp_data <- temp_data %>% 
-  filter(Station %in% stations_selected) %>%
-  filter(Year %in% years_selected)
-
-# Ensure the data is ordered by Month_Name and by Date
-station_temp_data <- station_temp_data %>%
-  arrange(Month_Name, Date)
-
-# Format data into list of series, by Month_Name
-list_of_series <- split(station_temp_data$`Mean Temperature (°C)`, station_temp_data$Month_Name)
-```
-
 #### For multiple stations and multiple years, by station
 
 ```{r}
@@ -952,6 +928,27 @@ station_temp_data <- station_temp_data %>%
 list_of_series <- split(station_temp_data$Normalized_Temp, station_temp_data$Station)
 ```
 
+#### For a single selected station and year, by months
+
+```{r}
+# Extract the target variable, temperature data into a variable
+temp_data <- weather_data %>%
+  select(c(Station, Date, Year, Month, Month_Name, Day, `Mean Temperature (°C)`))
+
+# Filter for station(s) and year(s) e.g., "Changi", for 2023
+stations_selected = "Changi"
+years_selected = "2021"
+station_temp_data <- temp_data %>% 
+  filter(Station %in% stations_selected) %>%
+  filter(Year %in% years_selected)
+
+# Ensure the data is ordered by Month_Name and by Date
+station_temp_data <- station_temp_data %>%
+  arrange(Month_Name, Date)
+
+# Format data into list of series, by Month_Name
+list_of_series <- split(station_temp_data$`Mean Temperature (°C)`, station_temp_data$Month_Name)
+```
 
 ### Varying clustering method
 
@@ -999,9 +996,10 @@ The forecasting workflow involves a few basic steps:
 
 2.  Apply a model or set of models
 
-3.  Forecast the models
+3.  Forecast the models 
 
-4.  Include measures to compare accuracy of models
+4.  Include measures to compare accuracy of models 
+
 
 ```{r}
 # Extract cluster assignments
@@ -1024,7 +1022,7 @@ for (i in unique(clusters)) {
 # cluster_dfs is a list of dataframes, each representing one cluster
 ```
 
-Prepare data for forecasting:
+Prepare data for forecasting: 
 
 ```{r}
 cluster_data <- cluster_dfs[[1]]
@@ -1048,8 +1046,7 @@ cluster_data_aggregated <- date_info %>%
 cluster_data_aggregated <- as_tsibble(cluster_data_aggregated, index = Date)
 
 ```
-
-Do forecasting
+Do forecasting 
 
 ```{r}
 # cluster_data_aggregated %>%
@@ -1070,6 +1067,7 @@ fc %>%
   guides(colour = guide_legend(title = "Forecast"))
 ```
 
+
 # Spatial Interpolation
 
 This module presents different methods to do spatial interpolation for the data.
@@ -1086,9 +1084,10 @@ Design considerations for user control:
 
 -   Use radioButtons function to select only one variable ("Daily Rainfall Total (mm)", "Mean Temperature (°C)")
 -   Use radioButtons function to select only one type of time window
--   This function should be conditional.
+  -   This function should be conditional. 
 
-First, read in shape file for Singapore. This step should be done before UI and server code.
+
+First, read in shape file for Singapore. This step should be done before UI and server code. 
 
 ```{r}
 # This is a shape file, read in with st_read
@@ -1099,7 +1098,8 @@ mpsz2019 <- st_read(dsn = "data/geospatial",
 
 Next, aggregate weather data for selected variable and time window
 
-For rainfall, we should aggregate by computing sum of rainfall for the month. For temperature, we should aggregate by computing average temperature per month.
+For rainfall, we should aggregate by computing sum of rainfall for the month.
+For temperature, we should aggregate by computing average temperature per month. 
 
 ```{r}
 # Indicate user variable
@@ -1171,6 +1171,7 @@ coop <- st_filter(coop, mpsz2019) # Filter to only only includes points within m
 ### Varying nmax
 
 ::: panel-tabset
+
 ### nmax = 1
 
 ```{r}
@@ -1250,7 +1251,8 @@ tm_shape(pred) +
 
 # UI Design
 
-## Clustering and Group Forecasting module
+
+## Clustering and Group Forecasting module 
 
 This module will contain three tabs:
 
@@ -1271,10 +1273,6 @@ This module will contain three tabs:
 ![](images/clipboard-2326084344.png)
 
 ### Tab 3: Forecasting Grouped Time Series
-
-\<to be updated\>
-
-## Geospatial Module
 
 \<to be updated\>
 

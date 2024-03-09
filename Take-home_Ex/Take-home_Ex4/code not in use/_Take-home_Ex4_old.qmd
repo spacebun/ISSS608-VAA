@@ -17,7 +17,7 @@ execute:
 
 # Overview
 
-In this exercise, I will use selected modules of the Shiny application for the Group Project component to fulfill the following objectives:
+In this exercise, I will use a module of the Shiny application for the Group Project component to fulfill the following objectives:
 
 -   To evaluate and determine what are the necessary R packages needed for the Shiny application supported in R CRAN,
 
@@ -27,37 +27,54 @@ In this exercise, I will use selected modules of the Shiny application for the G
 
 -   To select the appropriate Shiny UI components for exposing the parameters determined above.
 
+My submission includes:
+
+-   The prototype module report, that provides detailed discussion and explanation of:
+
+    -   the **data preparation** process,
+
+    -   the selection of **data visualisation techniques** used,
+
+    -   and the data visualisation design and interactivity principles and best practices implemented.
+
+-   The proposed UI design for the different components of the UI.
+
 # Project details
 
 For our project, we aim to create a Shiny app with user-friendly functionalities, to effectively visualize and analyze climate data.
 
-The R Shiny app will consists of four modules:
+The R Shiny app will consists of four sections:
 
--   Homepage module: Users have an overview of the dataset used in application.
--   EDA and CDA module: Users can explore the distribution and trends in the dataset for specific periods or locations (station or region), and use statistical analysis to confirm the trends.
--   Univariate forecasting module: Users can explore the time series decomposition of the different variables, and select the type of model that they would like to use for univariate time series forecasting.
--   Clustering and Group Forecasting module: Users can explore grouping stations with similar weather patterns or grouping time periods with similar patterns. The user would then be able to choose different models to forecast the grouped data.
--   Geospatial module: It will include a map of Singapore and interactivity elements that allow users to view the dataset at different points in time.
+-   Homepage tab: Users have an overview of the dataset used in application. It will include a map of Singapore and interactivity elements that allow users to view the dataset at different points in time.
+-   EDA and CDA tab: Users can explore the distribution and trends in the dataset for specific periods or locations (station or region), and use statistical analysis to confirm the trends.
+-   Time series analysis: Users can explore the time series decomposition of the different variables, and select the type of model that they would like to use for univariate time series forecasting.
+-   Clustering time series analysis: Users can explore grouping stations with similar weather patterns or grouping time periods with similar patterns. The user would then be able to choose different models to forecast the grouped data.
 
-For this exercise, we will focus on the last two modules.
+For this exercise, we will focus on the last module.
 
 # Getting started
 
 ## Load packages
 
-```{r}
-pacman::p_load(gstat)
-```
+First, we load packages required:
+
+-   **tidyverse**: this package includes a variety of R packages such as **ggplot2** and **dplyr**. the packages will be used to support tasks such as reading in packages or data manipulation or plotting
+
+-   **naniar**: for using *miss_vis()* function to check data for missing values
+
+-   **DT**: for using *datatable()* to view the dataset interactively
+
+-   **lubridate**: for handling date-time formats
+
+-   \<to be updated\>
 
 ```{r}
 pacman::p_load(tidyverse, naniar, imputeTS, DT, knitr, lubridate,
                ggplot2, patchwork, ggthemes,
-               tseries, tsibble, ggHoriPlot, feasts,
+               tseries, ggHoriPlot,
                TSclust, fable, dtwclust, dendextend,
                ggraph, plotly, factoextra, ggdendro,
-               sf, terra, viridis)
-
-library(tmap)
+               sf, terra, gstat, viridis)
 ```
 
 # Data Preparation
@@ -75,7 +92,7 @@ raw_weather_data <- read_csv("data/climate_historical_daily_records.csv")
 Details of dataset:
 
 | Dataset            | Description                                                   | Period    | Source                                              |
-|----------------|----------------------|----------------|-------------------|
+|--------------------|---------------------------------------------------------------|-----------|-----------------------------------------------------|
 | *raw_weather_data* | Climate Historical Daily Records for 63 stations in Singapore | 2014-2023 | http://www.weather.gov.sg/climate-historical-daily/ |
 
 This dataset was retrieved from the [Meteorological Service Singapore](http://www.weather.gov.sg/climate-historical-daily/) site, and had some basic [pre-processing steps performed in python](https://isss608-airweatheranalytics.netlify.app/code/data_retrieval) due to the large amount of files:
@@ -367,8 +384,9 @@ weather_data_imputed <- weather_data_imputed %>%
   mutate(Date_mine = make_date(2023, month(Date), day(Date)),
          Month_Name = factor(months(Date), levels = month.name),
          Week = isoweek(Date),
-         Weekday = wday(Date)) %>%
+         Weekday = wday(Date) %>%
   select(1:5, Date_mine, Month_Name, Week, Weekday, everything()) # Re-order columns
+  )
 ```
 
 ## Summary of cleaned data {#sec-viewcleaneddataset}
@@ -441,6 +459,8 @@ For this exercise, we will utilise Horizon Plots to visualize multiple time seri
 
 Horizon plots are a visualization technique used for displaying multiple time series data. Since the data contains data across **multiple years** for **multiple stations**, it would be valuable to allow users to use horizon plots to visually explore patterns or trends across multiple time series data.
 
+The plots below show the different versions of horizon plots.
+
 ::: callout-note
 To make the code reproducible, efforts were made to avoid hard-coding values that may need adjustments. Instead, variable assignments were used to allow for flexibility and easier modifications in the future.
 :::
@@ -483,9 +503,10 @@ cutpoints <- weather_data %>%
         1.5 * IQR(.data[[selected_var]], na.rm = TRUE))) %>% 
   filter(outlier)
 
-ori <- sum(range(cutpoints[[selected_var]]))/2
-sca <- seq(range(cutpoints[[selected_var]])[1], range(cutpoints[[selected_var]])[2], length.out = seq_length)[-seq_length/2]
-
+ori <- sum(range(cutpoints$`Mean Temperature (°C)`))/2
+sca <- seq(range(cutpoints$`Mean Temperature (°C)`)[1], 
+           range(cutpoints$`Mean Temperature (°C)`)[2], 
+           length.out = 7)[-4]
 
 ori <- round(ori, 2) # The origin, rounded to 2 decimal places
 sca <- round(sca, 2) # The horizon scale cutpoints
@@ -898,29 +919,6 @@ Users should be allowed to cluster by:
 -   Stations, for multiple stations and multiple years
 -   Months, for a single station and a given year
 
-
-#### For a single selected station and year, by months
-
-```{r}
-# Extract the target variable, temperature data into a variable
-temp_data <- weather_data %>%
-  select(c(Station, Date, Year, Month, Month_Name, Day, `Mean Temperature (°C)`))
-
-# Filter for station(s) and year(s) e.g., "Changi", for 2023
-stations_selected = "Changi"
-years_selected = "2021"
-station_temp_data <- temp_data %>% 
-  filter(Station %in% stations_selected) %>%
-  filter(Year %in% years_selected)
-
-# Ensure the data is ordered by Month_Name and by Date
-station_temp_data <- station_temp_data %>%
-  arrange(Month_Name, Date)
-
-# Format data into list of series, by Month_Name
-list_of_series <- split(station_temp_data$`Mean Temperature (°C)`, station_temp_data$Month_Name)
-```
-
 #### For multiple stations and multiple years, by station
 
 ```{r}
@@ -952,6 +950,27 @@ station_temp_data <- station_temp_data %>%
 list_of_series <- split(station_temp_data$Normalized_Temp, station_temp_data$Station)
 ```
 
+#### For a single selected station and year, by months
+
+```{r}
+# Extract the target variable, temperature data into a variable
+temp_data <- weather_data %>%
+  select(c(Station, Date, Year, Month, Month_Name, Day, `Mean Temperature (°C)`))
+
+# Filter for station(s) and year(s) e.g., "Changi", for 2023
+stations_selected = "Changi"
+years_selected = "2021"
+station_temp_data <- temp_data %>% 
+  filter(Station %in% stations_selected) %>%
+  filter(Year %in% years_selected)
+
+# Ensure the data is ordered by Month_Name and by Date
+station_temp_data <- station_temp_data %>%
+  arrange(Month_Name, Date)
+
+# Format data into list of series, by Month_Name
+list_of_series <- split(station_temp_data$`Mean Temperature (°C)`, station_temp_data$Month_Name)
+```
 
 ### Varying clustering method
 
@@ -986,295 +1005,63 @@ p
 
 # Forecasting of grouped time series
 
-\<to be updated\>
-
-Say we have the following groups as a result of clustering:\
+Say we have the following groups:\
 ![](images/clipboard-2703185754.png)
 
 We will attempt to apply forecasting models to these groups.
 
+[Source](https://cran.rstudio.com/web/packages/sweep/vignettes/SW01_Forecasting_Time_Series_Groups.html)
+
 The forecasting workflow involves a few basic steps:
 
-1.  Prepare data in a suitable format for time series forecasting
+1.  Step 1: Coerce to a `ts` object class.
 
-2.  Apply a model or set of models
+2.  Step 2: Apply a model (or set of models)
 
-3.  Forecast the models
+3.  Step 3: Forecast the models (similar to predict)
 
-4.  Include measures to compare accuracy of models
-
-```{r}
-# Extract cluster assignments
-clusters <- c@cluster
-
-# Extract series names (stations)
-series_names <- names(clusters)
-
-# Create a list to store dataframes for each cluster
-cluster_dfs <- list()
-
-for (i in unique(clusters)) {
-  # Identify series belonging to the current cluster
-  series_in_cluster <- series_names[clusters == i]
-  
-  # Extract these series from the original data and store in list
-  cluster_dfs[[paste("Cluster", i)]] <- weather_data[weather_data$Station %in% series_in_cluster, ]
-}
-
-# cluster_dfs is a list of dataframes, each representing one cluster
-```
-
-Prepare data for forecasting:
-
-```{r}
-cluster_data <- cluster_dfs[[1]]
-unique(cluster_data$Station) # Stations in our data
-
-# Calculate mean temperature averages by Date
-temp_averages <- cluster_data %>%
-  group_by(Date) %>%
-  summarise(Average_Mean_Temperature_C = mean(`Mean Temperature (°C)`, na.rm = TRUE)) %>%
-  ungroup()
-
-# Retain distinct date-related information
-date_info <- cluster_data %>%
-  select(Date, Year, Month, Day, Date_mine, Month_Name, Week, Weekday) %>%
-  distinct()
-
-# Merge temperature averages with date information
-cluster_data_aggregated <- date_info %>%
-  left_join(temp_averages, by = "Date")
-
-cluster_data_aggregated <- as_tsibble(cluster_data_aggregated, index = Date)
-
-```
-
-Do forecasting
-
-```{r}
-# cluster_data_aggregated %>%
-#   autoplot(Average_Mean_Temperature_C) 
-
-fit <- cluster_data_aggregated %>%
-  model(
-    snaive = SNAIVE(Average_Mean_Temperature_C ),
-    ets = ETS(Average_Mean_Temperature_C),
-    arima = ARIMA(Average_Mean_Temperature_C)
-  )
-fc <- fit %>%
-  forecast(h = 12)
-fc %>%
-  autoplot(cluster_data_aggregated, level = NULL) + # show no prediction intervals
-  ggtitle("Forecasts") +
-  xlab("Date") +
-  guides(colour = guide_legend(title = "Forecast"))
-```
+4.  Step 4: Tidy the forecast
 
 # Spatial Interpolation
 
-This module presents different methods to do spatial interpolation for the data.
-
-Steps:
-
--   Data preparation
--   Apply interpolation method
--   Visualize result with tmap
-
 ## Data Preparation
 
-Design considerations for user control:
-
--   Use radioButtons function to select only one variable ("Daily Rainfall Total (mm)", "Mean Temperature (°C)")
--   Use radioButtons function to select only one type of time window
--   This function should be conditional.
-
-First, read in shape file for Singapore. This step should be done before UI and server code.
+### Aggregate data into monthly rainfall
 
 ```{r}
-# This is a shape file, read in with st_read
-mpsz2019 <- st_read(dsn = "data/geospatial",
-                    layer = "MPSZ-2019") %>%
-  st_transform(crs = 3414)
+selected_var = "Daily Rainfall Total (mm)"
+
+variable_data <- weather_data %>% 
+  group_by(Station) %>% # Group by station
+  summarise(MONTHSUM = sum()) %>%
+  ungroup()
 ```
-
-Next, aggregate weather data for selected variable and time window
-
-For rainfall, we should aggregate by computing sum of rainfall for the month. For temperature, we should aggregate by computing average temperature per month.
-
-```{r}
-# Indicate user variable
-selected_var <- "Daily Rainfall Total (mm)" # "Daily Rainfall Total (mm)" or "Mean Temperature (°C)"
-selected_month <- c("January")
-selected_year <- c("2021")
-
-# Create tbl for chosen variable and time period
-variable_data <- weather_data %>%
-  filter(Year %in% selected_year,
-         Month_Name %in% selected_month) %>%
-  group_by(Station, Year, Month, LAT, LONG) %>%
-  summarise(MonthlyValue = if(selected_var == "Daily Rainfall Total (mm)") {
-                sum(.data[[selected_var]], na.rm = TRUE)
-              } else {
-                mean(.data[[selected_var]], na.rm = TRUE)
-              }, .groups = 'drop')
-  
-# Make it spatial data
-variable_data_sf <- st_as_sf(variable_data,
-                      coords = c("LONG", # X axis  
-                                 "LAT"),
-                      crs = 4236) %>% # Y axis
-              st_transform(crs = 3414) # To project this into SVY21
-
-# Plot variable with tmap
-tmap_options(check.and.fix = TRUE) # Use this code to fix topo error without changing the data. 
-tmap_mode("view") # Make map interactive
-
-
-tm_shape(mpsz2019) + # Plot boundary map
-  tm_borders() +
-  tm_shape(variable_data_sf) + # Plot station 
-  tm_dots(col = "MonthlyValue") # Use color to differentiate
-
-tmap_mode("plot") # Change mode back
-```
-
-```{r}
-# Create Raster Data
-# Extract bounding box variables from mpsz2019 
-bbox <- as.list(st_bbox(mpsz2019))
-
-# Assume user is able to indicate resolution
-res = 50 # User Input
-
-nrows =  (bbox$ymax - bbox$ymin)/res
-ncols = (bbox$xmax - bbox$xmin)/res
-
-# Create a raster layer, `grid`,  from an existing spatial object `mpsz2019`
-grid <- terra::rast(mpsz2019, 
-                   nrows = nrows, 
-                   ncols = ncols)
-
-# Generate coordinates for each cell of the raster 
-xy <- terra::xyFromCell(grid,
-                         1:ncell(grid))
-
-# Converting coordinates of raster into a spatial (sf) object
-coop <- st_as_sf(as.data.frame(xy),
-                 coords = c("x","y"),
-                 crs = st_crs(mpsz2019)) # Assign CRS based on mpsz2019
-
-coop <- st_filter(coop, mpsz2019) # Filter to only only includes points within mpsz2019
-```
-
-## Method 1: inverse distance weighted interpolation
-
-### Varying nmax
-
-::: panel-tabset
-### nmax = 1
-
-```{r}
-#| code-fold: true
-# Set value
-nmax = 1
-
-# Create gstat object
-res <- gstat(formula = MonthlyValue ~ 1, # specify  dependent variable
-             locations = variable_data_sf,
-             nmax = nmax, # number of nearest neighbors considered for interpolation. Parameter to expose for UI
-             set = list(idp = 0))
-
-# Predict values at new locations (coop) based on the spatial data (rfdata_sf)
-resp <- predict(res,coop)
-
-# Plot The Result
-
-# Extract x and y coordinates and the predicted values into resp
-resp$x <- st_coordinates(resp)[,1]
-resp$y <- st_coordinates(resp)[,2]
-resp$pred <- resp$var1.pred
-
-
-# Predictions are rasterized over a predefined grid, using the mean of predictions where multiple values fall into a single grid cell
-# This results in a raster layer pred representing spatially interpolated values of MONTHSUM.
-pred <- terra:: rasterize(resp, grid, # resp$pred contains the spatially interpolated variables. grid is raster layer.
-                         field="pred",
-                         fun="mean")
-
-
-tmap_options(check.and.fix = TRUE)
-tmap_mode("plot")
-tm_shape(pred) +
-  tm_raster(alpha=0.6,
-            palette = "viridis")
-```
-
-### nmax = 3
-
-```{r}
-#| code-fold: true
-# Set value
-nmax = 3
-
-# Create gstat object
-res <- gstat(formula = MonthlyValue ~ 1, # specify  dependent variable
-             locations = variable_data_sf,
-             nmax = nmax, # number of nearest neighbors considered for interpolation. Parameter to expose for UI
-             set = list(idp = 0))
-
-# Predict values at new locations (coop) based on the spatial data (rfdata_sf)
-resp <- predict(res,coop)
-
-# Plot The Result
-
-# Extract x and y coordinates and the predicted values into resp
-resp$x <- st_coordinates(resp)[,1]
-resp$y <- st_coordinates(resp)[,2]
-resp$pred <- resp$var1.pred
-
-
-# Predictions are rasterized over a predefined grid, using the mean of predictions where multiple values fall into a single grid cell
-# This results in a raster layer pred representing spatially interpolated values of MONTHSUM.
-pred <- terra:: rasterize(resp, grid, # resp$pred contains the spatially interpolated variables. grid is raster layer.
-                         field="pred",
-                         fun="mean")
-
-
-tmap_options(check.and.fix = TRUE)
-tmap_mode("plot")
-tm_shape(pred) +
-  tm_raster(alpha=0.6,
-            palette = "viridis")
-```
-:::
 
 # UI Design
-
-## Clustering and Group Forecasting module
 
 This module will contain three tabs:
 
 -   Horizon Plot
--   Time Series Clustering
--   Forecasting Grouped Time Series
+-   Clustering of time series
+-   Forecasting of grouped time series
 
-### Tab 1: Horizon Plot
+## Tab 1: Horizon Plot
 
 \<to be updated\>
 
 ![](images/clipboard-3800135536.png)
 
-### Tab 2: Time Series Clustering
+```{r}
+
+```
+
+## Tab 2: Clustering
 
 \<to be updated\>
 
 ![](images/clipboard-2326084344.png)
 
-### Tab 3: Forecasting Grouped Time Series
-
-\<to be updated\>
-
-## Geospatial Module
+## Tab 3: Forecasting
 
 \<to be updated\>
 

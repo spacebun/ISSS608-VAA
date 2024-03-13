@@ -947,7 +947,7 @@ station_temp_data <- station_temp_data %>%
 # Format data into list of series, by Station
 list_of_series <- split(station_temp_data$Normalized_Temp, station_temp_data$Station)
 ```
-::: 
+:::
 
 ### Exploring clustering methods
 
@@ -980,6 +980,7 @@ p <- fviz_dend(c, k = n_cluster, # Cut in n_cluster groups
           horiz = TRUE)
 p
 ```
+
 Varying number of desired clusters, *k*, produces the following:
 
 \<to be updated\>
@@ -987,7 +988,6 @@ Varying number of desired clusters, *k*, produces the following:
 Keeping *k* at x and varying the distance computation produces the following:
 
 \<to be updated\>
-
 
 # Clustering Module: Forecasting of grouped time series
 
@@ -1091,8 +1091,8 @@ Design considerations for user control:
 -   Use radioButtons function to select only one type of time window
 -   Display original data and both methods for interpolation side by side.
 -   For each method, offer variable to tweak:
-  -   Inverse Distance Weighting (IDW): *nmax*
-  -   Ordinary Kriging
+-   Inverse Distance Weighting (IDW): *nmax*
+-   Ordinary Kriging
 
 First, read in planning subzone boundary data (shape file) for Singapore. This step should be done before running UI and server code.
 
@@ -1107,8 +1107,7 @@ mpsz2019 <- st_read(dsn = "data/geospatial",
 
 We first focus on interpolating data using IDW method for a specified month.
 
-For rainfall, we should aggregate by computing sum of rainfall for the month. 
-For temperature, we should aggregate by computing average temperature per month.
+For rainfall, we should aggregate by computing sum of rainfall for the month. For temperature, we should aggregate by computing average temperature per month.
 
 ::: panel-tabset
 ### Daily Rainfall Total (mm)
@@ -1190,11 +1189,28 @@ resp$pred <- resp$var1.pred
 pred <- terra:: rasterize(resp, grid, # resp$pred contains the spatially interpolated variables. grid is raster layer.
                          field="pred",
                          fun="mean")
+# map the interpolated variable raster, pred
+main_title <- ifelse(selected_var == "Daily Rainfall Total (mm)",
+                paste("Distribution for Total Rainfall (mm) for", selected_month, selected_year),
+                paste("Distribution for Average Mean Temperature (°C) for", selected_month, selected_year))
+raster_title <- ifelse(selected_var == "Daily Rainfall Total (mm)",
+                paste("Total Monthly Rainfall (mm)"),
+                paste("Average Mean Temperature (°C)"))
 tmap_options(check.and.fix = TRUE)
 tmap_mode("plot")
-tm_shape(pred) +
-  tm_raster(alpha=0.6,
-            palette = "viridis")
+tm_shape(pred) + 
+  tm_raster(alpha = 0.6, 
+            palette = "viridis",
+            title = raster_title) +
+  tm_layout(main.title = main_title,
+            main.title.position = "center",
+            main.title.size = 1.2,
+            legend.height = 0.45, 
+            legend.width = 0.35,
+            frame = TRUE) +
+  tm_compass(type="8star", size = 2) +
+  tm_scale_bar() +
+  tm_grid(alpha =0.2)
 ```
 
 Varying nmax produced the following results:
@@ -1279,17 +1295,33 @@ resp$pred <- resp$var1.pred
 pred <- terra:: rasterize(resp, grid, # resp$pred contains the spatially interpolated variables. grid is raster layer.
                          field="pred",
                          fun="mean")
+# map the interpolated variable raster, pred
+main_title <- ifelse(selected_var == "Daily Rainfall Total (mm)",
+                paste("Distribution for Total Rainfall (mm) for", selected_month, selected_year),
+                paste("Distribution for Average Mean Temperature (°C) for", selected_month, selected_year))
+raster_title <- ifelse(selected_var == "Daily Rainfall Total (mm)",
+                paste("Total Monthly Rainfall (mm)"),
+                paste("Average Mean Temperature (°C)"))
 tmap_options(check.and.fix = TRUE)
 tmap_mode("plot")
-tm_shape(pred) +
-  tm_raster(alpha=0.6,
-            palette = "viridis")
+tm_shape(pred) + 
+  tm_raster(alpha = 0.6, 
+            palette = "viridis",
+            title = raster_title) +
+  tm_layout(main.title = main_title,
+            main.title.position = "center",
+            main.title.size = 1.2,
+            legend.height = 0.45, 
+            legend.width = 0.35,
+            frame = TRUE) +
+  tm_compass(type="8star", size = 2) +
+  tm_scale_bar() +
+  tm_grid(alpha =0.2)
 ```
 
 Varying nmax produced the following results:
 
 ![](images/clipboard-2558859595.png)
-
 :::
 
 ### Method 2: Kriging
@@ -1299,12 +1331,18 @@ Kriging can be understood as a two-step process:
 -   first, the spatial covariance structure of the sampled points is determined by fitting a variogram; and
 -   second, weights derived from this covariance structure are used to interpolate values for unsampled points or blocks across the spatial field.
 
+The below code chunk show the available variogram models in **gstat**.
+
+```{r}
+show.vgms(par.strip.text = list(cex = 0.75))
+
+```
 
 ::: panel-tabset
-
 ### Daily Rainfall Total (mm)
 
 Data Prep
+
 ```{r}
 #| code-fold: true
 #| code-summary: "show code"
@@ -1332,16 +1370,6 @@ variable_data_sf <- st_as_sf(variable_data,
                       crs= 4326) %>%
   st_transform(crs = 3414) # To project this into SVY21
 
-# # Visualize variable with tmap
-# tmap_options(check.and.fix = TRUE) # Use this code to fix topo error without changing the data. 
-# tmap_mode("view") # Make map interactive
-# tm_shape(mpsz2019) + # Plot boundary map
-#   tm_borders() +
-# tm_shape(variable_data_sf) +
-#   tm_dots(col = 'MonthlyValue') # Use color to differentiate
-# 
-# tmap_mode("plot") # Change mode back
-
 # Create grid data object / Raster data
 # Extract bounding box variables from mpsz2019 
 bbox <- as.list(st_bbox(mpsz2019))
@@ -1364,8 +1392,7 @@ coop <- st_as_sf(as.data.frame(xy),
 coop <- st_filter(coop, mpsz2019) # Filter to only only includes points within mpsz2019
 ```
 
-
-Below, we show the exploratory plot that should be shown to user to assess what variables to toggle when fitting the variogram. 
+This is the “experimental” variogram that should be shown to user, for user to assess what variables to adjust when fitting the variogram.
 
 ```{r}
 #| code-fold: true
@@ -1375,40 +1402,59 @@ v <- variogram(MonthlyValue ~ 1,
 plot(v, cex = 1.5) # Experimental plot that should be shown to user
 ```
 
+The below code chunk is used to tweak the fitted variogram:
+
 ```{r}
 #| code-fold: true
 #| code-summary: "show code"
+
+
+# The different parameters have been tweaked and the results are presented below. 
 # User will choose based on below variables 
 fv <- fit.variogram(object = v,
-                    model = vgm(psill = 1, 
-                                model = "Sph",
-                                range = 5000, 
-                                nugget = 0.1))
+                    model = vgm(psill = 5, model = "Gau", range = 8000, nugget = 0.1))
 
 fv
 plot(v, fv, cex = 1.5) #  visualise how well the observed data fit the model by plotting fv 
 
 
+```
+
+Final surface map
+
+```{r}
+#| code-fold: true
+#| code-summary: "show code"
+# perform spatial interpolation by using the newly derived model 
 k <- gstat(formula = MonthlyValue ~ 1,
            data = variable_data_sf,
            model = fv)
 
+# estimate the unknown grids
 resp <- predict(k,coop)
 
 resp$x <- st_coordinates(resp)[,1]
 resp$y <- st_coordinates(resp)[,2]
 resp$pred <- resp$var1.pred
 
+# create a raster surface data object
 kpred <- terra::rasterize(resp, grid,
                           field = "pred")
 
+# map the interpolated variable raster, kpred
+main_title <- ifelse(selected_var == "Daily Rainfall Total (mm)",
+                paste("Distribution for Total Rainfall (mm) for", selected_month, selected_year),
+                paste("Distribution for Average Mean Temperature (°C) for", selected_month, selected_year))
+raster_title <- ifelse(selected_var == "Daily Rainfall Total (mm)",
+                paste("Total Monthly Rainfall (mm)"),
+                paste("Average Mean Temperature (°C)"))
 tmap_options(check.and.fix = TRUE)
 tmap_mode("plot")
 tm_shape(kpred) + 
   tm_raster(alpha = 0.6, 
             palette = "viridis",
-            title = "Total monthly rainfall (mm)") +
-  tm_layout(main.title = "Distribution of monthly rainfall, Feb 2023",
+            title = raster_title) +
+  tm_layout(main.title = main_title,
             main.title.position = "center",
             main.title.size = 1.2,
             legend.height = 0.45, 
@@ -1421,7 +1467,8 @@ tm_shape(kpred) +
 
 ### Mean Temperature (°C)
 
-Data Prep: 
+Data Prep:
+
 ```{r}
 #| code-fold: true
 #| code-summary: "show code"
@@ -1471,17 +1518,107 @@ coop <- st_as_sf(as.data.frame(xy),
 coop <- st_filter(coop, mpsz2019) # Filter to only only includes points within mpsz2019
 ```
 
+This is the “experimental” variogram that should be shown to user, for user to assess what variables to adjust when fitting the variogram.
+
+```{r}
+#| code-fold: true
+#| code-summary: "show code"
+v <- variogram(MonthlyValue ~ 1, 
+               data = variable_data_sf)
+plot(v, cex = 1.5) # Experimental plot that should be shown to user
+```
+
+The below code chunk is used to tweak the fitted variogram:
+
+```{r}
+#| code-fold: true
+#| code-summary: "show code"
+
+
+# The different parameters have been tweaked and the results are presented below. 
+# User will choose based on below variables 
+fv <- fit.variogram(object = v,
+                    model = vgm(psill = 5, model = "Gau", range = 5000, nugget = 0.1))
+
+fv
+plot(v, fv, cex = 1.5) #  visualise how well the observed data fit the model by plotting fv 
+
+
+```
+
+Final surface map
+
+```{r}
+#| code-fold: true
+#| code-summary: "show code"
+# perform spatial interpolation by using the newly derived model 
+k <- gstat(formula = MonthlyValue ~ 1,
+           data = variable_data_sf,
+           model = fv)
+
+# estimate the unknown grids
+resp <- predict(k,coop)
+
+resp$x <- st_coordinates(resp)[,1]
+resp$y <- st_coordinates(resp)[,2]
+resp$pred <- resp$var1.pred
+
+# create a raster surface data object
+kpred <- terra::rasterize(resp, grid,
+                          field = "pred")
+
+# map the interpolated variable raster, kpred
+main_title <- ifelse(selected_var == "Daily Rainfall Total (mm)",
+                paste("Distribution for Total Rainfall (mm) for", selected_month, selected_year),
+                paste("Distribution for Average Mean Temperature (°C) for", selected_month, selected_year))
+raster_title <- ifelse(selected_var == "Daily Rainfall Total (mm)",
+                paste("Total Monthly Rainfall (mm)"),
+                paste("Average Mean Temperature (°C)"))
+tmap_options(check.and.fix = TRUE)
+tmap_mode("plot")
+tm_shape(kpred) + 
+  tm_raster(alpha = 0.6, 
+            palette = "viridis",
+            title = raster_title) +
+  tm_layout(main.title = main_title,
+            main.title.position = "center",
+            main.title.size = 1.2,
+            legend.height = 0.45, 
+            legend.width = 0.35,
+            frame = TRUE) +
+  tm_compass(type="8star", size = 2) +
+  tm_scale_bar() +
+  tm_grid(alpha =0.2)
+```
 :::
+
+When varying *model* option, there was noticeable variation in the final surface map:
+
+![](images/clipboard-1050740677.png)
+
+When varying *psill* option for different models, some models showed different surface maps while others looked similar:
+
+![](images/clipboard-1960416952.png)
+
+![](images/clipboard-1460570609.png)
+
+When varying *range* option while keeping the other options static, there were different surface maps:
+
+![](images/clipboard-408425766.png)
 
 #### Automatic variogram modelling
 
+Beside using gstat to perform variogram modelling manually, `autofirVariogram()` of **automap** package can be used to perform varigram modelling.
+
 ::: panel-tabset
+#### Daily Rainfall Total (mm)
 
-#### "Daily Rainfall Total (mm)
+Data Prep:
 
-Data Prep: 
 ```{r}
 #| code-fold: true
+#| code-summary: "show code"
+
 # Indicate user variable
 selected_var <- "Daily Rainfall Total (mm)" # "Daily Rainfall Total (mm)" or "Mean Temperature (°C)"
 selected_month <- c("February") # User to specify Month
@@ -1528,11 +1665,69 @@ coop <- st_as_sf(as.data.frame(xy),
 coop <- st_filter(coop, mpsz2019) # Filter to only only includes points within mpsz2019
 ```
 
+Auto fit variogram:
 
+```{r}
+#| code-fold: true
+#| code-summary: "show code"
+
+v_auto <- autofitVariogram(MonthlyValue ~ 1, 
+                           variable_data_sf)
+plot(v_auto)
+v_auto
+
+```
+
+Final surface map: 
+
+```{r}
+#| code-fold: true
+#| code-summary: "show code"
+# perform spatial interpolation by using the newly derived model 
+k <- gstat(formula = MonthlyValue ~ 1, 
+           model = v_auto$var_model,
+           data = variable_data_sf)
+k
+
+# estimate the unknown grids
+resp <- predict(k, coop)
+resp$x <- st_coordinates(resp)[,1]
+resp$y <- st_coordinates(resp)[,2]
+resp$pred <- resp$var1.pred
+resp$pred <- resp$pred
+
+# create a raster surface data object
+kpred <- terra::rasterize(resp, grid, 
+                         field = "pred")
+
+# map the interpolated variable raster, kpred
+main_title <- ifelse(selected_var == "Daily Rainfall Total (mm)",
+                paste("Distribution for Total Rainfall (mm) for", selected_month, selected_year),
+                paste("Distribution for Average Mean Temperature (°C) for", selected_month, selected_year))
+raster_title <- ifelse(selected_var == "Daily Rainfall Total (mm)",
+                paste("Total Monthly Rainfall (mm)"),
+                paste("Average Mean Temperature (°C)"))
+tmap_options(check.and.fix = TRUE)
+tmap_mode("plot")
+tm_shape(kpred) + 
+  tm_raster(alpha = 0.6, 
+            palette = "viridis",
+            title = raster_title) +
+  tm_layout(main.title = main_title,
+            main.title.position = "center",
+            main.title.size = 1.2,
+            legend.height = 0.45, 
+            legend.width = 0.35,
+            frame = TRUE) +
+  tm_compass(type="8star", size = 2) +
+  tm_scale_bar() +
+  tm_grid(alpha =0.2)
+```
 
 #### Mean Temperature (°C)
 
-Data Prep: 
+Data Prep:
+
 ```{r}
 #| code-fold: true
 # Indicate user variable
@@ -1581,31 +1776,55 @@ coop <- st_as_sf(as.data.frame(xy),
 coop <- st_filter(coop, mpsz2019) # Filter to only only includes points within mpsz2019
 ```
 
+Auto fit variogram:
 
 ```{r}
+#| code-fold: true
+#| code-summary: "show code"
+
 v_auto <- autofitVariogram(MonthlyValue ~ 1, 
                            variable_data_sf)
 plot(v_auto)
 v_auto
+
+```
+
+Final surface map: 
+
+```{r}
+#| code-fold: true
+#| code-summary: "show code"
+# perform spatial interpolation by using the newly derived model 
 k <- gstat(formula = MonthlyValue ~ 1, 
            model = v_auto$var_model,
            data = variable_data_sf)
 k
+
+# estimate the unknown grids
 resp <- predict(k, coop)
 resp$x <- st_coordinates(resp)[,1]
 resp$y <- st_coordinates(resp)[,2]
 resp$pred <- resp$var1.pred
 resp$pred <- resp$pred
 
+# create a raster surface data object
 kpred <- terra::rasterize(resp, grid, 
                          field = "pred")
+
+# map the interpolated variable raster, kpred
+main_title <- ifelse(selected_var == "Daily Rainfall Total (mm)",
+                paste("Distribution for Total Rainfall (mm) for", selected_month, selected_year),
+                paste("Distribution for Average Mean Temperature (°C) for", selected_month, selected_year))
+raster_title <- ifelse(selected_var == "Daily Rainfall Total (mm)",
+                paste("Total Monthly Rainfall (mm)"),
+                paste("Average Mean Temperature (°C)"))
 tmap_options(check.and.fix = TRUE)
 tmap_mode("plot")
 tm_shape(kpred) + 
   tm_raster(alpha = 0.6, 
             palette = "viridis",
-            title = "Total monthly rainfall (mm)") +
-  tm_layout(main.title = "Distribution of monthly rainfall, Feb 2023",
+            title = raster_title) +
+  tm_layout(main.title = main_title,
             main.title.position = "center",
             main.title.size = 1.2,
             legend.height = 0.45, 
@@ -1615,9 +1834,9 @@ tm_shape(kpred) +
   tm_scale_bar() +
   tm_grid(alpha =0.2)
 ```
+:::
 
-
-# UI Design
+# UI Design (Work in Progress)
 
 ## Clustering and Group Forecasting module
 

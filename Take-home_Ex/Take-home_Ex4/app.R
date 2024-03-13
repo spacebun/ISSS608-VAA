@@ -298,6 +298,7 @@ server <- function(input, output) {
   output$clusterDendrogram <- renderPlot({
     res <- reactiveDataClustering()
     list_of_series <- res$data$data_list
+    names(list_of_series)<-month.name
     print(str(list_of_series))
     n_cluster <- input$numClusters # Need to shift this to reactive
     c <- tsclust(series = list_of_series, 

@@ -55,7 +55,7 @@ pacman::p_load(tidyverse, naniar, imputeTS, DT, knitr, lubridate,
                tseries, tsibble, ggHoriPlot, feasts,
                TSclust, fable, dtwclust, dendextend,
                ggraph, plotly, factoextra, ggdendro,
-               sf, terra, viridis, automap)
+               sf, terra, viridis)
 
 library(tmap)
 ```
@@ -75,7 +75,7 @@ raw_weather_data <- read_csv("data/climate_historical_daily_records.csv")
 Details of dataset:
 
 | Dataset            | Description                                                   | Period    | Source                                              |
-|------------------|-------------------|------------------|------------------|
+|-----------------|---------------------|-----------------|------------------|
 | *raw_weather_data* | Climate Historical Daily Records for 63 stations in Singapore | 2014-2023 | http://www.weather.gov.sg/climate-historical-daily/ |
 
 This dataset was retrieved from the [Meteorological Service Singapore](http://www.weather.gov.sg/climate-historical-daily/) site, and had some basic [pre-processing steps performed in python](https://isss608-airweatheranalytics.netlify.app/code/data_retrieval) due to the large amount of files:
@@ -420,39 +420,137 @@ write_rds(weather_data_imputed, "data/weather_imputed_11stations.rds")
 The below code can be used to import the cleaned data.
 
 ```{r}
-weather_data <- read_rds("data/weather_imputed_11stations.rds")
+weather_data <- read_rds("data/weather_imputed_11stations.rds") 
+# weather_data <- read_rds("data/weather_imputed.rds") 
 ```
 
 # Clustering Module: Exploratory Data Analysis of Multiple Time Series
+
+## Overview of Exploratory Data Analysis
+
+There are 4 variables in the dataset, *weather_data*, that we can use for time series analysis:
+
+-   `Daily Rainfall Total (mm)`
+-   `Mean Temperature (°C)`
+-   `Minimum Temperature (°C)`
+-   `Maximum Temperature (°C)`
+
+We will utilise Horizon Plots to visualize multiple time series data at a glance.
 
 ::: callout-note
 To make the code reproducible, efforts were made to avoid hard-coding values that may need adjustments. Instead, variable assignments were used to allow for flexibility and easier modifications in the future.
 :::
 
-## Horizon Plots
+## Time Series Plots
 
-We will utilise Horizon Plots to explore and visualize multiple time series data at a glance.
+Convert data to tsibble format for analysis using **fable**:
 
-Horizon plots are a visualization technique used for displaying multiple time series data. Since the data contains data across **multiple years** for **multiple stations**, it would be valuable to allow users to use horizon plots to visually explore patterns or trends across multiple time series data.
+```{r}
+weather_tsbl <- as_tsibble(weather_data, key = Station, index = Date)
+weather_tsbl
+```
 
-Overview of user options:
+Select variables:
 
--   Select daily variable to plot
--   Plot across stations for different time granularity
--   Choose months to plot (Compare 1 month, Compare 3 months, Compare 6 months)
--   Choose years to plot (Compare 1 year, Compare 2 years, Compare 3 years)
--   Plot across different time periods for a single stations
+```{r}
+selected_stations <- c("Ang Mo Kio", "Changi", "Tai Seng") 
+selected_var <- "Minimum Temperature (°C)" # or "Daily Rainfall Total (mm)"
+start_date <- "2021-01-01"
+end_date <-  "2023-12-31"
+```
 
-### Horizon Plot with reproducible code
+### Daily
 
 ```{r}
 #| code-fold: true
 #| code-summary: "show code"
 #| fig-width: 10
 #| fig-height: 4
-#| code-eval: false
+# Filter data based on period
+filtered_period <- weather_tsbl %>%
+  filter_index(start_date ~ end_date)
 
+# Filter period-filtered data based on multiple selected stations
+filtered_period_mstn <- filtered_period  %>%
+  filter(Station %in% selected_stations) 
 
+# Generate the plot based on filtered data
+plot_ly(filtered_period_mstn, 
+             x = ~Date, 
+             y = as.formula(paste0("~`", selected_var, "`")), 
+             type = 'scatter', 
+             mode = 'lines', 
+             color = ~Station,
+             hoverinfo = 'text',
+             text = ~paste("<b>Station:</b>", Station,
+                           "<br><b>Date:</b>", Date,
+                           "<br><b>", selected_var, ":</b>", filtered_period_mstn[[selected_var]])) %>%
+  layout(title = paste(selected_var, "by Station"),
+         xaxis = list(title = ""),
+         yaxis = list(title = "")) %>%
+
+# Display the plot
+ layout(xaxis = list(rangeslider = list(type = "date"))) 
+```
+
+## Horizon Plots
+
+Horizon plots are a visualization technique used for displaying multiple time series data. Since the data contains data across **multiple years** for **multiple stations**, it would be valuable to allow users to use horizon plots to visually explore patterns or trends across multiple time series data.
+
+Users should be able to first toggle between variables:
+
+::: panel-tabset
+
+### Mean Temperature (°C)
+
+```{r}
+# Step 1: compute origin and  horizon scale cutpoints: 
+cutpoints <- weather_data %>% 
+  mutate(
+    outlier = between(
+      `Mean Temperature (°C)`, 
+      quantile(`Mean Temperature (°C)`, 0.25, na.rm = TRUE) -
+        1.5 * IQR(`Mean Temperature (°C)`, na.rm = TRUE),
+      quantile(`Mean Temperature (°C)`, 0.75, na.rm = TRUE) +
+        1.5 * IQR(`Mean Temperature (°C)`, na.rm = TRUE))) %>% 
+  filter(outlier)
+ori <- sum(range(cutpoints$`Mean Temperature (°C)`))/2
+sca <- seq(range(cutpoints$`Mean Temperature (°C)`)[1], 
+           range(cutpoints$`Mean Temperature (°C)`)[2], 
+           length.out = 7)[-4]
+ori <- round(ori, 2) # The origin, rounded to 2 decimal places
+sca <- round(sca, 2) # The horizon scale cutpoints
+weather_data %>% ggplot() +
+  geom_horizon(aes(x = Date,
+                   y = `Mean Temperature (°C)`,
+                   fill = after_stat(Cutpoints)),
+               origin = ori, horizonscale = sca) +
+  scale_fill_hcl(palette = 'RdBu', reverse = T) +
+  facet_grid(`Station`~.) +
+  theme_few() +
+  theme(panel.spacing.y=unit(0, "lines"), strip.text.y = element_text(
+    size = 5, angle = 0, hjust = 0),
+    # legend.position = 'none',
+    axis.text.y = element_blank(),
+    axis.text.x = element_text(size=7),
+    axis.title.y = element_blank(),
+    axis.title.x = element_blank(),
+    axis.ticks.y = element_blank(),
+    panel.border = element_blank()
+    ) +
+    scale_x_date(expand=c(0,0), date_breaks = "3 month", date_labels = "%b%y") +
+  ggtitle('Mean Temperature (°C) across different weather stations (2021 - 2023)')
+```
+
+### Maximum Temperature (°C)
+
+### Minimum Temperature (°C)
+
+### Mean Temperature (°C)
+
+### Horizon Plot
+
+```{r}
 compareAcrossHorizon = "Stations"
 selectedYear = 2021 # Need to update below code for selection of year
 selected_var = "Mean Temperature (°C)"
@@ -460,6 +558,30 @@ date_breaks = "3 month"
 title <- ifelse(compareAcrossHorizon == "Years",
                 paste(selected_var, "for", selectedStation, "across the years 2021 to 2023"),
                 paste(selected_var, "for", selectedYear, "across station(s)"))
+```
+
+```{r}
+#| code-fold: true
+#| code-summary: "show code"
+#| fig-width: 10
+#| fig-height: 4
+compareAcrossHorizon = "Stations"
+selectedYear = 2021 # Need to update below code for selection of year
+selected_var = "Mean Temperature (°C)"
+date_breaks = "3 month"
+title <- ifelse(compareAcrossHorizon == "Years",
+                paste(selected_var, "for", selectedStation, "across the years 2021 to 2023"),
+                paste(selected_var, "for", selectedYear, "across station(s)"))
+
+# if (input$compareAcrossHorizon == "Years") {
+#   filtered_data <- weather_data %>%
+#     filter(Station %in% input$selectedStation)
+# } else if (input$compareAcrossHorizon == "Stations") {
+#   filtered_data <- weather_data %>%
+#     filter(Station %in% input$selectedStations, Year == input$selectedYear)
+# }
+
+# facet_var = ifelse(input$compareAcrossHorizon == "Years", "Year", "Station")
 
 # Compute origin and  horizon scale cutpoints: 
 cutpoints <- weather_data %>% 
@@ -510,7 +632,7 @@ weather_data %>% ggplot() +
 #| code-summary: "show code"
 #| fig-width: 10
 #| fig-height: 4
-
+#| 
 # Step 1: compute origin and  horizon scale cutpoints: 
 cutpoints <- weather_data %>% 
   mutate(
@@ -737,7 +859,7 @@ weather_data_all_stations %>% ggplot() +
           'from 2021 to 2023')
 ```
 
-### Horizon Plot of Daily Rainfall Total across all weather stations from 2021 to 2023
+#### Horizon Plot of Daily Rainfall Total across all weather stations from 2021 to 2023
 
 This plot may not make sense as we may need to sum up rainfall for each day across all weather stations first before plotting.
 
@@ -799,7 +921,7 @@ weather_data %>% ggplot() +
 
 ```
 
-### Horizon Plot of Daily Rainfall Total (mm) across all the stations for a specified year
+#### Horizon Plot of Daily Rainfall Total (mm) across all the stations for a specified year
 
 ```{r}
 #| code-fold: true
@@ -861,7 +983,7 @@ weather_data_2023 %>% ggplot() +
           'across the stations')
 ```
 
-# Clustering Module: Clustering of Multiple Time Series
+# Clustering of Multiple Time Series
 
 ## Overview
 
@@ -890,12 +1012,9 @@ Users should be allowed to cluster by:
 -   Stations, for multiple stations and multiple years
 -   Months, for a single station and a given year
 
-::: panel-tabset
 #### For a single selected station and year, by months
 
 ```{r}
-#| code-fold: true
-#| code-summary: "show code"
 # Extract the target variable, temperature data into a variable
 temp_data <- weather_data %>%
   select(c(Station, Date, Year, Month, Month_Name, Day, `Mean Temperature (°C)`))
@@ -918,8 +1037,6 @@ list_of_series <- split(station_temp_data$`Mean Temperature (°C)`, station_temp
 #### For multiple stations and multiple years, by station
 
 ```{r}
-#| code-fold: true
-#| code-summary: "show code"
 # Extract the target variable, temperature data into a variable
 temp_data <- weather_data %>%
   select(c(Station, Date, Year, Month, Day, `Mean Temperature (°C)`))
@@ -947,18 +1064,17 @@ station_temp_data <- station_temp_data %>%
 # Format data into list of series, by Station
 list_of_series <- split(station_temp_data$Normalized_Temp, station_temp_data$Station)
 ```
-::: 
 
-### Exploring clustering methods
+### Varying clustering method
 
 #### Hierarchical
 
 Assume clustering for several stations across 2021 - 2023.
 
+~~Assume that users are trying to perform clustering for a single selected station and year, by months.~~
+
 ```{r}
-#| code-fold: true
-#| code-summary: "show code"
-n_cluster = 2 # Number of desired clusters. Should not show if cluster_type == "partitional"
+n_cluster = 5 # Number of desired clusters. Should not show if cluster_type == "partitional"
 cluster_type = "hierarchical" #  "partitional", "hierarchical", "tadpole" or "fuzzy"
 distance = "dtw_basic" # Ignored for type = "tadpole"
 control = hierarchical_control(method = "complete") 
@@ -971,25 +1087,16 @@ c <- tsclust(series = list_of_series,
         )
 
 p <- fviz_dend(c, k = n_cluster, # Cut in n_cluster groups
-          cex = 0.6, # label size
+          cex = 0.5, # label size
           k_colors = c("jco"),
           color_labels_by_k = FALSE,  # color labels by groups
           rect_border = "jco",
           rect = TRUE,
-          rect_fill = TRUE,
-          horiz = TRUE)
+          rect_fill = TRUE)
 p
 ```
-Varying number of desired clusters, *k*, produces the following:
 
-\<to be updated\>
-
-Keeping *k* at x and varying the distance computation produces the following:
-
-\<to be updated\>
-
-
-# Clustering Module: Forecasting of grouped time series
+# Forecasting of grouped time series
 
 \<to be updated\>
 
@@ -1009,8 +1116,6 @@ The forecasting workflow involves a few basic steps:
 4.  Include measures to compare accuracy of models
 
 ```{r}
-#| code-fold: true
-#| code-summary: "show code"
 # Extract cluster assignments
 clusters <- c@cluster
 
@@ -1034,8 +1139,6 @@ for (i in unique(clusters)) {
 Prepare data for forecasting:
 
 ```{r}
-#| code-fold: true
-#| code-summary: "show code"
 cluster_data <- cluster_dfs[[1]]
 unique(cluster_data$Station) # Stations in our data
 
@@ -1061,8 +1164,6 @@ cluster_data_aggregated <- as_tsibble(cluster_data_aggregated, index = Date)
 Do forecasting
 
 ```{r}
-#| code-fold: true
-#| code-summary: "show code"
 # cluster_data_aggregated %>%
 #   autoplot(Average_Mean_Temperature_C) 
 
@@ -1081,135 +1182,42 @@ fc %>%
   guides(colour = guide_legend(title = "Forecast"))
 ```
 
-# Spatial Interpolation Module
+# Spatial Interpolation
 
-This module presents two different methods (Inverse Distance Weighting (IDW), Ordinary Kriging, etc.) to prepare an isohyet map for different variables, by doing spatial interpolation for the data. This map will typically represent data for a specific point in time or an averaged period (a particular day, month, etc.), depending on the analysis goal.
+This module presents different methods to prepare an isohyet map by doing spatial interpolation for the data.
+
+Steps:
+
+-   Data preparation
+-   Apply interpolation method
+-   Visualize result with tmap
+
+## Data Preparation
 
 Design considerations for user control:
 
--   Use radioButtons function to select only one variable
+-   Use radioButtons function to select only one variable ("Daily Rainfall Total (mm)", "Mean Temperature (°C)")
 -   Use radioButtons function to select only one type of time window
--   Display original data and both methods for interpolation side by side.
--   For each method, offer variable to tweak:
-  -   Inverse Distance Weighting (IDW): *nmax*
-  -   Ordinary Kriging
+-   This function should be conditional.
 
 First, read in planning subzone boundary data (shape file) for Singapore. This step should be done before running UI and server code.
 
 ```{r}
 # This is a shape file, read in with st_read
-mpsz2019 <- st_read(dsn = "data/geospatial", 
+mpsz2019 <- st_read(dsn = "data/geospatial",
                     layer = "MPSZ-2019") %>%
   st_transform(crs = 3414)
 ```
 
-### Method 1: inverse distance weighted interpolation
+Next, aggregate weather data for selected variable and time window
 
-We first focus on interpolating data using IDW method for a specified month.
-
-For rainfall, we should aggregate by computing sum of rainfall for the month. 
-For temperature, we should aggregate by computing average temperature per month.
-
-::: panel-tabset
-### Daily Rainfall Total (mm)
+For rainfall, we should aggregate by computing sum of rainfall for the month. For temperature, we should aggregate by computing average temperature per month.
 
 ```{r}
-#| code-fold: true
-#| code-summary: "show code"
 # Indicate user variable
 selected_var <- "Daily Rainfall Total (mm)" # "Daily Rainfall Total (mm)" or "Mean Temperature (°C)"
-selected_month <- c("February") # User to specify Month
-selected_year <- c("2023") # User to specify Year
-interpolation_method <- "IDW"
-
-# Create table for chosen variable and time period
-variable_data <- weather_data %>%
-  filter(Year %in% selected_year,
-         Month_Name %in% selected_month) %>%
-  group_by(Station, Year, Month, LAT, LONG) %>%
-  summarise(MonthlyValue = if(selected_var == "Daily Rainfall Total (mm)") {
-                sum(.data[[selected_var]], na.rm = TRUE) # aggregate by computing sum of rainfall for the month. 
-              } else if (selected_var == "Mean Temperature (°C)") {
-                mean(.data[[selected_var]], na.rm = TRUE) # aggregate by computing average temperature per month.
-              }, .groups = 'drop')
-  
-# Make it spatial data
-variable_data_sf <- st_as_sf(variable_data, 
-                      coords = c("LONG", # X axis 
-                                 "LAT"), # Y axis
-                      crs= 4326) %>%
-  st_transform(crs = 3414) # To project this into SVY21
-
-# Visualize variable with tmap
-tmap_options(check.and.fix = TRUE) # Use this code to fix topo error without changing the data. 
-tmap_mode("view") # Make map interactive
-tm_shape(mpsz2019) + # Plot boundary map
-  tm_borders() +
-tm_shape(variable_data_sf) +
-  tm_dots(col = 'MonthlyValue') # Use color to differentiate
-
-tmap_mode("plot") # Change mode back
-
-# Create grid data object / Raster data
-# Extract bounding box variables from mpsz2019 
-bbox <- as.list(st_bbox(mpsz2019))
-
-# Assume user is able to indicate resolution
-res = 50 # User Input. The smaller the value the higher the resolution, but the higher the computational requirement (slower processing).
-nrows =  (bbox$ymax - bbox$ymin)/res
-ncols = (bbox$xmax - bbox$xmin)/res
-# Create a raster layer, `grid`,  from an existing spatial object `mpsz2019`
-grid <- terra::rast(mpsz2019, 
-                   nrows = nrows, 
-                   ncols = ncols)
-# Generate coordinates for each cell of the raster 
-xy <- terra::xyFromCell(grid,
-                         1:ncell(grid))
-# Converting coordinates of raster into a spatial (sf) object
-coop <- st_as_sf(as.data.frame(xy),
-                 coords = c("x","y"),
-                 crs = st_crs(mpsz2019)) # Assign CRS based on mpsz2019
-coop <- st_filter(coop, mpsz2019) # Filter to only only includes points within mpsz2019
-
-# IDW Method
-nmax = 3 # Set value
-# Create gstat object
-res <- gstat(formula = MonthlyValue ~ 1, # specify  dependent variable
-             locations = variable_data_sf,
-             nmax = nmax, # number of nearest neighbors considered for interpolation. Parameter to expose for UI
-             set = list(idp = 0))
-# Predict values at new locations (coop) based on the spatial data (rfdata_sf)
-resp <- predict(res,coop)
-# Plot The Result
-# Extract x and y coordinates and the predicted values into resp
-resp$x <- st_coordinates(resp)[,1]
-resp$y <- st_coordinates(resp)[,2]
-resp$pred <- resp$var1.pred
-# Predictions are rasterized over a predefined grid, using the mean of predictions where multiple values fall into a single grid cell
-# This results in a raster layer pred representing spatially interpolated values
-pred <- terra:: rasterize(resp, grid, # resp$pred contains the spatially interpolated variables. grid is raster layer.
-                         field="pred",
-                         fun="mean")
-tmap_options(check.and.fix = TRUE)
-tmap_mode("plot")
-tm_shape(pred) +
-  tm_raster(alpha=0.6,
-            palette = "viridis")
-```
-
-Varying nmax produced the following results:
-
-![](images/clipboard-3262274107.png)
-
-### Mean Temperature (°C)
-
-```{r}
-#| code-fold: true
-#| code-summary: "show code"
-# Indicate user variable
-selected_var <- "Mean Temperature (°C)" # "Daily Rainfall Total (mm)" or "Mean Temperature (°C)"
-selected_month <- c("February") # User to specify Month
-selected_year <- c("2023") # User to specify Year
+selected_month <- c("January")
+selected_year <- c("2021")
 
 # Create tbl for chosen variable and time period
 variable_data <- weather_data %>%
@@ -1217,68 +1225,99 @@ variable_data <- weather_data %>%
          Month_Name %in% selected_month) %>%
   group_by(Station, Year, Month, LAT, LONG) %>%
   summarise(MonthlyValue = if(selected_var == "Daily Rainfall Total (mm)") {
-                sum(.data[[selected_var]], na.rm = TRUE) # aggregate by computing sum of rainfall for the month. 
+                sum(.data[[selected_var]], na.rm = TRUE)
               } else if (selected_var == "Mean Temperature (°C)") {
-                mean(.data[[selected_var]], na.rm = TRUE) # aggregate by computing average temperature per month.
+                mean(.data[[selected_var]], na.rm = TRUE)
               }, .groups = 'drop')
   
 # Make it spatial data
-variable_data_sf <- st_as_sf(variable_data, 
-                      coords = c("LONG", # X axis 
-                                 "LAT"), # Y axis
-                      crs= 4326) %>%
-  st_transform(crs = 3414) # To project this into SVY21
+variable_data_sf <- st_as_sf(variable_data,
+                      coords = c("LONG", # X axis  
+                                 "LAT"),
+                      crs = 4236) %>% # Y axis
+              st_transform(crs = 3414) # To project this into SVY21
+```
 
-# Visualize variable with tmap
+Visualize the prepared data:
+
+```{r}
+# Plot variable with tmap
 tmap_options(check.and.fix = TRUE) # Use this code to fix topo error without changing the data. 
 tmap_mode("view") # Make map interactive
+
+
 tm_shape(mpsz2019) + # Plot boundary map
   tm_borders() +
-tm_shape(variable_data_sf) +
-  tm_dots(col = 'MonthlyValue') # Use color to differentiate
+  tm_shape(variable_data_sf) + # Plot station 
+  tm_dots(col = "MonthlyValue") # Use color to differentiate
 
 tmap_mode("plot") # Change mode back
+```
 
-# Create grid data object / Raster data
+```{r}
+# Create Raster Data
 # Extract bounding box variables from mpsz2019 
 bbox <- as.list(st_bbox(mpsz2019))
 
 # Assume user is able to indicate resolution
-res = 50 # User Input. The smaller the value the higher the resolution, but the higher the computational requirement (slower processing).
+res = 50 # User Input
+
 nrows =  (bbox$ymax - bbox$ymin)/res
 ncols = (bbox$xmax - bbox$xmin)/res
+
 # Create a raster layer, `grid`,  from an existing spatial object `mpsz2019`
 grid <- terra::rast(mpsz2019, 
                    nrows = nrows, 
                    ncols = ncols)
+
 # Generate coordinates for each cell of the raster 
 xy <- terra::xyFromCell(grid,
                          1:ncell(grid))
+
 # Converting coordinates of raster into a spatial (sf) object
 coop <- st_as_sf(as.data.frame(xy),
                  coords = c("x","y"),
                  crs = st_crs(mpsz2019)) # Assign CRS based on mpsz2019
-coop <- st_filter(coop, mpsz2019) # Filter to only only includes points within mpsz2019
 
-# IDW Method
-nmax = 3 # Set value
+coop <- st_filter(coop, mpsz2019) # Filter to only only includes points within mpsz2019
+```
+
+## Method 1: inverse distance weighted interpolation
+
+### Varying nmax
+
+::: panel-tabset
+### nmax = 1
+
+```{r}
+#| code-fold: true
+# Set value
+nmax = 1
+
 # Create gstat object
 res <- gstat(formula = MonthlyValue ~ 1, # specify  dependent variable
              locations = variable_data_sf,
              nmax = nmax, # number of nearest neighbors considered for interpolation. Parameter to expose for UI
              set = list(idp = 0))
+
 # Predict values at new locations (coop) based on the spatial data (rfdata_sf)
 resp <- predict(res,coop)
+
 # Plot The Result
+
 # Extract x and y coordinates and the predicted values into resp
 resp$x <- st_coordinates(resp)[,1]
 resp$y <- st_coordinates(resp)[,2]
 resp$pred <- resp$var1.pred
+
+
 # Predictions are rasterized over a predefined grid, using the mean of predictions where multiple values fall into a single grid cell
-# This results in a raster layer pred representing spatially interpolated values
+# This results in a raster layer pred representing spatially interpolated values of MONTHSUM.
 pred <- terra:: rasterize(resp, grid, # resp$pred contains the spatially interpolated variables. grid is raster layer.
                          field="pred",
                          fun="mean")
+
+
 tmap_options(check.and.fix = TRUE)
 tmap_mode("plot")
 tm_shape(pred) +
@@ -1286,336 +1325,44 @@ tm_shape(pred) +
             palette = "viridis")
 ```
 
-Varying nmax produced the following results:
-
-![](images/clipboard-2558859595.png)
-
-:::
-
-### Method 2: Kriging
-
-Kriging can be understood as a two-step process:
-
--   first, the spatial covariance structure of the sampled points is determined by fitting a variogram; and
--   second, weights derived from this covariance structure are used to interpolate values for unsampled points or blocks across the spatial field.
-
-
-::: panel-tabset
-
-### Daily Rainfall Total (mm)
-
-Data Prep
-```{r}
-#| code-fold: true
-#| code-summary: "show code"
-# Indicate user variable
-selected_var <- "Daily Rainfall Total (mm)" # "Daily Rainfall Total (mm)" or "Mean Temperature (°C)"
-selected_month <- c("February") # User to specify Month
-selected_year <- c("2023") # User to specify Year
-interpolation_method <- "IDW"
-
-# Create table for chosen variable and time period
-variable_data <- weather_data %>%
-  filter(Year %in% selected_year,
-         Month_Name %in% selected_month) %>%
-  group_by(Station, Year, Month, LAT, LONG) %>%
-  summarise(MonthlyValue = if(selected_var == "Daily Rainfall Total (mm)") {
-                sum(.data[[selected_var]], na.rm = TRUE) # aggregate by computing sum of rainfall for the month. 
-              } else if (selected_var == "Mean Temperature (°C)") {
-                mean(.data[[selected_var]], na.rm = TRUE) # aggregate by computing average temperature per month.
-              }, .groups = 'drop')
-  
-# Make it spatial data
-variable_data_sf <- st_as_sf(variable_data, 
-                      coords = c("LONG", # X axis 
-                                 "LAT"), # Y axis
-                      crs= 4326) %>%
-  st_transform(crs = 3414) # To project this into SVY21
-
-# # Visualize variable with tmap
-# tmap_options(check.and.fix = TRUE) # Use this code to fix topo error without changing the data. 
-# tmap_mode("view") # Make map interactive
-# tm_shape(mpsz2019) + # Plot boundary map
-#   tm_borders() +
-# tm_shape(variable_data_sf) +
-#   tm_dots(col = 'MonthlyValue') # Use color to differentiate
-# 
-# tmap_mode("plot") # Change mode back
-
-# Create grid data object / Raster data
-# Extract bounding box variables from mpsz2019 
-bbox <- as.list(st_bbox(mpsz2019))
-
-# Assume user is able to indicate resolution
-res = 50 # User Input. The smaller the value the higher the resolution, but the higher the computational requirement (slower processing).
-nrows =  (bbox$ymax - bbox$ymin)/res
-ncols = (bbox$xmax - bbox$xmin)/res
-# Create a raster layer, `grid`,  from an existing spatial object `mpsz2019`
-grid <- terra::rast(mpsz2019, 
-                   nrows = nrows, 
-                   ncols = ncols)
-# Generate coordinates for each cell of the raster 
-xy <- terra::xyFromCell(grid,
-                         1:ncell(grid))
-# Converting coordinates of raster into a spatial (sf) object
-coop <- st_as_sf(as.data.frame(xy),
-                 coords = c("x","y"),
-                 crs = st_crs(mpsz2019)) # Assign CRS based on mpsz2019
-coop <- st_filter(coop, mpsz2019) # Filter to only only includes points within mpsz2019
-```
-
-
-Below, we show the exploratory plot that should be shown to user to assess what variables to toggle when fitting the variogram. 
+### nmax = 3
 
 ```{r}
 #| code-fold: true
-#| code-summary: "show code"
-v <- variogram(MonthlyValue ~ 1, 
-               data = variable_data_sf)
-plot(v, cex = 1.5) # Experimental plot that should be shown to user
-```
+# Set value
+nmax = 3
 
-```{r}
-#| code-fold: true
-#| code-summary: "show code"
-# User will choose based on below variables 
-fv <- fit.variogram(object = v,
-                    model = vgm(psill = 1, 
-                                model = "Sph",
-                                range = 5000, 
-                                nugget = 0.1))
+# Create gstat object
+res <- gstat(formula = MonthlyValue ~ 1, # specify  dependent variable
+             locations = variable_data_sf,
+             nmax = nmax, # number of nearest neighbors considered for interpolation. Parameter to expose for UI
+             set = list(idp = 0))
 
-fv
-plot(v, fv, cex = 1.5) #  visualise how well the observed data fit the model by plotting fv 
+# Predict values at new locations (coop) based on the spatial data (rfdata_sf)
+resp <- predict(res,coop)
 
+# Plot The Result
 
-k <- gstat(formula = MonthlyValue ~ 1,
-           data = variable_data_sf,
-           model = fv)
-
-resp <- predict(k,coop)
-
+# Extract x and y coordinates and the predicted values into resp
 resp$x <- st_coordinates(resp)[,1]
 resp$y <- st_coordinates(resp)[,2]
 resp$pred <- resp$var1.pred
 
-kpred <- terra::rasterize(resp, grid,
-                          field = "pred")
+
+# Predictions are rasterized over a predefined grid, using the mean of predictions where multiple values fall into a single grid cell
+# This results in a raster layer pred representing spatially interpolated values of MONTHSUM.
+pred <- terra:: rasterize(resp, grid, # resp$pred contains the spatially interpolated variables. grid is raster layer.
+                         field="pred",
+                         fun="mean")
+
 
 tmap_options(check.and.fix = TRUE)
 tmap_mode("plot")
-tm_shape(kpred) + 
-  tm_raster(alpha = 0.6, 
-            palette = "viridis",
-            title = "Total monthly rainfall (mm)") +
-  tm_layout(main.title = "Distribution of monthly rainfall, Feb 2023",
-            main.title.position = "center",
-            main.title.size = 1.2,
-            legend.height = 0.45, 
-            legend.width = 0.35,
-            frame = TRUE) +
-  tm_compass(type="8star", size = 2) +
-  tm_scale_bar() +
-  tm_grid(alpha =0.2)
+tm_shape(pred) +
+  tm_raster(alpha=0.6,
+            palette = "viridis")
 ```
-
-### Mean Temperature (°C)
-
-Data Prep: 
-```{r}
-#| code-fold: true
-#| code-summary: "show code"
-# Indicate user variable
-selected_var <- "Mean Temperature (°C)" # "Daily Rainfall Total (mm)" or "Mean Temperature (°C)"
-selected_month <- c("February") # User to specify Month
-selected_year <- c("2023") # User to specify Year
-interpolation_method <- "IDW"
-
-# Create table for chosen variable and time period
-variable_data <- weather_data %>%
-  filter(Year %in% selected_year,
-         Month_Name %in% selected_month) %>%
-  group_by(Station, Year, Month, LAT, LONG) %>%
-  summarise(MonthlyValue = if(selected_var == "Daily Rainfall Total (mm)") {
-                sum(.data[[selected_var]], na.rm = TRUE) # aggregate by computing sum of rainfall for the month. 
-              } else if (selected_var == "Mean Temperature (°C)") {
-                mean(.data[[selected_var]], na.rm = TRUE) # aggregate by computing average temperature per month.
-              }, .groups = 'drop')
-  
-# Make it spatial data
-variable_data_sf <- st_as_sf(variable_data, 
-                      coords = c("LONG", # X axis 
-                                 "LAT"), # Y axis
-                      crs= 4326) %>%
-  st_transform(crs = 3414) # To project this into SVY21
-
-# Create grid data object / Raster data
-# Extract bounding box variables from mpsz2019 
-bbox <- as.list(st_bbox(mpsz2019))
-
-# Assume user is able to indicate resolution
-res = 50 # User Input. The smaller the value the higher the resolution, but the higher the computational requirement (slower processing).
-nrows =  (bbox$ymax - bbox$ymin)/res
-ncols = (bbox$xmax - bbox$xmin)/res
-# Create a raster layer, `grid`,  from an existing spatial object `mpsz2019`
-grid <- terra::rast(mpsz2019, 
-                   nrows = nrows, 
-                   ncols = ncols)
-# Generate coordinates for each cell of the raster 
-xy <- terra::xyFromCell(grid,
-                         1:ncell(grid))
-# Converting coordinates of raster into a spatial (sf) object
-coop <- st_as_sf(as.data.frame(xy),
-                 coords = c("x","y"),
-                 crs = st_crs(mpsz2019)) # Assign CRS based on mpsz2019
-coop <- st_filter(coop, mpsz2019) # Filter to only only includes points within mpsz2019
-```
-
 :::
-
-#### Automatic variogram modelling
-
-::: panel-tabset
-
-#### "Daily Rainfall Total (mm)
-
-Data Prep: 
-```{r}
-#| code-fold: true
-# Indicate user variable
-selected_var <- "Daily Rainfall Total (mm)" # "Daily Rainfall Total (mm)" or "Mean Temperature (°C)"
-selected_month <- c("February") # User to specify Month
-selected_year <- c("2023") # User to specify Year
-interpolation_method <- "IDW"
-
-# Create table for chosen variable and time period
-variable_data <- weather_data %>%
-  filter(Year %in% selected_year,
-         Month_Name %in% selected_month) %>%
-  group_by(Station, Year, Month, LAT, LONG) %>%
-  summarise(MonthlyValue = if(selected_var == "Daily Rainfall Total (mm)") {
-                sum(.data[[selected_var]], na.rm = TRUE) # aggregate by computing sum of rainfall for the month. 
-              } else if (selected_var == "Mean Temperature (°C)") {
-                mean(.data[[selected_var]], na.rm = TRUE) # aggregate by computing average temperature per month.
-              }, .groups = 'drop')
-  
-# Make it spatial data
-variable_data_sf <- st_as_sf(variable_data, 
-                      coords = c("LONG", # X axis 
-                                 "LAT"), # Y axis
-                      crs= 4326) %>%
-  st_transform(crs = 3414) # To project this into SVY21
-
-# Create grid data object / Raster data
-# Extract bounding box variables from mpsz2019 
-bbox <- as.list(st_bbox(mpsz2019))
-
-# Assume user is able to indicate resolution
-res = 50 # User Input. The smaller the value the higher the resolution, but the higher the computational requirement (slower processing).
-nrows =  (bbox$ymax - bbox$ymin)/res
-ncols = (bbox$xmax - bbox$xmin)/res
-# Create a raster layer, `grid`,  from an existing spatial object `mpsz2019`
-grid <- terra::rast(mpsz2019, 
-                   nrows = nrows, 
-                   ncols = ncols)
-# Generate coordinates for each cell of the raster 
-xy <- terra::xyFromCell(grid,
-                         1:ncell(grid))
-# Converting coordinates of raster into a spatial (sf) object
-coop <- st_as_sf(as.data.frame(xy),
-                 coords = c("x","y"),
-                 crs = st_crs(mpsz2019)) # Assign CRS based on mpsz2019
-coop <- st_filter(coop, mpsz2019) # Filter to only only includes points within mpsz2019
-```
-
-
-
-#### Mean Temperature (°C)
-
-Data Prep: 
-```{r}
-#| code-fold: true
-# Indicate user variable
-selected_var <- "Mean Temperature (°C)" # "Daily Rainfall Total (mm)" or "Mean Temperature (°C)"
-selected_month <- c("February") # User to specify Month
-selected_year <- c("2023") # User to specify Year
-interpolation_method <- "IDW"
-
-# Create table for chosen variable and time period
-variable_data <- weather_data %>%
-  filter(Year %in% selected_year,
-         Month_Name %in% selected_month) %>%
-  group_by(Station, Year, Month, LAT, LONG) %>%
-  summarise(MonthlyValue = if(selected_var == "Daily Rainfall Total (mm)") {
-                sum(.data[[selected_var]], na.rm = TRUE) # aggregate by computing sum of rainfall for the month. 
-              } else if (selected_var == "Mean Temperature (°C)") {
-                mean(.data[[selected_var]], na.rm = TRUE) # aggregate by computing average temperature per month.
-              }, .groups = 'drop')
-  
-# Make it spatial data
-variable_data_sf <- st_as_sf(variable_data, 
-                      coords = c("LONG", # X axis 
-                                 "LAT"), # Y axis
-                      crs= 4326) %>%
-  st_transform(crs = 3414) # To project this into SVY21
-
-# Create grid data object / Raster data
-# Extract bounding box variables from mpsz2019 
-bbox <- as.list(st_bbox(mpsz2019))
-
-# Assume user is able to indicate resolution
-res = 50 # User Input. The smaller the value the higher the resolution, but the higher the computational requirement (slower processing).
-nrows =  (bbox$ymax - bbox$ymin)/res
-ncols = (bbox$xmax - bbox$xmin)/res
-# Create a raster layer, `grid`,  from an existing spatial object `mpsz2019`
-grid <- terra::rast(mpsz2019, 
-                   nrows = nrows, 
-                   ncols = ncols)
-# Generate coordinates for each cell of the raster 
-xy <- terra::xyFromCell(grid,
-                         1:ncell(grid))
-# Converting coordinates of raster into a spatial (sf) object
-coop <- st_as_sf(as.data.frame(xy),
-                 coords = c("x","y"),
-                 crs = st_crs(mpsz2019)) # Assign CRS based on mpsz2019
-coop <- st_filter(coop, mpsz2019) # Filter to only only includes points within mpsz2019
-```
-
-
-```{r}
-v_auto <- autofitVariogram(MonthlyValue ~ 1, 
-                           variable_data_sf)
-plot(v_auto)
-v_auto
-k <- gstat(formula = MonthlyValue ~ 1, 
-           model = v_auto$var_model,
-           data = variable_data_sf)
-k
-resp <- predict(k, coop)
-resp$x <- st_coordinates(resp)[,1]
-resp$y <- st_coordinates(resp)[,2]
-resp$pred <- resp$var1.pred
-resp$pred <- resp$pred
-
-kpred <- terra::rasterize(resp, grid, 
-                         field = "pred")
-tmap_options(check.and.fix = TRUE)
-tmap_mode("plot")
-tm_shape(kpred) + 
-  tm_raster(alpha = 0.6, 
-            palette = "viridis",
-            title = "Total monthly rainfall (mm)") +
-  tm_layout(main.title = "Distribution of monthly rainfall, Feb 2023",
-            main.title.position = "center",
-            main.title.size = 1.2,
-            legend.height = 0.45, 
-            legend.width = 0.35,
-            frame = TRUE) +
-  tm_compass(type="8star", size = 2) +
-  tm_scale_bar() +
-  tm_grid(alpha =0.2)
-```
-
 
 # UI Design
 
@@ -1643,7 +1390,7 @@ This module will contain three tabs:
 
 \<to be updated\>
 
-## Spatial Interpolation Module
+## Geospatial Module
 
 \<to be updated\>
 
@@ -1652,4 +1399,3 @@ This module will contain three tabs:
 -   [Time series clustering](https://geomoer.github.io/moer-mpg-data-analysis/unit10/unit10-03_time_series_clustering.html)
 -   https://plotly.com/ggplot2/dendrogram/
 -   https://www.rdocumentation.org/packages/factoextra/versions/1.0.7/topics/fviz_dend
--   [In-class Exercise 7](https://isss608-vaa-demo.netlify.app/in-class_ex/in-class_ex07/in-class_ex07-isomap)

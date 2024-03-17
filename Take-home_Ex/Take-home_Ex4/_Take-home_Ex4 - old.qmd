@@ -17,24 +17,30 @@ execute:
 
 # Overview
 
-In this exercise, I will use a selected module of the Shiny application for the Group Project component to fulfill the following objectives:
+In this exercise, I will use selected modules of the Shiny application for the Group Project component to fulfill the following objectives:
 
 -   To evaluate and determine what are the necessary R packages needed for the Shiny application,
+
 -   To prepare and test the specific R codes can be run and returned the correct output as expected,
+
 -   To determine the parameters and outputs that will be exposed on the Shiny applications, and
+
 -   To select the appropriate Shiny UI components for exposing the parameters determined above.
 
-## Project details
+# Project details
 
 For our project, we aim to create a Shiny app with user-friendly functionalities, to effectively visualize and analyze climate data.
 
-The R Shiny app will consists of three modules:
+The R Shiny app will consists of four modules:
 
-1.  EDA and CDA module
-2.  Univariate Forecasting module
-3.  Spatial Interpolation module
+-   Homepage module
+-   EDA and CDA modul
+-   Univariate forecasting module
+-   Geospatial module: Two spatial interpolation techniques are presented for user to estimate weather conditions at unmonitored locations.  our understanding of climate patterns across the region by leveraging data from 11 stations. This approach allows for a more comprehensive and continuous spatial analysis of climate variability.
+-   Clustering and Group Forecasting module: Users can explore grouping stations with similar weather patterns or grouping time periods with similar patterns. The user would then be able to choose different models to forecast the grouped data.
 
-For this exercise, we will focus on the last Spatial Interpolation module. In this geospatial module, two spatial interpolation techniques are presented for user to estimate weather conditions (Rainfall or Temperature) at unmonitored locations. The module is designed to allow users to interactively adjust the inputs for each technique, providing a hands-on opportunity to explore and understand the impact of different parameters on the interpolation results.
+
+For this exercise, we will focus on the last two modules.
 
 # Getting started
 
@@ -45,13 +51,15 @@ pacman::p_load(gstat)
 ```
 
 ```{r}
-library(tmap)
-```
-
-```{r}
 pacman::p_load(tidyverse, naniar, imputeTS, DT, knitr, lubridate,
                sf, terra, viridis, automap,
-               ggplot2, patchwork, ggthemes, ggiraph, plotly)
+               ggplot2, patchwork, ggthemes, ggiraph, plotly, 
+               ggHoriPlot, 
+               dtwclust, dendextend, ggraph, factoextra, ggdendro,
+               tsibble, fable, feasts
+               )
+
+library(tmap)
 ```
 
 # Data Preparation
@@ -417,76 +425,696 @@ The below code can be used to import the cleaned data.
 weather_data <- read_rds("data/weather_imputed_11stations.rds")
 ```
 
-# Spatial Interpolation Module
+# Clustering Module: Exploratory Data Analysis of Multiple Time Series
 
-This module offers a comparative analysis of two spatial interpolation techniques, Inverse Distance Weighting (IDW) and Ordinary Kriging, to construct isohyet (rainfall) and isopleth (temperature) maps. It will allow for the visualization of data at specific moments or over averaged periods (such as a particular day or month), depending on the user's analytical goals.
+## Horizon Plots
 
-By using spatial interpolation to estimate weather conditions at unmonitored locations, users are provided with an enhanced understanding of climate patterns across Singapore.
+We will utilise Horizon Plots to explore and visualize multiple time series data at a glance.
 
-## Prototype module report
+Horizon plots are a visualization technique used for displaying multiple time series data. Since the data contains data across **multiple years** for **multiple stations**, it would be valuable to allow users to use horizon plots to visually explore patterns or trends across multiple time series data.
 
-### Read in shape file
+Overview of user options:
 
-First, read in planning subzone boundary data (shape file) for Singapore.
+-   Select daily variable to plot
+-   Plot across stations for different time granularity
+-   Choose months to plot (Compare 1 month, Compare 3 months, Compare 6 months)
+-   Choose years to plot (Compare 1 year, Compare 2 years, Compare 3 years)
+-   Plot across different time periods for a single stations
 
-This step should be done before running UI and server code.
+### Horizon Plot with reproducible code
 
 ```{r}
-mpsz2019 <- st_read(dsn = "data/geospatial",## This is a shape file, read in with st_read
+#| code-fold: true
+#| code-summary: "show code"
+#| fig-width: 10
+#| fig-height: 4
+#| code-eval: false
+
+
+compareAcrossHorizon = "Stations"
+selectedYear = 2021 # Need to update below code for selection of year
+selected_var = "Mean Temperature (°C)"
+date_breaks = "3 month"
+title <- ifelse(compareAcrossHorizon == "Years",
+                paste(selected_var, "for", selectedStation, "across the years 2021 to 2023"),
+                paste(selected_var, "for", selectedYear, "across station(s)"))
+
+# Compute origin and  horizon scale cutpoints: 
+cutpoints <- weather_data %>% 
+  mutate(
+    outlier = between(
+      .data[[selected_var]], 
+      quantile(.data[[selected_var]], 0.25, na.rm = TRUE) -
+        1.5 * IQR(.data[[selected_var]], na.rm = TRUE),
+      quantile(.data[[selected_var]], 0.75, na.rm = TRUE) +
+        1.5 * IQR(.data[[selected_var]], na.rm = TRUE))) %>% 
+  filter(outlier)
+
+# ori <- sum(range(cutpoints[[selected_var]]))/2
+# sca <- seq(range(cutpoints[[selected_var]])[1], range(cutpoints[[selected_var]])[2], length.out = seq_length)[-seq_length/2]
+
+ori <- sum(range(cutpoints[[selected_var]]))/2
+sca <- seq(range(cutpoints[[selected_var]])[1], range(cutpoints[[selected_var]])[2], length.out = 7)[-4]
+
+
+ori <- round(ori, 2) # The origin, rounded to 2 decimal places
+sca <- round(sca, 2) # The horizon scale cutpoints
+
+weather_data %>% ggplot() +
+  geom_horizon(aes(x = Date,
+                   y = .data[[selected_var]],
+                   fill = after_stat(Cutpoints)),
+               origin = ori, horizonscale = sca) +
+  scale_fill_hcl(palette = 'RdBu', reverse = T) +
+  facet_grid(`Station`~.) +
+  theme_few() +
+  theme(panel.spacing.y=unit(0, "lines"), strip.text.y = element_text(
+    size = 5, angle = 0, hjust = 0),
+    axis.text.y = element_blank(),
+    axis.text.x = element_text(size=7),
+    axis.title.y = element_blank(),
+    axis.title.x = element_blank(),
+    axis.ticks.y = element_blank(),
+    panel.border = element_blank()
+    ) +
+    scale_x_date(expand=c(0,0), date_breaks = date_breaks, date_labels = "%b%y") +
+  ggtitle(title)
+```
+
+### Horizon Plot of Mean Temperature (°C) across different weather stations, for 2021 - 2023
+
+```{r}
+#| code-fold: true
+#| code-summary: "show code"
+#| fig-width: 10
+#| fig-height: 4
+
+# Step 1: compute origin and  horizon scale cutpoints: 
+cutpoints <- weather_data %>% 
+  mutate(
+    outlier = between(
+      `Mean Temperature (°C)`, 
+      quantile(`Mean Temperature (°C)`, 0.25, na.rm = TRUE) -
+        1.5 * IQR(`Mean Temperature (°C)`, na.rm = TRUE),
+      quantile(`Mean Temperature (°C)`, 0.75, na.rm = TRUE) +
+        1.5 * IQR(`Mean Temperature (°C)`, na.rm = TRUE))) %>% 
+  filter(outlier)
+ori <- sum(range(cutpoints$`Mean Temperature (°C)`))/2
+sca <- seq(range(cutpoints$`Mean Temperature (°C)`)[1], 
+           range(cutpoints$`Mean Temperature (°C)`)[2], 
+           length.out = 7)[-4]
+ori <- round(ori, 2) # The origin, rounded to 2 decimal places
+sca <- round(sca, 2) # The horizon scale cutpoints
+weather_data %>% ggplot() +
+  geom_horizon(aes(x = Date,
+                   y = `Mean Temperature (°C)`,
+                   fill = after_stat(Cutpoints)),
+               origin = ori, horizonscale = sca) +
+  scale_fill_hcl(palette = 'RdBu', reverse = T) +
+  facet_grid(`Station`~.) +
+  theme_few() +
+  theme(panel.spacing.y=unit(0, "lines"), strip.text.y = element_text(
+    size = 5, angle = 0, hjust = 0),
+    # legend.position = 'none',
+    axis.text.y = element_blank(),
+    axis.text.x = element_text(size=7),
+    axis.title.y = element_blank(),
+    axis.title.x = element_blank(),
+    axis.ticks.y = element_blank(),
+    panel.border = element_blank()
+    ) +
+    scale_x_date(expand=c(0,0), date_breaks = "3 month", date_labels = "%b%y") +
+  ggtitle('Mean Temperature (°C) across different weather stations (2021 - 2023)')
+```
+
+### Horizon Plot of Mean Temperature (°C) across different weather stations for a specified year, 2023
+
+```{r}
+#| code-fold: true
+#| code-summary: "show code"
+#| fig-width: 10
+#| fig-height: 4
+# Ensure data has Year, Month, Date column + Date_mine column
+weather_data <- weather_data %>% 
+  mutate(Year = year(Date)) %>%
+  mutate(Month = month(Date)) %>%
+  mutate(Day = day(Date)) %>%
+  mutate(Date_mine = make_date(2023, month(Date), day(Date)))
+
+# Filter for specified year only
+weather_data_2023 <- weather_data %>% 
+  filter(Year == 2023) 
+
+# Step 1: compute origin and  horizon scale cutpoints: 
+cutpoints <- weather_data_2023 %>% 
+  mutate(
+    outlier = between(
+      `Mean Temperature (°C)`, 
+      quantile(`Mean Temperature (°C)`, 0.25, na.rm = TRUE) -
+        1.5 * IQR(`Mean Temperature (°C)`, na.rm = TRUE),
+      quantile(`Mean Temperature (°C)`, 0.75, na.rm = TRUE) +
+        1.5 * IQR(`Mean Temperature (°C)`, na.rm = TRUE))) %>% 
+  filter(outlier)
+
+ori <- sum(range(cutpoints$`Mean Temperature (°C)`))/2
+sca <- seq(range(cutpoints$`Mean Temperature (°C)`)[1], 
+           range(cutpoints$`Mean Temperature (°C)`)[2], 
+           length.out = 7)[-4]
+
+ori <- round(ori, 2) # The origin, rounded to 2 decimal places
+sca <- round(sca, 2) # The horizon scale cutpoints
+
+# Plot horizon plot
+weather_data_2023 %>% ggplot() +
+  geom_horizon(aes(x = Date_mine, 
+                   y = `Mean Temperature (°C)`,
+                   fill = after_stat(Cutpoints)), 
+               origin = ori, horizonscale = sca) +
+  scale_fill_hcl(palette = 'RdBu', reverse = T) +
+  facet_grid(~Station ~ .) +
+  theme_few() +
+  theme(
+    panel.spacing.y = unit(0, "lines"),
+    strip.text.y = element_text(size = 7, angle = 0, hjust = 0),
+    axis.text.y = element_blank(),
+    axis.title.y = element_blank(),
+    axis.ticks.y = element_blank(),
+    panel.border = element_blank()
+    ) +
+  scale_x_date(expand = c(0, 0), 
+               date_breaks = "1 month", 
+               date_labels = "%b") +
+  xlab('Date') +
+  ggtitle('Mean Temperature (°C) for the year 2023',
+          'across the stations')
+```
+
+### Horizon Plot of Mean Temperature (°C) For Ang Mo Kio across the years
+
+```{r}
+#| code-fold: true
+#| code-summary: "show code"
+#| fig-width: 10
+#| fig-height: 4
+# Step 0: Filter for specified station only 
+ang_mo_kio_data <- weather_data %>% 
+  filter(Station == "Seletar")
+
+# Step 1: compute origin and  horizon scale cutpoints: 
+cutpoints <- ang_mo_kio_data %>% 
+  mutate(
+    outlier = between(
+      `Mean Temperature (°C)`, 
+      quantile(`Mean Temperature (°C)`, 0.25, na.rm = TRUE) -
+        1.5 * IQR(`Mean Temperature (°C)`, na.rm = TRUE),
+      quantile(`Mean Temperature (°C)`, 0.75, na.rm = TRUE) +
+        1.5 * IQR(`Mean Temperature (°C)`, na.rm = TRUE))) %>% 
+  filter(outlier)
+
+ori <- sum(range(cutpoints$`Mean Temperature (°C)`))/2
+sca <- seq(range(cutpoints$`Mean Temperature (°C)`)[1], 
+           range(cutpoints$`Mean Temperature (°C)`)[2], 
+           length.out = 7)[-4]
+
+ori <- round(ori, 2) # The origin, rounded to 2 decimal places
+sca <- round(sca, 2) # The horizon scale cutpoints
+
+# Step 2: Ensure data has Year, Month, Date column. Also create a Date_mine column for comparing across years
+ang_mo_kio_data <- ang_mo_kio_data %>% 
+  mutate(Year = year(Date)) %>%
+  mutate(Month = month(Date)) %>%
+  mutate(Day = day(Date)) %>%
+  mutate(Date_mine = make_date(2023, month(Date), day(Date)))
+
+# Step 3: Plot horizon plot
+ang_mo_kio_data %>% ggplot() +
+  geom_horizon(aes(x = Date_mine, 
+                   y = `Mean Temperature (°C)`,
+                   fill = after_stat(Cutpoints)), 
+               origin = ori, horizonscale = sca) +
+  scale_fill_hcl(palette = 'RdBu', reverse = T) +
+  facet_grid(~Year ~ .) +
+  theme_few() +
+  theme(
+    panel.spacing.y = unit(0, "lines"),
+    strip.text.y = element_text(size = 7, angle = 0, hjust = 0),
+    axis.text.y = element_blank(),
+    axis.title.y = element_blank(),
+    axis.ticks.y = element_blank(),
+    panel.border = element_blank()
+    ) +
+  scale_x_date(expand = c(0, 0), 
+               date_breaks = "1 month", 
+               date_labels = "%b") +
+  xlab('Date') +
+  ggtitle('Mean Temperature (°C) For Ang Mo Kio',
+          'across the years 2021 to 2023')
+```
+
+### Horizon Plot of Mean Temperature (°C) across average of all weather stations from 2021 to 2023
+
+```{r}
+#| code-fold: true
+#| code-summary: "show code"
+#| fig-width: 10
+#| fig-height: 4
+
+# Step 0: Compute average of Mean Temperature (°C) across all stations
+weather_data_all_stations <- weather_data %>%
+  group_by(Date) %>%
+  summarise(`Mean Temperature (°C)` = mean(`Mean Temperature (°C)`))
+
+# Step 1: compute origin and  horizon scale cutpoints: 
+cutpoints <- weather_data_all_stations %>% 
+  mutate(
+    outlier = between(
+      `Mean Temperature (°C)`, 
+      quantile(`Mean Temperature (°C)`, 0.25, na.rm = TRUE) -
+        1.5 * IQR(`Mean Temperature (°C)`, na.rm = TRUE),
+      quantile(`Mean Temperature (°C)`, 0.75, na.rm = TRUE) +
+        1.5 * IQR(`Mean Temperature (°C)`, na.rm = TRUE))) %>% 
+  filter(outlier)
+
+ori <- sum(range(cutpoints$`Mean Temperature (°C)`))/2
+sca <- seq(range(cutpoints$`Mean Temperature (°C)`)[1], 
+           range(cutpoints$`Mean Temperature (°C)`)[2], 
+           length.out = 7)[-4]
+
+ori <- round(ori, 2) # The origin, rounded to 2 decimal places
+sca <- round(sca, 2) # The horizon scale cutpoints
+
+# Step 2: Ensure data has Year, Month, Date column. Also create a Date_mine column for comparing across years
+weather_data_all_stations <- weather_data_all_stations %>% 
+  mutate(Year = year(Date)) %>%
+  mutate(Month = month(Date)) %>%
+  mutate(Day = day(Date)) %>%
+  mutate(Date_mine = make_date(2023, month(Date), day(Date)))
+
+# Step 3: Plot horizon plot
+weather_data_all_stations %>% ggplot() +
+  geom_horizon(aes(x = Date_mine, 
+                   y = `Mean Temperature (°C)`,
+                   fill = after_stat(Cutpoints)), 
+               origin = ori, horizonscale = sca) +
+  scale_fill_hcl(palette = 'RdBu', reverse = T) +
+  facet_grid(~Year ~ .) +
+  theme_few() +
+  theme(
+    panel.spacing.y = unit(0, "lines"),
+    strip.text.y = element_text(size = 7, angle = 0, hjust = 0),
+    axis.text.y = element_blank(),
+    axis.title.y = element_blank(),
+    axis.ticks.y = element_blank(),
+    panel.border = element_blank()
+    ) +
+  scale_x_date(expand = c(0, 0), 
+               date_breaks = "1 month", 
+               date_labels = "%b") +
+  xlab('Date') +
+  ggtitle('Mean Temperature (°C) across across all weather stations', 
+          'from 2021 to 2023')
+```
+
+### Horizon Plot of Daily Rainfall Total across all weather stations from 2021 to 2023
+
+This plot may not make sense as we may need to sum up rainfall for each day across all weather stations first before plotting.
+
+```{r}
+#| code-fold: true
+#| code-summary: "show code"
+#| fig-width: 10
+#| fig-height: 4
+# Step 1: compute origin and  horizon scale cutpoints: 
+cutpoints <- weather_data %>% 
+  mutate(
+    outlier = between(
+      `Daily Rainfall Total (mm)`, 
+      quantile(`Daily Rainfall Total (mm)`, 0.25, na.rm = TRUE) -
+        1.5 * IQR(`Daily Rainfall Total (mm)`, na.rm = TRUE),
+      quantile(`Daily Rainfall Total (mm)`, 0.75, na.rm = TRUE) +
+        1.5 * IQR(`Daily Rainfall Total (mm)`, na.rm = TRUE))) %>% 
+  filter(outlier)
+
+ori <- sum(range(cutpoints$`Daily Rainfall Total (mm)`))/2
+sca <- seq(range(cutpoints$`Daily Rainfall Total (mm)`)[1], 
+           range(cutpoints$`Daily Rainfall Total (mm)`)[2], 
+           length.out = 7)[-4]
+
+ori <- round(ori, 2) # The origin, rounded to 2 decimal places
+sca <- round(sca, 2) # The horizon scale cutpoints
+
+
+# Step 2: Ensure data has Year, Month, Date column. Also create a Date_mine column for comparing across years
+weather_data <- weather_data %>% 
+  mutate(Year = year(Date)) %>%
+  mutate(Month = month(Date)) %>%
+  mutate(Day = day(Date)) %>%
+  mutate(Date_mine = make_date(2023, month(Date), day(Date)))
+
+# Step 3: Plot horizon plot
+weather_data %>% ggplot() +
+  geom_horizon(aes(x = Date_mine, 
+                   y = `Daily Rainfall Total (mm)`,
+                   fill = after_stat(Cutpoints)), 
+               origin = ori, horizonscale = sca) +
+  scale_fill_hcl(palette = 'RdBu', reverse = T) +
+  facet_grid(~Year ~ .) +
+  theme_few() +
+  theme(
+    panel.spacing.y = unit(0, "lines"),
+    strip.text.y = element_text(size = 7, angle = 0, hjust = 0),
+    axis.text.y = element_blank(),
+    axis.title.y = element_blank(),
+    axis.ticks.y = element_blank(),
+    panel.border = element_blank()
+    ) +
+  scale_x_date(expand = c(0, 0), 
+               date_breaks = "1 month", 
+               date_labels = "%b") +
+  xlab('Date') +
+  ggtitle('Daily Rainfall Total across all weather stations', 
+          'from 2021 to 2023')
+
+```
+
+### Horizon Plot of Daily Rainfall Total (mm) across all the stations for a specified year
+
+```{r}
+#| code-fold: true
+#| code-summary: "show code"
+#| fig-width: 10
+#| fig-height: 4
+# Ensure data has Year, Month, Date column
+weather_data <- weather_data %>% 
+  mutate(Year = year(Date)) %>%
+  mutate(Month = month(Date)) %>%
+  mutate(Day = day(Date)) %>%
+  mutate(Date_mine = make_date(2023, month(Date), day(Date)))
+
+# Filter for specified year only
+weather_data_2023 <- weather_data %>% 
+  filter(Year == 2023)
+
+# Step 1: compute origin and  horizon scale cutpoints: 
+cutpoints <- weather_data_2023 %>% 
+  mutate(
+    outlier = between(
+      `Daily Rainfall Total (mm)`, 
+      quantile(`Daily Rainfall Total (mm)`, 0.25, na.rm = TRUE) -
+        1.5 * IQR(`Daily Rainfall Total (mm)`, na.rm = TRUE),
+      quantile(`Daily Rainfall Total (mm)`, 0.75, na.rm = TRUE) +
+        1.5 * IQR(`Daily Rainfall Total (mm)`, na.rm = TRUE))) %>% 
+  filter(outlier)
+
+ori <- sum(range(cutpoints$`Daily Rainfall Total (mm)`))/2
+sca <- seq(range(cutpoints$`Daily Rainfall Total (mm)`)[1], 
+           range(cutpoints$`Daily Rainfall Total (mm)`)[2], 
+           length.out = 7)[-4]
+
+ori <- round(ori, 2) # The origin, rounded to 2 decimal places
+sca <- round(sca, 2) # The horizon scale cutpoints
+
+# Plot horizon plot
+weather_data_2023 %>% ggplot() +
+  geom_horizon(aes(x = Date_mine, 
+                   y = `Daily Rainfall Total (mm)`,
+                   fill = after_stat(Cutpoints)), 
+               origin = ori, horizonscale = sca) +
+  scale_fill_hcl(palette = 'RdBu', reverse = T) +
+  facet_grid(~Station ~ .) +
+  theme_few() +
+  theme(
+    panel.spacing.y = unit(0, "lines"),
+    strip.text.y = element_text(size = 7, angle = 0, hjust = 0),
+    axis.text.y = element_blank(),
+    axis.title.y = element_blank(),
+    axis.ticks.y = element_blank(),
+    panel.border = element_blank()
+    ) +
+  scale_x_date(expand = c(0, 0), 
+               date_breaks = "1 month", 
+               date_labels = "%b") +
+  xlab('Date') +
+  ggtitle('Daily Rainfall Total (mm) for the year 2023',
+          'across the stations')
+```
+
+# Clustering Module: Clustering of Multiple Time Series
+
+## Overview
+
+Clustering is the practice of finding hidden patterns or similar groups in data.
+
+To perform time series clustering, we will use the function [`tsclust`](https://www.rdocumentation.org/packages/dtwclust/versions/3.1.1/topics/tsclust) from [`dtwclust`](https://www.rdocumentation.org/link/dtwclust?package=dtwclust&version=3.1.1).
+
+https://cran.r-project.org/web/packages/dtwclust/vignettes/dtwclust.pdf
+
+We will divide cluster analysis into the following parts:
+
+-   Format data into list of series for input to clustering function
+-   Choosing the clustering method: "partitional", "hierarchical", "tadpole" or "fuzzy"
+-   Choosing distance computation: Ignored for type = "tadpole".
+-   Determining a measure to quantify the similarity between observations
+-   Selecting the desired number of clusters
+
+## Clustering of stations
+
+We will use the variable `temp_data` , and perform cluster analysis of time series of daily temperature readings from different weather stations for the same period.
+
+### Format data into list of series
+
+Users should be allowed to cluster by:
+
+-   Stations, for multiple stations and multiple years
+-   Months, for a single station and a given year
+
+::: panel-tabset
+#### For a single selected station and year, by months
+
+```{r}
+#| code-fold: true
+#| code-summary: "show code"
+# Extract the target variable, temperature data into a variable
+temp_data <- weather_data %>%
+  select(c(Station, Date, Year, Month, Month_Name, Day, `Mean Temperature (°C)`))
+
+# Filter for station(s) and year(s) e.g., "Changi", for 2023
+stations_selected = "Changi"
+years_selected = "2021"
+station_temp_data <- temp_data %>% 
+  filter(Station %in% stations_selected) %>%
+  filter(Year %in% years_selected)
+
+# Ensure the data is ordered by Month_Name and by Date
+station_temp_data <- station_temp_data %>%
+  arrange(Month_Name, Date)
+
+# Format data into list of series, by Month_Name
+list_of_series <- split(station_temp_data$`Mean Temperature (°C)`, station_temp_data$Month_Name)
+```
+
+#### For multiple stations and multiple years, by station
+
+```{r}
+#| code-fold: true
+#| code-summary: "show code"
+# Extract the target variable, temperature data into a variable
+temp_data <- weather_data %>%
+  select(c(Station, Date, Year, Month, Day, `Mean Temperature (°C)`))
+
+# Filter for all stations and years 
+stations_selected = unique(weather_data$Station) # note: not station_selected
+years_selected = unique(weather_data$Year) # note: not stations_selected
+station_temp_data <- temp_data %>% 
+  filter(Station %in% stations_selected) %>%
+  filter(Year %in% years_selected)
+
+
+# Group-wise (Station-by-Station) Normalization, applying Min-Max scaling within each station group
+station_temp_data <- station_temp_data %>%
+  group_by(Station) %>%
+  mutate(Normalized_Temp = (`Mean Temperature (°C)` - min(`Mean Temperature (°C)`, na.rm = TRUE)) / 
+                            (max(`Mean Temperature (°C)`, na.rm = TRUE) - min(`Mean Temperature (°C)`, na.rm = TRUE))) %>%
+  ungroup()
+
+
+# Ensure the data is ordered by Station and by Date
+station_temp_data <- station_temp_data %>%
+  arrange(Station, Date)
+
+# Format data into list of series, by Station
+list_of_series <- split(station_temp_data$Normalized_Temp, station_temp_data$Station)
+```
+:::
+
+### Exploring clustering methods
+
+#### Hierarchical
+
+Assume clustering for several stations across 2021 - 2023.
+
+```{r}
+#| code-fold: true
+#| code-summary: "show code"
+n_cluster = 2 # Number of desired clusters. Should not show if cluster_type == "partitional"
+cluster_type = "hierarchical" #  "partitional", "hierarchical", "tadpole" or "fuzzy"
+distance = "dtw_basic" # Ignored for type = "tadpole"
+control = hierarchical_control(method = "complete") 
+
+c <- tsclust(series = list_of_series, 
+        type = cluster_type,  
+        k = n_cluster, 
+        distance = distance, 
+        control = control
+        )
+
+p <- fviz_dend(c, k = n_cluster, # Cut in n_cluster groups
+          cex = 0.6, # label size
+          k_colors = c("jco"),
+          color_labels_by_k = FALSE,  # color labels by groups
+          rect_border = "jco",
+          rect = TRUE,
+          rect_fill = TRUE,
+          horiz = TRUE)
+p
+```
+
+Varying number of desired clusters, *k*, produces the following:
+
+\<to be updated\>
+
+Keeping *k* at x and varying the distance computation produces the following:
+
+\<to be updated\>
+
+# Clustering Module: Forecasting of grouped time series
+
+\<to be updated\>
+
+Say we have the following groups as a result of clustering:\
+![](images/clipboard-2703185754.png)
+
+We will attempt to apply forecasting models to these groups.
+
+The forecasting workflow involves a few basic steps:
+
+1.  Prepare data in a suitable format for time series forecasting
+
+2.  Apply a model or set of models
+
+3.  Forecast the models
+
+4.  Include measures to compare accuracy of models
+
+```{r}
+#| code-fold: true
+#| code-summary: "show code"
+# Extract cluster assignments
+clusters <- c@cluster
+
+# Extract series names (stations)
+series_names <- names(clusters)
+
+# Create a list to store dataframes for each cluster
+cluster_dfs <- list()
+
+for (i in unique(clusters)) {
+  # Identify series belonging to the current cluster
+  series_in_cluster <- series_names[clusters == i]
+  
+  # Extract these series from the original data and store in list
+  cluster_dfs[[paste("Cluster", i)]] <- weather_data[weather_data$Station %in% series_in_cluster, ]
+}
+
+# cluster_dfs is a list of dataframes, each representing one cluster
+```
+
+Prepare data for forecasting:
+
+```{r}
+#| code-fold: true
+#| code-summary: "show code"
+cluster_data <- cluster_dfs[[1]]
+unique(cluster_data$Station) # Stations in our data
+
+# Calculate mean temperature averages by Date
+temp_averages <- cluster_data %>%
+  group_by(Date) %>%
+  summarise(Average_Mean_Temperature_C = mean(`Mean Temperature (°C)`, na.rm = TRUE)) %>%
+  ungroup()
+
+# Retain distinct date-related information
+date_info <- cluster_data %>%
+  select(Date, Year, Month, Day, Date_mine, Month_Name, Week, Weekday) %>%
+  distinct()
+
+# Merge temperature averages with date information
+cluster_data_aggregated <- date_info %>%
+  left_join(temp_averages, by = "Date")
+
+cluster_data_aggregated <- as_tsibble(cluster_data_aggregated, index = Date)
+
+```
+
+Do forecasting
+
+```{r}
+#| code-fold: true
+#| code-summary: "show code"
+# cluster_data_aggregated %>%
+#   autoplot(Average_Mean_Temperature_C) 
+
+fit <- cluster_data_aggregated %>%
+  model(
+    snaive = SNAIVE(Average_Mean_Temperature_C ),
+    ets = ETS(Average_Mean_Temperature_C),
+    arima = ARIMA(Average_Mean_Temperature_C)
+  )
+fc <- fit %>%
+  forecast(h = 12)
+fc %>%
+  autoplot(cluster_data_aggregated, level = NULL) + # show no prediction intervals
+  ggtitle("Forecasts") +
+  xlab("Date") +
+  guides(colour = guide_legend(title = "Forecast"))
+```
+
+# Spatial Interpolation Module
+
+This module presents two different methods (Inverse Distance Weighting (IDW), Ordinary Kriging, etc.) to prepare an isohyet map for different variables, by doing spatial interpolation for the data. This map will typically represent data for a specific point in time or an averaged period (a particular day, month, etc.), depending on the analysis goal.
+
+Design considerations for user control:
+
+-   Use radioButtons function to select only one variable
+-   Use radioButtons function to select only one type of time window
+-   Display original data and both methods for interpolation side by side.
+-   For each method, offer variable to tweak:
+-   Inverse Distance Weighting (IDW): *nmax*
+-   Ordinary Kriging
+
+First, read in planning subzone boundary data (shape file) for Singapore. This step should be done before running UI and server code.
+
+```{r}
+# This is a shape file, read in with st_read
+mpsz2019 <- st_read(dsn = "data/geospatial", 
                     layer = "MPSZ-2019") %>%
   st_transform(crs = 3414)
 ```
 
-### Data preparation, Rainfall for one-month
+### Method 1: inverse distance weighted interpolation
 
-We will first focus on Rainfall data over a one-month period, assessing how various model parameters influence this variable.
+We first focus on interpolating data using IDW method for a specified month.
 
-The code chunk below selects monthly Rainfall data for analysis, and aggregates it to compute monthly totals or averages for a specific year and month.
+For rainfall, we should aggregate by computing sum of rainfall for the month. For temperature, we should aggregate by computing average temperature per month.
 
-```{r}
-#| code-fold: true
-#| code-summary: "show code"
-# User-defined criteria
-selected_var <- "Daily Rainfall Total (mm)" # "Daily Rainfall Total (mm)" or "Mean Temperature (°C)"
-time_resolution <- "Monthly" # Options: "Daily", "Monthly", "Yearly"
-selected_date <- "2023-02-15" # To be single select and reactive (only show if Daily)
-selected_month <- c("February") # To be single select and reactive (only show if Month)
-selected_year <- c("2023") # To be single select and reactive (only show if Month or Year)
-interpolation_method <- "IDW"
-
-# Adjusting filter based on time_resolution
-if (time_resolution == "Daily") {
-  # Filter for a specific day, assuming Date is in YYYY-MM-DD format
-  variable_data <- weather_data %>%
-    filter(Date == as.Date(selected_date))
-} else if (time_resolution == "Monthly") {
-  # Filter for a specific month
-  variable_data <- weather_data %>%
-    filter(Year == selected_year,
-           Month_Name == selected_month)
-} else if (time_resolution == "Yearly") {
-  # Filter for an entire year
-  variable_data <- weather_data %>%
-    filter(Year == selected_year)
-}
-
-# Group and summarise data, selecting for the correctly variable
-variable_data <- variable_data %>%
-  group_by(Station, Year, Month, LAT, LONG) %>%
-  summarise(MonthlyValue = if(grepl("Rainfall", selected_var)) {
-                sum(.data[[selected_var]], na.rm = TRUE) # Sum or average based on the variable
-              } else if (grepl("Temperature", selected_var)) {
-                mean(.data[[selected_var]], na.rm = TRUE)
-              }, .groups = 'drop')
-```
+::: panel-tabset
+### Daily Rainfall Total (mm)
 
 ```{r}
 #| code-fold: true
 #| code-summary: "show code"
-# User-defined criteria
-# Selecting variable
+# Indicate user variable
 selected_var <- "Daily Rainfall Total (mm)" # "Daily Rainfall Total (mm)" or "Mean Temperature (°C)"
-# Selecting time period
 selected_month <- c("February") # User to specify Month
 selected_year <- c("2023") # User to specify Year
 interpolation_method <- "IDW"
@@ -496,9 +1124,9 @@ variable_data <- weather_data %>%
   filter(Year %in% selected_year,
          Month_Name %in% selected_month) %>%
   group_by(Station, Year, Month, LAT, LONG) %>%
-  summarise(MonthlyValue = if(grepl("Rainfall", selected_var)) {
+  summarise(MonthlyValue = if(selected_var == "Daily Rainfall Total (mm)") {
                 sum(.data[[selected_var]], na.rm = TRUE) # aggregate by computing sum of rainfall for the month. 
-              } else if (grepl("Temperature", selected_var)) {
+              } else if (selected_var == "Mean Temperature (°C)") {
                 mean(.data[[selected_var]], na.rm = TRUE) # aggregate by computing average temperature per month.
               }, .groups = 'drop')
   
@@ -539,28 +1167,6 @@ coop <- st_as_sf(as.data.frame(xy),
                  coords = c("x","y"),
                  crs = st_crs(mpsz2019)) # Assign CRS based on mpsz2019
 coop <- st_filter(coop, mpsz2019) # Filter to only only includes points within mpsz2019
-```
-
-#### 
-
-```         
-```
-
-### Method 1: Inverse Distance Weighted interpolation
-
-#### Interpolation for specific month
-
-We first focus on interpolating data using IDW method for a specified month.
-
-For rainfall, we should aggregate by computing sum of rainfall for the month. For temperature, we should aggregate by computing average temperature per month.
-
-::: panel-tabset
-### Daily Rainfall Total (mm)
-
-```{r}
-#| code-fold: true
-#| code-summary: "show code"
-
 
 # IDW Method
 nmax = 3 # Set value
@@ -624,9 +1230,9 @@ variable_data <- weather_data %>%
   filter(Year %in% selected_year,
          Month_Name %in% selected_month) %>%
   group_by(Station, Year, Month, LAT, LONG) %>%
-  summarise(MonthlyValue = if(grepl("Rainfall", selected_var)) {
+  summarise(MonthlyValue = if(selected_var == "Daily Rainfall Total (mm)") {
                 sum(.data[[selected_var]], na.rm = TRUE) # aggregate by computing sum of rainfall for the month. 
-              } else if (grepl("Temperature", selected_var)) {
+              } else if (selected_var == "Mean Temperature (°C)") {
                 mean(.data[[selected_var]], na.rm = TRUE) # aggregate by computing average temperature per month.
               }, .groups = 'drop')
   
@@ -749,9 +1355,9 @@ variable_data <- weather_data %>%
   filter(Year %in% selected_year,
          Month_Name %in% selected_month) %>%
   group_by(Station, Year, Month, LAT, LONG) %>%
-  summarise(MonthlyValue = if(grepl("Rainfall", selected_var)) {
+  summarise(MonthlyValue = if(selected_var == "Daily Rainfall Total (mm)") {
                 sum(.data[[selected_var]], na.rm = TRUE) # aggregate by computing sum of rainfall for the month. 
-              } else if (grepl("Temperature", selected_var)) {
+              } else if (selected_var == "Mean Temperature (°C)") {
                 mean(.data[[selected_var]], na.rm = TRUE) # aggregate by computing average temperature per month.
               }, .groups = 'drop')
   
@@ -875,9 +1481,9 @@ variable_data <- weather_data %>%
   filter(Year %in% selected_year,
          Month_Name %in% selected_month) %>%
   group_by(Station, Year, Month, LAT, LONG) %>%
-  summarise(MonthlyValue = if(grepl("Rainfall", selected_var)) {
+  summarise(MonthlyValue = if(selected_var == "Daily Rainfall Total (mm)") {
                 sum(.data[[selected_var]], na.rm = TRUE) # aggregate by computing sum of rainfall for the month. 
-              } else if (grepl("Temperature", selected_var)) {
+              } else if (selected_var == "Mean Temperature (°C)") {
                 mean(.data[[selected_var]], na.rm = TRUE) # aggregate by computing average temperature per month.
               }, .groups = 'drop')
   
@@ -1022,9 +1628,9 @@ variable_data <- weather_data %>%
   filter(Year %in% selected_year,
          Month_Name %in% selected_month) %>%
   group_by(Station, Year, Month, LAT, LONG) %>%
-  summarise(MonthlyValue = if(grepl("Rainfall", selected_var)) {
+  summarise(MonthlyValue = if(selected_var == "Daily Rainfall Total (mm)") {
                 sum(.data[[selected_var]], na.rm = TRUE) # aggregate by computing sum of rainfall for the month. 
-              } else if (grepl("Temperature", selected_var)) {
+              } else if (selected_var == "Mean Temperature (°C)") {
                 mean(.data[[selected_var]], na.rm = TRUE) # aggregate by computing average temperature per month.
               }, .groups = 'drop')
   
@@ -1070,7 +1676,7 @@ v_auto
 
 ```
 
-Final surface map:
+Final surface map: 
 
 ```{r}
 #| code-fold: true
@@ -1133,9 +1739,9 @@ variable_data <- weather_data %>%
   filter(Year %in% selected_year,
          Month_Name %in% selected_month) %>%
   group_by(Station, Year, Month, LAT, LONG) %>%
-  summarise(MonthlyValue = if(grepl("Rainfall", selected_var)) {
+  summarise(MonthlyValue = if(selected_var == "Daily Rainfall Total (mm)") {
                 sum(.data[[selected_var]], na.rm = TRUE) # aggregate by computing sum of rainfall for the month. 
-              } else if (grepl("Temperature", selected_var)) {
+              } else if (selected_var == "Mean Temperature (°C)") {
                 mean(.data[[selected_var]], na.rm = TRUE) # aggregate by computing average temperature per month.
               }, .groups = 'drop')
   
@@ -1181,7 +1787,7 @@ v_auto
 
 ```
 
-Final surface map:
+Final surface map: 
 
 ```{r}
 #| code-fold: true
@@ -1228,42 +1834,39 @@ tm_shape(kpred) +
 ```
 :::
 
-## UI Design
+# UI Design (Work in Progress)
 
-In this section we will describe the parameters to expose, the output to show, while suggesting the Shiny UI components to use.
+## Clustering and Group Forecasting module
 
-### Parameters to expose
+This module will contain three tabs:
 
-The parameters to be exposed can be categorised into 2 types.
+-   Horizon Plot
+-   Time Series Clustering
+-   Forecasting Grouped Time Series
 
-1.  Data Selection Parameters:
+### Tab 1: Horizon Plot
 
--   Variable Selection: Single select option to choose between the variables to analyse (Daily Rainfall Total (mm), Mean Temperature (°C))
--   Time Window Selection: Single select option for temporal resolution for analysis (Daily, Monthly, Quarterly, Yearly intervals).
+\<to be updated\>
 
-2.  Model Parameters for Spatial Interpolation:
+![](images/clipboard-3800135536.png)
 
-    -   For both methods: Choose resolution
+### Tab 2: Time Series Clustering
 
-    -   IDW: nmax
+\<to be updated\>
 
-    -   
+![](images/clipboard-2326084344.png)
 
-        ## Ordinary Kriging:
+### Tab 3: Forecasting Grouped Time Series
 
-### Output
+\<to be updated\>
 
-### 
+## Spatial Interpolation Module
 
-Design considerations for user control:
-
--   Use radioButtons function to select only one variable
--   Use radioButtons function to select only one type of time window
--   Display original data and both methods for interpolation side by side.
--   For each method, offer variable to tweak:
--   Inverse Distance Weighting (IDW): *nmax*
--   Ordinary Kriging
+\<to be updated\>
 
 # References
 
+-   [Time series clustering](https://geomoer.github.io/moer-mpg-data-analysis/unit10/unit10-03_time_series_clustering.html)
+-   https://plotly.com/ggplot2/dendrogram/
+-   https://www.rdocumentation.org/packages/factoextra/versions/1.0.7/topics/fviz_dend
 -   [In-class Exercise 7](https://isss608-vaa-demo.netlify.app/in-class_ex/in-class_ex07/in-class_ex07-isomap)

@@ -1,4 +1,6 @@
 ##### Set up #####
+pacman::p_load(gstat)
+pacman::p_load(tmap)
 pacman::p_load(shiny, shinydashboard, tidyverse, ggplot2, dplyr, lubridate, ggthemes, plotly, ggHoriPlot, dtwclust, factoextra)
 
 weather_data <- read_rds("data/weather_imputed_11stations.rds") 
@@ -9,6 +11,10 @@ weather_data <- weather_data %>%
   )
 
 variables <- c("Daily Rainfall Total (mm)", "Mean Temperature (°C)", "Minimum Temperature (°C)", "Maximum Temperature (°C)")
+
+# mpsz2019 <- st_read(dsn = "data/geospatial", 
+#                     layer = "MPSZ-2019") %>%
+#   st_transform(crs = 3414)
 
 ##### Header and sidebar #####
 header <- dashboardHeader(title = "Singapore Weather Analytics (2021-2023)")

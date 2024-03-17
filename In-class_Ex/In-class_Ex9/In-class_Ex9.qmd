@@ -1,0 +1,146 @@
+---
+title: "In-class Exercise 8"
+subtitle: "Visualising and Analysing Network Data"
+date: March 16, 2024
+date-modified: "last-modified"
+format:
+  html:
+    toc: true
+    number-sections: false
+    code-line-numbers: false
+    
+execute: 
+  eval: true
+  echo: true
+  warning: false
+  message: false
+---
+
+## Overview
+
+To visualize and analyse network data, using R and appropriate R packages.
+
+## Load libraries
+
+```{r}
+pacman::p_load(igraph, tidygraph, ggraph, visNetwork, lubridate, 
+               clock, # only for time
+               tidyverse, graphlayouts)
+```
+
+## Import data
+
+```{r}
+GAStech_nodes <- read_csv("data/GAStech_email_node.csv")
+GAStech_edges <- read_csv("data/GAStech_email_edge-v2.csv")
+```
+
+Transform SentDate column to Date type and create a new Weekday column:
+
+```{r}
+GAStech_edges <- GAStech_edges %>%
+  mutate(Weekday = wday(SentDate, # Create new column , Weekday
+                        label = TRUE,
+                        abbr = FALSE)) %>%
+  mutate(SendDate = dmy(SentDate))  # Change type to date and create a new column, Senddate
+```
+
+Aggregate the individual by date, senders, receivers, main subject and day of the week:
+
+```{r}
+GAStech_edges_aggregated <- GAStech_edges %>%
+  filter(MainSubject == "Work related") %>% # Focus only on rows that are 'Work related'
+  group_by(source, target, Weekday) %>%
+    summarise(Weight = n()) %>% # Add new field, Weight. Assigned based on summarise function..?
+  filter(source!=target) %>% # Exclude emails where recipient and sender are the same. 
+  filter(Weight > 1) %>% 
+  ungroup()
+```
+
+Use `tbl_graph()` to build tidygraph data model:
+
+```{r}
+GAStech_graph <- tbl_graph(nodes = GAStech_nodes, edges = GAStech_edges_aggregated, directed = TRUE)
+```
+
+```{r}
+GAStech_graph
+```
+
+Plot basic network graph:
+
+```{r}
+ggraph(GAStech_graph) +
+  geom_edge_link() +
+  geom_node_point()
+```
+
+```{r}
+g <- ggraph(GAStech_graph) + 
+  geom_edge_link(aes(colour = 'grey50')) +
+  geom_node_point(aes(colour = 'grey40'))
+
+g + theme_graph(background = 'grey10',
+                text_colour = 'white')
+```
+
+Try tweaking the layout as per this [documentation](https://r.igraph.org/reference/layout_.html).
+
+```{r}
+g <- ggraph(GAStech_graph,
+            layout = "kk") + 
+  geom_edge_link(aes()) +
+  geom_node_point(aes())
+
+g + theme_graph()
+```
+
+```{r}
+g <- ggraph(GAStech_graph,
+            layout = "nicely") + 
+  geom_edge_link(aes()) +
+  geom_node_point(aes(colour = Department, size = 3))
+
+g + theme_graph()
+```
+
+```{r}
+g <-ggraph(GAStech_graph,
+           layout = "nicely") +
+  geom_edge_link(aes(width = Weight),
+                 alpha = 0.2) +
+  scale_edge_width(range = c(0.1,5)) +
+  geom_node_point(aes(colour = Department),
+                  size = 3)
+
+
+g + theme_graph()
+```
+
+```{r}
+set_graph_style()
+
+g <- ggraph(GAStech_graph, 
+            layout = "nicely") + 
+  geom_edge_link(aes(width=Weight), 
+                 alpha=0.2) +
+  scale_edge_width(range = c(0.1, 5)) +
+  geom_node_point(aes(colour = Department), 
+                  size = 2)
+
+g + facet_edges(~Weekday)
+```
+
+Analysis: Computing centrality indices:
+
+```{r}
+g <- GAStech_graph %>%
+  mutate(betweenness_centrality = centrality_betweenness()) %>%
+  ggraph(layout = "fr") + 
+  geom_edge_link(aes(width=Weight), 
+                 alpha=0.2) +
+  scale_edge_width(range = c(0.1, 5)) +
+  geom_node_point(aes(colour = Department,
+            size=betweenness_centrality))
+g + theme_graph()
+```

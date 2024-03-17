@@ -1,5 +1,5 @@
 ---
-title: "In-class Exercise 8"
+title: "In-class Exercise 9"
 subtitle: "Visualising and Analysing Network Data"
 date: March 16, 2024
 date-modified: "last-modified"

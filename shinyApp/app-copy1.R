@@ -44,8 +44,9 @@ GeospatialUI <- fluidPage(
   fluidRow(
     # Inputs Control Box
     box(title = "IDW Selection Parameters",  width = 2, status = "primary", solidHeader = TRUE,
-        radioButtons("GS_show_IDW", "Show IDW?", c("Yes", "No"), selected = "No", inline = TRUE),
-        uiOutput("GS_dynamic_IDW")
+        radioButtons("GS_show_IDW", "Show IDW?", c("Yes", "No"), selected = "Yes", inline = TRUE),
+        uiOutput("GS_dynamic_IDW"),
+        actionButton("GS_updateIDW", "Show Result")
         ),
     # Output Plot Box
     box(title = "IDW Map",  width = 10, status = "primary", solidHeader = TRUE,
@@ -56,22 +57,17 @@ GeospatialUI <- fluidPage(
   fluidRow(
     # Inputs Control Box
     box(title = "Kriging Selection Parameters",  width = 2, status = "primary", solidHeader = TRUE,
-        radioButtons("GS_show_OK", "Show Kriging?", c("Yes", "No"), selected = "No", inline = TRUE),
-        uiOutput("GS_dynamic_OK")
+        radioButtons("GS_show_OK", "Show Kriging?", c("Yes", "No"), selected = "Yes", inline = TRUE),
+        uiOutput("GS_dynamic_OK"),
+        actionButton("GS_updateOK", "Show Result")
         ),
     # Output Plot Box
     box(title = "Ordinary Kriging Map",  width = 10, status = "primary", solidHeader = TRUE,
-        fluidRow(
-          column(6,plotOutput("GS_OK_variogram")),
-          column(6,plotOutput("GS_OK_fitted_variogram"))
-        ),
-        fluidRow(
-          column(6,plotOutput("GS_OK_map")),
-          column(6,plotOutput("GS_OK_prediction_variance"))
-        )
+        plotOutput("GS_OK_map")
         )
     )
   )
+
 
 # Section 6: Dashboard Body and UI ----
 body <- dashboardBody(
@@ -232,8 +228,7 @@ server <- function(input, output) {
         sliderInput("GS_IDW_res", "Resolution", 
                     min = 30, max = 80, value = 50),
         sliderInput("GS_IDW_nmax" , "nmax",
-                    min = 1, max = 10, value = 3),
-        actionButton("GS_updateIDW", "Show Result")
+                    min = 1, max = 10, value = 3)
       )
     }
     
@@ -242,8 +237,7 @@ server <- function(input, output) {
   ## 2. Prepare and store reactive data
   GS_reactiveDataIDW <- reactiveValues() # To contain variable data and IDW parameters
   observeEvent(input$GS_updateIDW, {
-    variable_data <- GS_reactiveDataTmap$variable_data # Use same data from tmap
-    variable_data_sf <- GS_reactiveDataTmap$variable_data_sf # Use same data from tmap
+    variable_data_sf <- GS_reactiveDataTmap$variable_data_sf
     
     # Specify resolution
     bbox <- as.list(st_bbox(mpsz2019))
@@ -292,8 +286,8 @@ server <- function(input, output) {
     }
     
     # Update reactive variable
-    GS_reactiveDataIDW$variable_data <- variable_data
-    GS_reactiveDataIDW$variable_data_sf <- variable_data_sf
+    GS_reactiveDataIDW$variable_data <- GS_reactiveDataIDW$variable_data # Use same variable data as in the tmap plot
+    GS_reactiveDataIDW$variable_data_sf <- GS_reactiveDataIDW$variable_data_sf
     GS_reactiveDataIDW$legend_title <- legend_title
     GS_reactiveDataIDW$main_title <- main_title
     GS_reactiveDataIDW$pred <- pred
@@ -304,6 +298,8 @@ server <- function(input, output) {
   output$GS_IDW_map <- renderPlot({
 
     req(GS_reactiveDataIDW$pred) # Check if reactive variable is not NULL to avoid errors before the first button press
+
+    # Use reactive variable  for plotting
 
     tmap_options(check.and.fix = TRUE)
     tmap_mode("plot")
@@ -320,147 +316,15 @@ server <- function(input, output) {
       model_choices <- c("Nug", "Exp","Sph","Gau","Exc","Mat","Ste","Cir","Lin","Bes","Pen","Per","Wav","Hol","Log","Pow","Spl")
       list(
         sliderInput("GS_OK_res", "Resolution", min = 30, max = 80, value = 50),
-        selectInput("GS_OK_model" , "model", model_choices),
+        selectInput("GS_model" , "model", model_choices),
         sliderInput("GS_OK_psill", "psill", min = 0.5, max = 10, value = 0.5, step = 0.5),
         sliderInput("GS_OK_range", "range", min = 500, max = 10000, value = 8000, step = 500),
-        sliderInput("GS_OK_nugget", "nugget", min = 0.1, max = 10, value = 0.1, step = 0.1),
-        actionButton("GS_updateOK", "Show Result")
+        sliderInput("GS_OK_nugget", "nugget", min = 0.1, max = 10, value = 0.1, step = 0.1)
       )
     }
     
   })
   
-  ## 2. Prepare and store reactive data
-  GS_reactiveDataOK <- reactiveValues() # To contain variable data and IDW parameters
-  observeEvent(input$GS_updateOK, {
-    
-    variable_data <- GS_reactiveDataTmap$variable_data # Use same data from tmap
-    variable_data_sf <- GS_reactiveDataTmap$variable_data_sf # Use same data from tmap
-    
-    # Specify resolution
-    bbox <- as.list(st_bbox(mpsz2019))
-    res = input$GS_OK_res
-    nrows =  (bbox$ymax - bbox$ymin)/res
-    ncols = (bbox$xmax - bbox$xmin)/res
-    
-    # Create raster layer, 'grid'
-    grid <- rast(mpsz2019, nrows = nrows, ncols = ncols)
-    # Generate coordinates for each cell of the raster
-    xy <- xyFromCell(grid,1:ncell(grid))
-    # Converting coordinates of raster into a spatial (sf) object
-    coop <- st_as_sf(as.data.frame(xy), coords = c("x","y"), crs = st_crs(mpsz2019))
-    # Filter to only only includes points within mpsz2019
-    coop <- st_filter(coop, mpsz2019) 
-    
-
-    
-    # Generate Experimental Variogram
-    v <- variogram(ValueToPlot ~ 1, 
-                   data = variable_data_sf)
-    
-    # Fit Variogram
-    fv <- fit.variogram(object = v,
-                        model = vgm(psill = input$GS_OK_psill, model = input$GS_OK_model, range = input$GS_OK_range, nugget = input$GS_OK_nugget))
-    
-    # perform spatial interpolation
-    k <- gstat(formula = ValueToPlot ~ 1,
-               data = variable_data_sf,
-               model = fv)
-    
-    # estimate the unknown grids
-    resp <- predict(k,coop)
-    resp$x <- st_coordinates(resp)[,1]
-    resp$y <- st_coordinates(resp)[,2]
-    resp$pred <- resp$var1.pred
-    
-    # create a raster surface data object
-    kpred <- rasterize(resp, grid,
-                       field = "pred")
-    
-    # plot elements
-    legend_title <- if(grepl("Rainfall", input$GS_selected_var )) {"Rainfall (mm)"} else if(grepl("Temperature", input$GS_selected_var )) {"Temperature (°C)"}
-    main_title <- if(grepl("Rainfall", input$GS_selected_var )) {
-      if(input$GS_time_resolution == "Day") {
-        paste("Daily Rainfall (mm) for", format(as.Date(input$GS_selected_date), "%d %B %Y"), "across stations in Singapore")
-      } else if(input$GS_time_resolution == "Month") {
-        paste("Monthly Rainfall (mm) for", format(as.Date(input$GS_selected_month), "%B %Y"), "across stations in Singapore")
-      } else if(input$GS_time_resolution == "Year") {
-        paste("Yearly Rainfall (mm) for", format(as.Date(input$GS_selected_year), "%Y"), "across stations in Singapore")
-      }
-    } else if(grepl("Temperature", input$GS_selected_var )) {
-      if(input$GS_time_resolution == "Day") {
-        paste("Daily", input$GS_selected_var , "for", format(as.Date(input$GS_selected_date), "%d %B %Y"), "across stations in Singapore")
-      } else if(input$GS_time_resolution == "Month") {
-        paste("Monthly", input$GS_selected_var , "for", format(as.Date(input$GS_selected_month), "%B %Y"), "across stations in Singapore")
-      } else if(input$GS_time_resolution == "Year") {
-        paste("Yearly", input$GS_selected_var , "for", format(as.Date(input$GS_selected_year), "%Y"), "across stations in Singapore")
-      }
-    }
-    
-    # Extracting the variance
-    resp$variance <- resp$var1.var
-    
-    # Create a raster surface data object for variance
-    kvar <- rasterize(resp, grid, field = "variance")
-    
-    # Update reactive variable
-    GS_reactiveDataOK$variable_data <- variable_data
-    GS_reactiveDataOK$variable_data_sf <- variable_data_sf
-    GS_reactiveDataOK$v <- v
-    GS_reactiveDataOK$fv <- fv
-    GS_reactiveDataOK$legend_title <- legend_title
-    GS_reactiveDataOK$main_title <- main_title
-    GS_reactiveDataOK$kpred <- kpred
-    GS_reactiveDataOK$kvar <- kvar
-  })
-  
-  # 3. Output plots
-  output$GS_OK_variogram <- renderPlot({
-    
-    # Check reactive variable
-    req(GS_reactiveDataOK$v)
-    
-    plot(GS_reactiveDataOK$v, cex = 1.5)
-    
-  })
-  output$GS_OK_fitted_variogram <- renderPlot({
-    
-    # Check reactive variable
-    req(GS_reactiveDataOK$v)
-    req(GS_reactiveDataOK$fv)
-    
-    plot(GS_reactiveDataOK$v, GS_reactiveDataOK$fv, cex = 1.5)
-    
-  })
-  output$GS_OK_map <- renderPlot({
-    
-    # Check reactive variable
-    req(GS_reactiveDataOK$kpred) 
-    
-    tmap_options(check.and.fix = TRUE)
-    tmap_mode("plot")
-    tm_shape(GS_reactiveDataOK$kpred) + 
-      tm_raster(title = GS_reactiveDataOK$legend_title, alpha = 0.6, palette = "viridis") +
-      tm_layout(main.title = GS_reactiveDataOK$main_title, main.title.position = "center", main.title.size = 1.2, 
-                legend.height = 0.45, legend.width = 0.35, frame = TRUE) +
-      tm_compass(type="8star", size = 2) + tm_scale_bar() + tm_grid(alpha =0.2)
-    
-  })
-  output$GS_OK_prediction_variance <- renderPlot({
-    # Check reactive variable
-    req(GS_reactiveDataOK$kvar)
-    
-    variance_title <- "Prediction Variance"
-    tmap_options(check.and.fix = TRUE)
-    tmap_mode("plot")
-    tm_shape(GS_reactiveDataOK$kvar) + 
-      tm_raster(title = variance_title,
-                alpha = 0.6, palette = "viridis") +
-      tm_layout(main.title = "Kriging Prediction Variance", main.title.position = "center", main.title.size = 1.2, 
-                legend.height = 0.45, legend.width = 0.35, frame = TRUE) +
-      tm_compass(type="8star", size = 2) + tm_scale_bar() + tm_grid(alpha =0.2)
-    
-  })
 }
 # Section 8: Run the application ---- 
 shinyApp(ui, server)

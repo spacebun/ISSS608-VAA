@@ -1,0 +1,635 @@
+---
+title: "Take-home Exercise 4"
+subtitle: "Prototyping Modules for Visual Analytics Shiny Application"
+date: February 25, 2024
+date-modified:  last-modified
+format:
+  html:
+    toc: true
+    number-sections: true
+    code-line-numbers: true
+    
+execute: 
+  eval: true
+  echo: true
+  warning: false  
+---
+
+# Overview
+
+In this exercise, I will use a selected module of the Shiny application for the Group Project component to fulfill the following objectives:
+
+-   To evaluate and determine what are the necessary R packages needed for the Shiny application,
+-   To prepare and test the specific R codes can be run and returned the correct output as expected,
+-   To determine the parameters and outputs that will be exposed on the Shiny applications, and
+-   To select the appropriate Shiny UI components for exposing the parameters determined above.
+
+## Project details
+
+For our project, we aim to create a Shiny app with user-friendly functionalities, to effectively visualize and analyze climate data.
+
+The R Shiny app will consists of three modules:
+
+1.  EDA and CDA module
+2.  Univariate Forecasting module
+3.  Spatial Interpolation module
+
+For this exercise, we will focus on the last Spatial Interpolation module. In this geospatial module, two spatial interpolation techniques are presented for user to estimate weather conditions (Rainfall or Temperature) at unmonitored locations. The module is designed to allow users to interactively adjust the inputs for each technique, providing a hands-on opportunity to explore and understand the impact of different parameters on the interpolation results.
+
+# Getting started
+
+## Load packages
+
+```{r}
+pacman::p_load(gstat)
+```
+
+```{r}
+library(tmap)
+```
+
+```{r}
+pacman::p_load(tidyverse, naniar, imputeTS, DT, knitr, lubridate,
+               sf, terra, viridis, automap,
+               ggplot2, patchwork, ggthemes, ggiraph, plotly)
+```
+
+# Import cleaned data
+
+The below code can be used to import the cleaned data.
+
+```{r}
+weather_data <- read_rds("data/weather_imputed_11stations.rds")
+```
+
+# Spatial Interpolation Module
+
+This module offers a comparative analysis of two spatial interpolation techniques, Inverse Distance Weighting (IDW) and Ordinary Kriging, to construct isohyet (rainfall) and isopleth (temperature) maps. It will allow for the visualization of data at specific moments or over averaged periods (such as a particular day or month), depending on the user's analytical goals.
+
+By using spatial interpolation to estimate weather conditions at unmonitored locations, users are provided with an enhanced understanding of climate patterns across Singapore.
+
+## Prototype module report
+
+### Read in shape file
+
+First, read in planning subzone boundary data (shape file) for Singapore.
+
+This step should be done before running UI and server code.
+
+```{r}
+mpsz2019 <- st_read(dsn = "data/geospatial",## This is a shape file, read in with st_read
+                    layer = "MPSZ-2019") %>%
+  st_transform(crs = 3414)
+```
+
+### Data preparation
+
+#### Select for variable and time resolution
+
+We will first focus on Rainfall data over a one-month period, assessing how various model parameters influence this variable.
+
+The code chunk below selects monthly Rainfall data for analysis, and aggregates it to compute monthly totals or averages for a specific year and month.
+
+```{r}
+# User-defined criteria
+selected_var <- "Daily Rainfall Total (mm)" # "Daily Rainfall Total (mm)" or "Mean Temperature (°C)"
+time_resolution <- "Month" # Options: "Day", "Month", "Year"
+selected_date <- "2023-02-15" # To be single select and reactive (only show if Day)
+selected_month <- c("February") # To be single select and reactive (only show if Month)
+selected_year <- c("2023") # To be single select and reactive (only show if Month or Year)
+
+# Adjusting filter based on time_resolution
+if (time_resolution == "Day") {
+  # Filter for a specific day, assuming Date is in YYYY-MM-DD format
+  variable_data <- weather_data %>%
+    filter(Date == as.Date(selected_date))
+} else if (time_resolution == "Month") {
+  # Filter for a specific month
+  variable_data <- weather_data %>%
+    filter(Year == selected_year,
+           Month_Name == selected_month)
+} else if (time_resolution == "Year") {
+  # Filter for an entire year
+  variable_data <- weather_data %>%
+    filter(Year == selected_year)
+}
+
+# Group and summarise data, selecting for the correctly variable
+variable_data <- variable_data %>%
+  group_by(Station, Year, LAT, LONG) %>%
+  summarise(MonthlyValue = if(grepl("Rainfall", selected_var)) {
+                sum(.data[[selected_var]], na.rm = TRUE) # Sum or average based on the variable
+              } else if (grepl("Temperature", selected_var)) {
+                mean(.data[[selected_var]], na.rm = TRUE)
+              }, .groups = 'drop')
+```
+
+#### Visualize data on a map
+
+Next, we will visualize the data on a map:
+
+```{r}
+#| code-fold: true
+#| code-summary: "show code"
+# Make it spatial data
+variable_data_sf <- st_as_sf(variable_data, 
+                      coords = c("LONG", # X axis 
+                                 "LAT"), # Y axis
+                      crs= 4326) %>%
+  st_transform(crs = 3414) # To project this into SVY21
+
+# Visualize variable with tmap
+col_title = 
+tmap_options(check.and.fix = TRUE) # Use this code to fix topo error without changing the data. 
+tmap_mode("view") # Make map interactive
+tm_shape(mpsz2019) + # Plot boundary map
+  tm_borders() +
+tm_shape(variable_data_sf) + 
+  tm_dots(col = 'MonthlyValue') # Use color to differentiate
+```
+
+#### Create raster
+
+```{r}
+# Create grid data object / Raster data
+# Extract bounding box variables from mpsz2019 
+bbox <- as.list(st_bbox(mpsz2019))
+
+# Assume user is able to indicate resolution
+res = 50 # User Input. The smaller the value the higher the resolution, but the higher the computational requirement (slower processing).
+nrows =  (bbox$ymax - bbox$ymin)/res
+ncols = (bbox$xmax - bbox$xmin)/res
+# Create a raster layer, `grid`,  from an existing spatial object `mpsz2019`
+grid <- rast(mpsz2019, 
+                   nrows = nrows, 
+                   ncols = ncols)
+# Generate coordinates for each cell of the raster 
+xy <- xyFromCell(grid,
+                         1:ncell(grid))
+# Converting coordinates of raster into a spatial (sf) object
+coop <- st_as_sf(as.data.frame(xy),
+                 coords = c("x","y"),
+                 crs = st_crs(mpsz2019)) # Assign CRS based on mpsz2019
+coop <- st_filter(coop, mpsz2019) # Filter to only only includes points within mpsz2019
+```
+
+### Method 1: Inverse Distance Weighted interpolation
+
+```{r}
+#| code-fold: true
+#| code-summary: "show code"
+# IDW Method
+
+nmax = 3 # Set value
+
+# Create gstat object
+res <- gstat(formula = MonthlyValue ~ 1, # specify  dependent variable
+             locations = variable_data_sf,
+             nmax = nmax, # number of nearest neighbors considered for interpolation. Parameter to expose for UI
+             set = list(idp = 0))
+
+# Predict values at new locations (coop) based on the spatial data (rfdata_sf)
+resp <- predict(res,coop)
+
+# Plot The Result
+# Extract x and y coordinates and the predicted values into resp
+resp$x <- st_coordinates(resp)[,1]
+resp$y <- st_coordinates(resp)[,2]
+resp$pred <- resp$var1.pred
+
+# Predictions are rasterized over a predefined grid, using the mean of predictions where multiple values fall into a single grid cell
+# This results in a raster layer pred representing spatially interpolated values
+pred <- rasterize(resp, grid, field="pred", fun="mean") # resp$pred contains the spatially interpolated variables. grid is raster layer.
+
+
+# Map the interpolated variable raster, pred
+main_title <- ifelse(selected_var == "Daily Rainfall Total (mm)",
+                paste("Distribution for Total Rainfall (mm) for", time_resolution, "of", selected_month, selected_year),
+                paste("Distribution for Average Mean Temperature (°C) for", time_resolution, "of", selected_month, selected_year))
+raster_title <- ifelse(selected_var == "Daily Rainfall Total (mm)",
+                paste("Total Rainfall (mm)"),
+                paste("Average ", selected_var))
+tmap_options(check.and.fix = TRUE)
+tmap_mode("plot")
+tm_shape(pred) + 
+  tm_raster(title = raster_title, 
+            alpha = 0.6, palette = "viridis") +
+  tm_layout(main.title = main_title, main.title.position = "center", main.title.size = 1.2, 
+            legend.height = 0.45, legend.width = 0.35,
+            frame = TRUE) +
+  tm_compass(type="8star", size = 2) + tm_scale_bar() + tm_grid(alpha =0.2)
+```
+
+Varying nmax produced the following results:
+
+![](images/clipboard-3262274107.png)
+
+### Method 2: Kriging
+
+Kriging can be understood as a two-step process:
+
+-   first, the spatial covariance structure of the sampled points is determined by fitting a variogram; and
+-   second, weights derived from this covariance structure are used to interpolate values for unsampled points or blocks across the spatial field.
+
+The below code chunk show the available variogram models in **gstat**.
+
+```{r}
+show.vgms(par.strip.text = list(cex = 0.75))
+```
+
+#### Experimental variogram
+
+This is the “experimental” variogram that should be shown to user, for user to assess what variables to adjust when fitting the variogram.
+
+```{r}
+#| code-fold: true
+#| code-summary: "show code"
+v <- variogram(MonthlyValue ~ 1, 
+               data = variable_data_sf)
+plot(v, cex = 1.5) # Experimental plot that should be shown to user
+```
+
+#### Fitted variogram
+
+The below code chunk is used to tweak the fitted variogram:
+
+```{r}
+#| code-fold: true
+#| code-summary: "show code"
+# The different parameters have been tweaked and the results are presented below. 
+# User will choose based on below variables 
+fv <- fit.variogram(object = v,
+                    model = vgm(psill = 10, model = "Gau", range = 5000, nugget = 0.1))
+
+fv
+plot(v, fv, cex = 1.5) #  visualise how well the observed data fit the model by plotting fv 
+```
+
+#### Result: Isohyet map
+
+```{r}
+#| code-fold: true
+#| code-summary: "show code"
+# perform spatial interpolation by using the newly derived model 
+k <- gstat(formula = MonthlyValue ~ 1,
+           data = variable_data_sf,
+           model = fv)
+
+# estimate the unknown grids
+resp <- predict(k,coop)
+
+resp$x <- st_coordinates(resp)[,1]
+resp$y <- st_coordinates(resp)[,2]
+resp$pred <- resp$var1.pred
+
+# create a raster surface data object
+kpred <- rasterize(resp, grid,
+                          field = "pred")
+
+# map the interpolated variable raster, kpred
+main_title <- ifelse(selected_var == "Daily Rainfall Total (mm)",
+                paste("Distribution for Total Rainfall (mm) for", selected_month, selected_year),
+                paste("Distribution for Average Mean Temperature (°C) for", selected_month, selected_year))
+raster_title <- ifelse(selected_var == "Daily Rainfall Total (mm)",
+                paste("Total Monthly Rainfall (mm)"),
+                paste("Average Mean Temperature (°C)"))
+tmap_options(check.and.fix = TRUE)
+tmap_mode("plot")
+tm_shape(kpred) + 
+  tm_raster(title = raster_title,
+            alpha = 0.6, palette = "viridis") +
+  tm_layout(main.title = main_title, main.title.position = "center", main.title.size = 1.2, 
+            legend.height = 0.45, legend.width = 0.35, frame = TRUE) +
+  tm_compass(type="8star", size = 2) + tm_scale_bar() + tm_grid(alpha =0.2)
+```
+
+#### Prediction variance
+
+```{r}
+#| code-fold: true
+#| code-summary: "show code"
+# Assuming resp already contains the predictions and variance from the predict function
+# Extracting the variance
+resp$variance <- resp$var1.var
+
+# Create a raster surface data object for variance
+kvar <- rasterize(resp, grid, field = "variance")
+
+# Map the interpolated variance raster, kvar
+variance_title <- "Prediction Variance"
+tmap_options(check.and.fix = TRUE)
+tmap_mode("plot")
+tm_shape(kvar) + 
+  tm_raster(title = variance_title,
+            alpha = 0.6, palette = "viridis") +
+  tm_layout(main.title = "Kriging Prediction Variance", main.title.position = "center", main.title.size = 1.2, 
+            legend.height = 0.45, legend.width = 0.35, frame = TRUE) +
+  tm_compass(type="8star", size = 2) + tm_scale_bar() + tm_grid(alpha =0.2)
+
+```
+
+When varying *model* option, there was noticeable variation in the final surface map:
+
+![](images/clipboard-1050740677.png)
+
+When varying *psill* option for different models, some models showed different surface maps while others looked similar:
+
+![](images/clipboard-1960416952.png)
+
+![](images/clipboard-1460570609.png)
+
+When varying *range* option while keeping the other options static, there were different surface maps:
+
+![](images/clipboard-408425766.png)
+
+### Automatic variogram modelling
+
+Beside using gstat to perform variogram modelling manually, `autofitVariogram()` of **automap** package can be used to perform varigram modelling.
+
+#### Auto fit variogram
+
+```{r}
+#| code-fold: true
+#| code-summary: "show code"
+
+v_auto <- autofitVariogram(MonthlyValue ~ 1, variable_data_sf)
+plot(v_auto)
+```
+
+#### Result: Isohyet map
+
+```{r}
+#| code-fold: true
+#| code-summary: "show code"
+# perform spatial interpolation by using the newly derived model 
+k <- gstat(formula = MonthlyValue ~ 1, 
+           model = v_auto$var_model,
+           data = variable_data_sf)
+k
+
+# estimate the unknown grids
+resp <- predict(k, coop)
+resp$x <- st_coordinates(resp)[,1]
+resp$y <- st_coordinates(resp)[,2]
+resp$pred <- resp$var1.pred
+resp$pred <- resp$pred
+
+# create a raster surface data object
+kpred <- rasterize(resp, grid, 
+                         field = "pred")
+
+# map the interpolated variable raster, kpred
+main_title <- ifelse(selected_var == "Daily Rainfall Total (mm)",
+                paste("Distribution for Total Rainfall (mm) for", selected_month, selected_year),
+                paste("Distribution for Average Mean Temperature (°C) for", selected_month, selected_year))
+raster_title <- ifelse(selected_var == "Daily Rainfall Total (mm)",
+                paste("Total Monthly Rainfall (mm)"),
+                paste("Average Mean Temperature (°C)"))
+tmap_options(check.and.fix = TRUE)
+tmap_mode("plot")
+tm_shape(kpred) + 
+  tm_raster(alpha = 0.6, 
+            palette = "viridis",
+            title = raster_title) +
+  tm_layout(main.title = main_title,
+            main.title.position = "center",
+            main.title.size = 1.2,
+            legend.height = 0.45, 
+            legend.width = 0.35,
+            frame = TRUE) +
+  tm_compass(type="8star", size = 2) +
+  tm_scale_bar() +
+  tm_grid(alpha =0.2)
+```
+
+#### Prediction variance
+
+```{r}
+#| code-fold: true
+#| code-summary: "show code"
+# Assuming resp already contains the predictions and variance from the predict function
+# Extracting the variance
+resp$variance <- resp$var1.var
+
+# Create a raster surface data object for variance
+kvar <- rasterize(resp, grid, field = "variance")
+
+# Map the interpolated variance raster, kvar
+variance_title <- "Prediction Variance"
+tmap_options(check.and.fix = TRUE)
+tmap_mode("plot")
+tm_shape(kvar) + 
+  tm_raster(title = variance_title,
+            alpha = 0.6, palette = "viridis") +
+  tm_layout(main.title = "Kriging Prediction Variance", main.title.position = "center", main.title.size = 1.2, 
+            legend.height = 0.45, legend.width = 0.35, frame = TRUE) +
+  tm_compass(type="8star", size = 2) + tm_scale_bar() + tm_grid(alpha =0.2)
+
+```
+
+## UI Design
+
+In this section we will describe the parameters to expose, the output to show, while suggesting the Shiny UI components to use.
+
+### Parameters to expose
+
+The parameters to be exposed can be categorized into 2 types.
+
+1.  Data Selection Parameters:
+
+-   Choose Variable: Single select option to choose between the variables to analyse (Daily Rainfall Total (mm), Mean Temperature (°C))
+-   Time Resolution: Single select option for temporal resolution for analysis (Day, Month, Year).
+    -   The date picker should show based on the Time Resolution selected.
+
+2.  Model Parameters for Spatial Interpolation:
+
+    -   IDW:
+
+        -   Select *resolution*
+
+        -   Select *nmax*
+
+    -   Ordinary Kriging:
+
+        -   Select *resolution*
+
+        -   Select *model*
+
+        -   Select *psill*
+
+        -   Select *range*
+
+        -   Select *nugget*
+
+### Proposed layout (with parameters and outputs)
+
+The module will have a single page, with option to scroll down to test both spatial interpolation methods. Below we show screenshot of the layout, describe the parameters and description of the Shiny UI function selected, and describe the output plots to be shown for each method.
+
+#### Map of Data
+
+![](images/clipboard-1623385929.png)
+
+[**Parameters**]{.underline}
+
+\(1\) **Choose variable:** Selection of variable to plot. Use `radioButton` function.
+
+\(2\) **Time resolution:** Choose either Day, Month, Year using `radioButton` function.
+
+\(3\) This parameter is a Dynamic UI, based on the output of the previous parameter. It will use `uiOutput` in UI code and `renderUI` in server to achieve this conditional display of date selection.
+
+Details in the code chunk below:
+
+```{r}
+#| eval: false
+ui <- fluidPage(
+  fluidRow(
+    box(title = "Data Selection Parameters",  width = 2, status = "primary", solidHeader = TRUE,
+        radioButtons("GS_selected_var", "Choose variable", variables),
+        radioButtons("GS_time_resolution", "Time resolution", c("Day", "Month", "Year")),
+        uiOutput("GS_dynamic_time_resolution"), 
+        actionButton("GS_updatetmap", "Show map")
+      
+    )
+  )
+)
+
+server <- function(input, output) {
+    output$GS_dynamic_time_resolution <- renderUI({
+    if (input$GS_time_resolution == "Day") {
+        airDatepickerInput("GS_selected_date", label = "Select date", value = "2021-01-01", maxDate = "2023-12-31", minDate = "2021-01-01", dateFormat = "yyyy-MM-dd")
+    } else if (input$GS_time_resolution == "Month") {
+        airMonthpickerInput("GS_selected_month", label = "Select month and year", value = "2021-01-01", maxDate = "2023-12-31", minDate = "2021-01-01", dateFormat = "yyyy-MM")
+    } else if (input$GS_time_resolution == "Year") {
+      airYearpickerInput("GS_selected_year", label = "Select year", value = "2021-01-01", maxDate = "2023-12-31", minDate = "2021-01-01", dateFormat = "yyyy")
+    }
+  })
+}
+```
+
+[**Output**]{.underline}
+
+\(A\) An interactive tmap() showing the data collected for the value at each of the stations is displayed.
+
+#### IDW Method
+
+![](images/clipboard-3078954738.png)
+
+[**Parameters**]{.underline}
+
+\(1\) **Show IDW?:** This option will trigger whether to display the below parameters for the method and the results of the method.
+
+\(2\) **Resolution:** Choose resolution of the map using `sliderInput` function.
+
+\(3\) ***nmax*****:** Choose *nmax* of the map using `sliderInput` function.
+
+Details of the above are in the code chunk below:
+
+```{r}
+#| eval: false
+ui <- fluidPage(
+  fluidRow(
+    box(title = "IDW Selection Parameters",  width = 2, status = "primary", solidHeader = TRUE,
+        radioButtons("GS_show_IDW", "Show IDW?", c("Yes", "No"), selected = "Yes", inline = TRUE),
+        uiOutput("GS_dynamic_IDW"),
+        actionButton("GS_updateIDW", "Show Result")
+        
+    )
+  )
+)
+
+server <- function(input, output) {
+    output$GS_dynamic_IDW <- renderUI({
+    if (input$GS_show_IDW == "Yes") {
+      list(
+        sliderInput("GS_IDW_res", "Resolution", 
+                    min = 30, max = 80, value = 50),
+        sliderInput("GS_nmax" , "nmax",
+                    min = 1, max = 10, value = 3)
+      )
+    }
+    
+  })
+}
+```
+
+[**Output**]{.underline}
+
+\(A\) A static map showing the result of the interpolation method is displayed.
+
+#### Ordinary Kriging Method
+
+![](images/clipboard-1159167996.png)
+
+[**Parameters**]{.underline}
+
+\(1\) **Show Kriging?:** This option will trigger whether to display the below parameters for the method and the results of the method.
+
+\(2\) **Resolution:** Choose resolution of the map using `sliderInput` function.
+
+\(3\) ***model*****:** Choose *model* of the map using `selectInput` function.
+
+\(4\) ***psill*****:** Choose *psill* of the map using `sliderInput` function.
+
+\(5\) ***range*****:** Choose *range* of the map using `sliderInput` function.
+
+\(6\) ***nugget*****:** Choose *nugget* of the map using `sliderInput` function.
+
+Details of the above are in the code chunk below:
+
+```{r}
+#| eval: false
+ui <- fluidPage(
+  fluidRow(
+    box(title = "Kriging Selection Parameters",  width = 2, status = "primary", solidHeader = TRUE,
+        radioButtons("GS_show_OK", "Show Kriging?", c("Yes", "No"), selected = "Yes", inline = TRUE),
+        uiOutput("GS_dynamic_OK"),
+        actionButton("GS_updateOK", "Show Result")
+        
+    )
+  )
+)
+
+server <- function(input, output) {
+  # OK
+  output$GS_dynamic_OK <- renderUI({
+    if (input$GS_show_OK == "Yes") {
+      model_choices <- c("Nug", "Exp","Sph","Gau","Exc","Mat","Ste","Cir","Lin","Bes","Pen","Per","Wav","Hol","Log","Pow","Spl")
+      # min_nugget <- min(variable_data$ValueToPlot, na.rm = TRUE)
+      # max_nugget <- max(variable_data$ValueToPlot, na.rm = TRUE)
+      # mid_nugget  <- mean(variable_data$ValueToPlot, na.rm = TRUE)
+      list(
+        sliderInput("GS_OK_res", "Resolution", min = 30, max = 80, value = 50),
+        selectInput("GS_model" , "model", model_choices),
+        sliderInput("GS_OK_psill", "psill", min = 0.5, max = 10, value = 0.5, step = 0.5),
+        sliderInput("GS_OK_range", "range", min = 500, max = 10000, value = 8000, step = 500),
+        sliderInput("GS_OK_nugget", "nugget", min = 0.1, max = 10, value = 0.1, step = 0.1)
+      )
+    }
+    
+  })
+}
+```
+
+[**Output**]{.underline}
+
+\(A\) A static plot showing the experimental variogram displayed.
+
+\(B\) A static plot showing the fitted variogram displayed. This will vary based on the user selection of method parameters.
+
+\(C\) A static map showing the result of the interpolation method is displayed. This will vary based on the user selection of method parameters.
+
+\(D\) A static map showing the prediction variance of the interpolation method is displayed. This will vary based on the user selection of method parameters.
+
+[**Things to work on**]{.underline}
+
+-   Should show result of using `autofitVariogram()` of **automap** package so that user can tweak their parameters to obtain result
+
+-   May need to further refine the selection of range of values and steps for the *nugget*, *psill*, *range* parameters
+
+-   Should show the table of *fv* generated when fitting variogram, like in the screenshot below:
+
+    -   ![](images/clipboard-2817682244.png)
+
+# References
+
+-   [In-class Exercise 7](https://isss608-vaa-demo.netlify.app/in-class_ex/in-class_ex07/in-class_ex07-isomap)

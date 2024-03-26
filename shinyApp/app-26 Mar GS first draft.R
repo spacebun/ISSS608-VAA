@@ -13,195 +13,89 @@ mpsz2019 <- st_read(dsn = "data/geospatial", layer = "MPSZ-2019") %>% st_transfo
 header <- dashboardHeader(title = "Singapore Weather Analytics (2021-2023)")
 
 sidebar <- dashboardSidebar(
-  width = 200,
+  width = 100,
   tags$head(tags$style(HTML(".sidebar-menu > li > a {white-space: normal; line-height: 1.2;}"))
   ),
   sidebarMenu(
     menuItem("Landing Page", tabName = "LandingPage"),
     menuItem("EDA & CDA", tabName = "EDACDA"),
-    menuItem("Univariate Forecasting", tabName = "Univariate",
-    menuSubItem("Exploratory Time Series", tabName = "ExploreTS"),
-    menuSubItem("Time Series Decomposition", tabName = "DecomposeTS"),
-    menuSubItem("Forecasting", tabName = "ForecastTS")),
+    menuItem("Univariate Forecasting", tabName = "Univariate"),
     menuItem("Spatial Interpolation", tabName = "Geospatial")
     )
   )
-
-# Section 3: EDACDA UI  ----
-
-EDACDAUI <- fluidPage(
-  # Row 1
-  fluidRow(
-    box(title = "Data Selection Parameters",  width = 2, status = "primary", solidHeader = TRUE,
-        radioButtons("EDACDA_selected_var", "Choose variable", variables),
-        radioButtons("EDACDA_time_resolution", "Time resolution", c("Day", "Weekly")) # Should be reactive
-    ),
-    tabBox(
-      title = "Plots", width = 10,
-      # The id lets us use input$EDACDA_tab on the server to find the current tab
-      id = "EDACDA_tab", height = "250px",
-      tabPanel("TAB1",
-               fluidRow(
-                 column(3, actionButton("EDACDA_updateplot", "Update plot")), 
-                 column(9, box(title = "plot")) 
-               )
-      ),
-      tabPanel("TAB2",
-               fluidRow(
-                 column(3, box(title = "parameters")),
-                 column(9,box(title = "plot"))
-               )
-      )
-    )
-  )
-)
-
-# Section 4.1: ExploreTS UI ----
-ExploreTSUI <- fluidPage(
-  # Row 1
-  fluidRow(
-    box(title = "Data Selection Parameters",  width = 2, status = "primary", solidHeader = TRUE,
-        radioButtons("TS_selected_var", "Choose variable", variables),
-        radioButtons("TS_time_resolution", "Time resolution", c("Day", "Weekly")) # Should be reactive
-    ),
-    tabBox(
-      title = "Plots", width = 10,
-      # The id lets us use input$ExploreTS_tab on the server to find the current tab
-      id = "ExploreTS_tab", height = "250px",
-      tabPanel("TAB1",
-               fluidRow(
-                 column(3, actionButton("TS_updateplot", "Update plot")), 
-                 column(9, box(title = "plot")) 
-               )
-      ),
-      tabPanel("TAB2",
-               fluidRow(
-                 column(3, box(title = "parameters")),
-                 column(9,box(title = "plot"))
-               )
-      )
-    )
-  )
-)
-
-# Section 4.2: DecomposeTS UI ----
-DecomposeTSUI <- fluidPage(
-  # Row 1
-  fluidRow(
-    box(title = "Data Selection Parameters",  width = 2, status = "primary", solidHeader = TRUE,
-        radioButtons("TS_selected_var", "Choose variable", variables),
-        radioButtons("TS_time_resolution", "Time resolution", c("Day", "Weekly")) # Should be reactive
-    ),
-    tabBox(
-      title = "Plots", width = 10,
-      # The id lets us use input$DecomposeTS_tab on the server to find the current tab
-      id = "DecomposeTS_tab", height = "250px",
-      tabPanel("TAB1",
-               fluidRow(
-                 column(3, actionButton("TS_updatetplot", "Update plot")), 
-                 column(9, box(title = "plot"))
-               )
-      ),
-      tabPanel("TAB2",
-               fluidRow(
-                 column(3, box(title = "parameters")),
-                 column(9,box(title = "plot"))
-               )
-      )
-    )
-  )
-)
-
-# Section 4.3: ForecastTS UI ----
-ForecastTSUI <- fluidPage(
-  # Row 1
-  fluidRow(
-    box(title = "Data Selection Parameters",  width = 2, status = "primary", solidHeader = TRUE,
-        radioButtons("TS_selected_var", "Choose variable", variables),
-        radioButtons("TS_time_resolution", "Time resolution", c("Day", "Weekly")) # Should be reactive
-    ),
-    tabBox(
-      title = "Plots", width = 10,
-      # The id lets us use input$ForecastTS_tab on the server to find the current tab
-      id = "ForecastTS_tab", height = "250px",
-      tabPanel("TAB1",
-               fluidRow(
-                 column(3, actionButton("ForecastTS_updatetplot", "Update plot")), 
-                 column(9, box(title = "plot"))
-               )
-      ),
-      tabPanel("TAB2",
-               fluidRow(
-                 column(3, box(title = "parameters")),
-                 column(9,box(title = "plot"))
-               )
-      )
-    )
-  )
-)
-
-
 
 # Section 5: Geospatial UI ----
 GeospatialUI <- fluidPage(
   # Row 1
   fluidRow(
+    # Inputs Control Box
     box(title = "Data Selection Parameters",  width = 2, status = "primary", solidHeader = TRUE,
         radioButtons("GS_selected_var", "Choose variable", variables),
         radioButtons("GS_time_resolution", "Time resolution", c("Day", "Month", "Year")),
-        uiOutput("GS_dynamic_time_resolution")
+        uiOutput("GS_dynamic_time_resolution"), 
+        actionButton("GS_updatetmap", "Update map")
+        ),
+    # Output Plot Box
+    box(title = "Map",  width = 10, status = "primary", solidHeader = TRUE,
+        tmapOutput("GS_tmap")
+        )
     ),
-    tabBox(
-      title = "Plots", width = 10,
-      # The id lets us use input$Geospatial_tab on the server to find the current tab
-      id = "Geospatial_tab", height = "250px",
-      tabPanel("tmap",
-               fluidRow(
-                 column(3, actionButton("GS_updatetmap", "Update map")), # Adjust the width as needed
-                 column(9, tmapOutput("GS_tmap")) # Adjust the width so that the total does not exceed 12
-               )
-               ),
-      tabPanel("IDW",
-               fluidRow(
-               column(3, radioButtons("GS_show_IDW", "Show IDW?", c("Yes", "No"), selected = "No", inline = TRUE),
-               uiOutput("GS_dynamic_IDW")),
-               column(9,plotOutput("GS_IDW_map"))
-               )
-               )
+  # Row 2
+  fluidRow(
+    # Inputs Control Box
+    box(title = "IDW Selection Parameters",  width = 2, status = "primary", solidHeader = TRUE,
+        radioButtons("GS_show_IDW", "Show IDW?", c("Yes", "No"), selected = "No", inline = TRUE),
+        uiOutput("GS_dynamic_IDW")
+        ),
+    # Output Plot Box
+    box(title = "IDW Map",  width = 10, status = "primary", solidHeader = TRUE,
+        plotOutput("GS_IDW_map")
+        )
+    ),
+  # Row 3
+  fluidRow(
+    # Inputs Control Box
+    box(title = "Kriging Selection Parameters",  width = 2, status = "primary", solidHeader = TRUE,
+        radioButtons("GS_show_OK", "Show Kriging?", c("Yes", "No"), selected = "No", inline = TRUE),
+        uiOutput("GS_dynamic_OK")
+        ),
+    # Output Plot Box
+    box(title = "Ordinary Kriging Map",  width = 10, status = "primary", solidHeader = TRUE,
+        fluidRow(
+          column(6,plotOutput("GS_OK_variogram")),
+          column(6,plotOutput("GS_OK_fitted_variogram"))
+        ),
+        fluidRow(
+          column(6,plotOutput("GS_OK_map")),
+          column(6,plotOutput("GS_OK_prediction_variance"))
+        )
+        )
     )
   )
-)
 
 # Section 6: Dashboard Body and UI ----
 body <- dashboardBody(
   tabItems(
+    # First tab content
     tabItem(tabName = "LandingPage",
             fluidRow(
               box()
             )
     ),
     
+    # Second tab content
     tabItem(tabName = "EDACDA",
-            h2("EDACDA content"),
-            EDACDAUI
+            h2("EDACDA content")
     ),    
-    tabItem(tabName = "Univariate"
-    ),
-    tabItem(tabName = "ExploreTS", 
-            h2("Exploring timeseries for a single station"),
-            ExploreTSUI
-            ),
-    tabItem(tabName = "DecomposeTS", 
-            h2("Time Series Decomposition and ACF PACF"),
-            DecomposeTSUI
-    ),
-    tabItem(tabName = "ForecastTS", 
-            h2("Forecasting with different models"),
-            ForecastTSUI
-    ),
+    # Second tab content
+    tabItem(tabName = "Univariate",
+            h2("Univariate content")
+    ),    
+    # Second tab content
     tabItem(tabName = "Geospatial",
             h2("Spatial Interpolation"),
-            GeospatialUI)
+            GeospatialUI
+    )
   )
 )
 

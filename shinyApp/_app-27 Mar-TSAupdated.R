@@ -1,67 +1,19 @@
 # Section 1: Set up ----
 pacman::p_load(gstat)
 pacman::p_load(tmap)
-pacman::p_load(shiny, shinydashboard, shinyWidgets, tidyverse, ggthemes, plotly, sf, terra, viridis, ggHoriPlot, ggstatsplot, rstantools, ISOweek)
+pacman::p_load(shiny, shinydashboard, shinyWidgets, tidyverse, ggplot2, dplyr, lubridate, ggthemes, plotly, sf, terra, viridis,ggHoriPlot, ggstatsplot, rstantools, tsibble)
 
-# Section 1.1: Variables and Functions ----
 weather_data <- read_rds("data/weather_imputed_11stations.rds") 
 
 variables <- c("Daily Rainfall Total (mm)", "Mean Temperature (°C)", "Minimum Temperature (°C)", "Maximum Temperature (°C)")
 
 mpsz2019 <- st_read(dsn = "data/geospatial", layer = "MPSZ-2019") %>% st_transform(crs = 3414)
 
-model_choices <- c("Nug", "Exp","Sph","Gau","Exc","Mat","Ste","Cir","Lin","Bes","Pen","Per","Wav","Hol","Log","Pow","Spl")
-
-weather_tsbl <- as_tsibble(weather_data, key = Station, index = Date)
+# Section 1.1: Set up TS ----
+weather_tsbl <- as_tsibble(weather, key = Station, index = Date)
 
 Station <- weather_tsbl %>% distinct(Station)
 
-GS_prepareVariableData <- function(selected_var, time_resolution, selected_time, weather_data) {
-  variable_data <- NULL
-  
-  if (time_resolution == "Day") {
-    selected_date <- as.Date(selected_time)
-    variable_data <- weather_data %>%
-      filter(Date == selected_date)
-  } else if (time_resolution == "Month") {
-    selected_month <- format(as.Date(selected_time), "%m")
-    selected_year <- format(as.Date(selected_time), "%Y")
-    variable_data <- weather_data %>%
-      filter(format(Date, "%Y-%m") == paste0(selected_year, "-", selected_month))
-  } else if (time_resolution == "Year") {
-    selected_year <- as.character(selected_time)
-    variable_data <- weather_data %>%
-      filter(format(Date, "%Y") == selected_year)
-  }
-  
-  # Group and summarise data based on the selected variable
-  if (!is.null(variable_data)) {
-    variable_data <- variable_data %>%
-      group_by(Station, LAT, LONG) %>%
-      summarise(ValueToPlot = if(grepl("Rainfall", selected_var)) {
-        sum(.data[[selected_var]], na.rm = TRUE)
-      } else if (grepl("Temperature", selected_var)) {
-        mean(.data[[selected_var]], na.rm = TRUE)
-      }, .groups = 'drop')
-  }
-  
-  legend_title <- if(grepl("Rainfall", selected_var)) {
-    "Rainfall (mm)"
-  } else if(grepl("Temperature", selected_var)) {
-    "Temperature (°C)"
-  }
-  
-  # Update variable_data before converting to sf
-  if (!is.null(variable_data)) {
-    variable_data[[legend_title]] <- variable_data$ValueToPlot
-    variable_data_sf <- st_as_sf(variable_data, coords = c("LONG", "LAT"), crs = 4326) %>%
-      st_transform(crs = 3414)
-  } else {
-    variable_data_sf <- NULL
-  }
-  return(list(variable_data = variable_data, variable_data_sf = variable_data_sf, legend_title = legend_title))
-  
-}
 
 # Section 2: Header and sidebar ----
 header <- dashboardHeader(title = "Singapore Weather Analytics (2021-2023)")
@@ -121,19 +73,29 @@ ExploreTSUI <- fluidPage(
     box(title = "Data Selection Parameters",  width = 2, status = "primary", solidHeader = TRUE,
         selectInput("ExploreTS_selected_var", "Choose variable", variables, selected = NULL, multiple = FALSE),
         uiOutput("ExploreTS_dynamic_time_resolution"),
-        checkboxGroupInput("ExploreTS_selectstation", "Select Station", choices = unique(weather_tsbl$Station),  selected = unique(weather_tsbl$Station)[1]),
-        dateInput("ExploreTS_startDate", "Start Date", value = "2021-01-01", min = "2021-01-01", max = "2023-12-31"),
-        dateInput("ExploreTS_endDate", "End Date", value = "2023-12-31", min = "2021-01-02", max = "2023-12-31")
-        ),
+        checkboxGroupInput("TSselectstation", "Select Station",
+                           choices = unique(weather_tsbl$Station), 
+                           selected = unique(weather_tsbl$Station)[1]),
+        dateInput("startDate", "Start Date", value = "2021-01-01", min = "2021-01-01", max = "2023-12-31"),
+        dateInput("endDate", "End Date", value = "2023-12-31", min = "2021-01-02", max = "2023-12-31")
+        # dateRangeInput("dateRange",
+        #                "Date range",
+        #                start = "2021-01-01",
+        #                end = "2023-12-31",
+        #                min = "2021-01-01",
+        #                max = "2023-12-31"),
+    ),
     tabBox(
       title = "Plots", width = 10,
       # The id lets us use input$ExploreTS_tab on the server to find the current tab
       id = "ExploreTS_tab", height = "250px",
       tabPanel("Line graph",
-               fluidRow(box(title = "plot"),plotlyOutput("ExploreTS_timeSeriesPlot") 
+               fluidRow(
+                 column(3), 
+                 column(9, box(title = "plot"),plotlyOutput("timeSeriesPlot")) 
                )
       ),
-      tabPanel("Horizon plot",
+      tabPanel("Horizon Plot",
                fluidRow(
                  column(3, box(title = "parameters")),
                  column(9,box(title = "plot"))
@@ -148,22 +110,45 @@ DecomposeTSUI <- fluidPage(
   # Row 1
   fluidRow(
     box(title = "Data Selection Parameters",  width = 2, status = "primary", solidHeader = TRUE,
-        radioButtons("TS_selected_var", "Choose variable", variables),
-        radioButtons("TS_time_resolution", "Time resolution", c("Day", "Weekly")) # Should be reactive
+        # radioButtons("TS_selected_var", "Choose variable", variables),
+        # radioButtons("TS_time_resolution", "Time resolution", c("Day", "Weekly")) # Should be reactive
+        selectInput("DecompTS_selected_var", "Choose variable", variables, selected = NULL, multiple = FALSE),
+        uiOutput("DecompTS_dynamic_time_resolution"),
+        selectInput("TSselectstation", "Select Station",
+                           choices = unique(weather_tsbl$Station), 
+                           selected = unique(weather_tsbl$Station)[1]),
+        # dateInput("startDate", "Start Date", value = "2021-01-01", min = "2021-01-01", max = "2023-12-31"),
+        # dateInput("endDate", "End Date", value = "2023-12-31", min = "2021-01-02", max = "2023-12-31"),
+        dateInput("startDate",
+                  "Start Date",
+                  value = "2021-01-01",
+                  min = "2021-01-01",
+                  max = "2023-12-30"),
+        HTML("
+       <div style='margin-top: 15px; margin-bottom: 15px;'>
+         <strong>End Date</strong><br>
+         <div style='border: 1px solid #ccc; padding: 5px 10px; margin-top: 5px; display: inline-block; width: 200px;'>
+           2023-12-31
+         </div>
+       </div>
+       ")
     ),
     tabBox(
       title = "Plots", width = 10,
       # The id lets us use input$DecomposeTS_tab on the server to find the current tab
       id = "DecomposeTS_tab", height = "250px",
-      tabPanel("TAB1",
+      tabPanel("ACF & PACF",
                fluidRow(
-                 column(3, actionButton("TS_updatetplot", "Update plot")), 
+                 column(3, title = "parameters",     
+                               sliderInput("lags", "Number of Lags", min = 1, max = 365, value = 20)), 
                  column(9, box(title = "plot"))
                )
       ),
-      tabPanel("TAB2",
+      tabPanel("STL Decomposition",
                fluidRow(
-                 column(3, box(title = "parameters")),
+                 column(3, title = "parameters",
+                        sliderInput("lags", "Trend Window", min = 1, max = 365, value = 20),
+                        sliderInput("lags", "Season Window", min = 1, max = 365, value = 20)),
                  column(9,box(title = "plot"))
                )
       )
@@ -176,22 +161,58 @@ ForecastTSUI <- fluidPage(
   # Row 1
   fluidRow(
     box(title = "Data Selection Parameters",  width = 2, status = "primary", solidHeader = TRUE,
-        radioButtons("TS_selected_var", "Choose variable", variables),
-        radioButtons("TS_time_resolution", "Time resolution", c("Day", "Weekly")) # Should be reactive
+        # radioButtons("TS_selected_var", "Choose variable", variables),
+        # radioButtons("TS_time_resolution", "Time resolution", c("Day", "Weekly")) # Should be reactive
+        selectInput("ForecastTS_selected_var", "Choose variable", variables, selected = NULL, multiple = FALSE),
+        uiOutput("ForecastTS_dynamic_time_resolution"),
+        selectInput("TSselectstation", "Select Station",
+                    choices = unique(weather_tsbl$Station), 
+                    selected = unique(weather_tsbl$Station)[1]),
+        # dateInput("startDate", "Start Date", value = "2021-01-01", min = "2021-01-01", max = "2023-12-31"),
+        # dateInput("endDate", "End Date", value = "2023-12-31", min = "2021-01-02", max = "2023-12-31"),
+        dateInput("startDate",
+                  "Start Date",
+                  value = "2021-01-01",
+                  min = "2021-01-01",
+                  max = "2023-12-30"),
+        HTML("
+       <div style='margin-top: 15px; margin-bottom: 15px;'>
+         <strong>End Date</strong><br>
+         <div style='border: 1px solid #ccc; padding: 5px 10px; margin-top: 5px; display: inline-block; width: 200px;'>
+           2023-12-31
+         </div>
+       </div>
+       "),
+        checkboxGroupInput("modelSelect",
+                           "Select Forecasting Models",
+                           choices = list("STL Naive" = "STLNaive",
+                                          "STL ARIMA" = "STLArima",
+                                          "STL ETS" = "STLETS",
+                                          "AUTO ARIMA" = "AUTOARIMA",
+                                          "AUTO Prophet" = "AUTOprophet",
+                                          "AUTO ETS" = "AUTOETS")),
+        uiOutput("dynamicUI"),
+        
+        sliderInput("days", "Select Train-Test Split", min = 0, max = 1, value = 0.8
+        ),
+        actionButton("ForecastTS_buildmodel", "Build Model")
     ),
     tabBox(
       title = "Plots", width = 10,
       # The id lets us use input$ForecastTS_tab on the server to find the current tab
       id = "ForecastTS_tab", height = "250px",
-      tabPanel("TAB1",
+      tabPanel("Model Calibration",
                fluidRow(
-                 column(3, actionButton("ForecastTS_updatetplot", "Update plot")), 
+                 column(3), 
                  column(9, box(title = "plot"))
                )
       ),
-      tabPanel("TAB2",
+      tabPanel("Forecast Result",
                fluidRow(
-                 column(3, box(title = "parameters")),
+                 column(3, title = "parameters",
+                        sliderInput("days", "Select Forecast Period", min = 0, max = 365, value = 10, 
+                                    post = " days"),
+                        actionButton("ForecastTS_forecast", "Forecast")),
                  column(9,box(title = "plot"))
                )
       )
@@ -202,7 +223,6 @@ ForecastTSUI <- fluidPage(
 
 
 # Section 5: Geospatial UI ----
-
 GeospatialUI <- fluidPage(
   # Row 1
   fluidRow(
@@ -221,37 +241,13 @@ GeospatialUI <- fluidPage(
                  column(9, tmapOutput("GS_tmap")) # Adjust the width so that the total does not exceed 12
                )
                ),
-      tabPanel("Inverse Distance Weighted Interpolation Method",
+      tabPanel("IDW",
                fluidRow(
-               column(3, 
-                      sliderInput("GS_IDW_res", "Resolution", min = 30, max = 80, value = 50),
-                      sliderInput("GS_IDW_nmax" , "nmax", min = 1, max = 10, value = 3),
-                      actionButton("GS_updateIDW", "Show Result")
-                      ),
+               column(3, radioButtons("GS_show_IDW", "Show IDW?", c("Yes", "No"), selected = "No", inline = TRUE),
+               uiOutput("GS_dynamic_IDW")),
                column(9,plotOutput("GS_IDW_map"))
                )
-               ),
-      tabPanel("Ordinary Kriging Method",
-               fluidRow(
-                 column(2, 
-                        sliderInput("GS_OK_res", "Resolution", min = 30, max = 80, value = 50),
-                        selectInput("GS_OK_model" , "model", model_choices),
-                        sliderInput("GS_OK_psill", "psill", min = 0.5, max = 10, value = 0.5, step = 0.5),
-                        sliderInput("GS_OK_range", "range", min = 500, max = 10000, value = 8000, step = 500),
-                        sliderInput("GS_OK_nugget", "nugget", min = 0.1, max = 10, value = 0.1, step = 0.1),
-                        actionButton("GS_updateOK", "Show Result")
-                 ),
-                 column(10,
-                        fluidRow(
-                          column(5,plotOutput("GS_OK_variogram")),
-                          column(5,plotOutput("GS_OK_fitted_variogram"))
-                        ),
-                        fluidRow(
-                          column(5,plotOutput("GS_OK_map")),
-                          column(5,plotOutput("GS_OK_prediction_variance"))
-                        ))
                )
-      )
     )
   )
 )
@@ -272,7 +268,7 @@ body <- dashboardBody(
     tabItem(tabName = "Univariate"
     ),
     tabItem(tabName = "ExploreTS", 
-            h2("Exploring timeseries for a single station"),
+            h2("Exploring timeseries for multiple stations"),
             ExploreTSUI
             ),
     tabItem(tabName = "DecomposeTS", 
@@ -295,12 +291,8 @@ ui <- dashboardPage(
   body
 )
 
-
 # Section 7: Server code ----
 server <- function(input, output) {
-  # Timeout ----
-  keep_alive <- shiny::reactiveTimer(intervalMs = 10000, session = shiny::getDefaultReactiveDomain())
-  shiny::observe({keep_alive()})
   
   # CDA:  CDA_acrossstations_Plot----
   
@@ -375,10 +367,10 @@ server <- function(input, output) {
                    title = CDA_acrossstations_reactiveData$title)
     
   })
-
-  # Time Series: Exploratory Plots ----
   
-  ## 1. Dynamic UI for ExploreTS
+  # Time Series: Exploratory Horizon Plot ----
+  
+  ## 1. Dynamic UI for TSexploration
   output$ExploreTS_dynamic_time_resolution <- renderUI({
     if (grepl("Rainfall", input$ExploreTS_selected_var)) {
       radioButtons("ExploreTS_time_resolution", label = "Select time resolution", c("Week", "Month"))
@@ -386,74 +378,34 @@ server <- function(input, output) {
       radioButtons("ExploreTS_time_resolution", label = "Select time resolution", c("Day" ,"Week", "Month"))
     }
   })
-  
-  ## 2. Prepare data and plot line graph
-  
-  output$ExploreTS_timeSeriesPlot <- renderPlotly({
-    
-    # Prepare Data
-    selected_var <- input$ExploreTS_selected_var
-    
-    char_startDate <- as.character(input$ExploreTS_startDate)
-    char_endDate <- as.character(input$ExploreTS_endDate)
-    
-    variable_data <- weather_tsbl %>%
-      filter_index(char_startDate ~ char_endDate) %>%
-      filter(Station %in% input$ExploreTS_selectstation)
-
-    # If Time resolution is Day
-    if (input$ExploreTS_time_resolution == "Day") {
-      variable_data <- variable_data %>%
-        mutate(ValueToPlot = .data[[selected_var]])
-    } else if (input$ExploreTS_time_resolution == "Week") {
-      variable_data <- variable_data %>%
-        as_tibble() %>%
-        filter(Week != 53) %>%
-        group_by(Station, Year, Week) %>%
-        summarise(ValueToPlot = if(grepl("Rainfall", selected_var)) {
-          sum(.data[[selected_var]], na.rm = TRUE) # Sum or average based on the variable
-        } else if (grepl("Temperature", selected_var)) {
-          round(mean(.data[[selected_var]], na.rm = TRUE),2)
-        }, .groups = 'drop') %>%
-        mutate(Date = as.Date(paste(Year, Week, 1, sep = "-"), format = "%Y-%U-%u"))
-      
-    } else if (input$ExploreTS_time_resolution == "Month") {
-      variable_data <- variable_data %>%
-        as_tibble() %>%
-        group_by(Station, Year, Month) %>%
-        summarise(ValueToPlot = if(grepl("Rainfall", selected_var)) {
-          sum(.data[[selected_var]], na.rm = TRUE) # Sum or average based on the variable
-        } else if (grepl("Temperature", selected_var)) {
-          round(mean(.data[[selected_var]], na.rm = TRUE),2)
-        }, .groups = 'drop') %>%
-        mutate(Date = as.Date(paste(Year, Month, "01", sep = "-")))
+  ## 2. Dynamic UI for TSdecomp
+  output$DecompTS_dynamic_time_resolution <- renderUI({
+    if (grepl("Rainfall", input$DecompTS_selected_var)) {
+      radioButtons("DecompTS_time_resolution", label = "Select time resolution", c("Week"))
+    } else if (grepl("Temperature", input$DecompTS_selected_var)) {
+      radioButtons("DecompTS_time_resolution", label = "Select time resolution", c("Day" ,"Week"))
     }
-
-    
-    # Update plot annotations
-    yaxis_title <- if(grepl("Rainfall", selected_var)) {"Rainfall (mm)"} else if(grepl("Temperature", selected_var )) {"Temperature (°C)"}
-    time_title <- switch(input$ExploreTS_time_resolution,"Day" = "Daily", "Week" = "Weekly", "Month" = "Monthly")
-    var_title <- if (grepl("Rainfall", selected_var)) {"Rainfall (mm)"} else if (grepl("Temperature", selected_var)) {
-      if(input$ExploreTS_time_resolution == "Day"){selected_var} else {paste("Average", selected_var)}}
-    title <- paste(time_title, var_title, "\n", char_startDate, "to", char_endDate)
-    
-    plot_ly(variable_data, x = ~Date, y = ~ValueToPlot, 
-            type = 'scatter', mode = 'lines', 
-            color = ~Station, hoverinfo = 'text',
-            text = ~paste("<b>Station:</b>", Station,
-                          "<br><b>Date:</b>", Date,
-                          "<br><b>", selected_var, ":</b>", ValueToPlot)) %>%
-      layout(title = title,
-             xaxis = list(title = "", 
-                          range = c(char_startDate, char_endDate), 
-                          rangeslider = list(type = "date", range = c(char_startDate, char_endDate))),
-             yaxis = list(title = yaxis_title))
-    
+  })
+  ## 3. Dynamic UI for TSforecast
+  output$ForecastTS_dynamic_time_resolution <- renderUI({
+    if (grepl("Rainfall", input$ForecastTS_selected_var)) {
+      radioButtons("ForecastTS_time_resolution", label = "Select time resolution", c("Week"))
+    } else if (grepl("Temperature", input$ForecastTS_selected_var)) {
+      radioButtons("ForecastTS_time_resolution", label = "Select time resolution", c("Day" ,"Week"))
+    }
+  })
+  output$dynamicUI <- renderUI({
+    # Check if any of the STL options are selected
+    if (!is.null(input$modelSelect) && 
+        any(c("STLNaive", "STLArima", "STLETS") %in% input$modelSelect)) {
+      list(
+        sliderInput("trendWindow", "Trend Window", min = 1, max = 365, value = 20),
+        sliderInput("seasonWindow", "Season Window", min = 1, max = 365, value = 20)
+      )
+    }
   })
   
-  ## 3. Plot horizon plot 
-  
-  
+
   # Geospatial: tmap ----
   
   ## 1. Dynamic UI: selected time_resolution
@@ -470,8 +422,60 @@ server <- function(input, output) {
   ## 2. Prepare and store reactive data
   GS_reactiveDataTmap <- reactiveValues()
   observeEvent(input$GS_updatetmap, {
-    results <- GS_prepareVariableData(input$GS_selected_var, input$GS_time_resolution, input$GS_selected_date, weather_data)
+    selected_var <- input$GS_selected_var 
+    
+    # If Time resolution is Day
+    if (input$GS_time_resolution == "Day") {
+      selected_date <- as.Date(input$GS_selected_date)
+      variable_data <- weather_data %>%
+        filter(Date == selected_date)
+      # Group and summarise data, selecting for the correctly variable
+      variable_data <- variable_data %>%
+        group_by(Station, Date, LAT, LONG) %>%
+        summarise(ValueToPlot = if(grepl("Rainfall", selected_var)) {
+          sum(.data[[selected_var]], na.rm = TRUE) # Sum or average based on the variable
+        } else if (grepl("Temperature", selected_var)) {
+          mean(.data[[selected_var]], na.rm = TRUE)
+        }, .groups = 'drop')
+      
+    # If Time resolution is Month
+    } else if (input$GS_time_resolution == "Month") {
+      selected_month <- format(as.Date(input$GS_selected_month), "%m")
+      selected_year <- format(as.Date(input$GS_selected_month), "%Y")
+      variable_data <- weather_data %>%
+        filter(format(Date, "%Y-%m") == paste0(selected_year, "-", selected_month))
+      # Group and summarise data, selecting for the correctly variable
+      variable_data <- variable_data %>%
+        group_by(Station, Year, Month, LAT, LONG) %>%
+        summarise(ValueToPlot = if(grepl("Rainfall", selected_var)) {
+          sum(.data[[selected_var]], na.rm = TRUE) # Sum or average based on the variable
+        } else if (grepl("Temperature", selected_var)) {
+          mean(.data[[selected_var]], na.rm = TRUE)
+        }, .groups = 'drop')
+      
+    # If Time resolution is Year
+    } else if (input$GS_time_resolution == "Year") {
+      selected_year <- as.character(format(input$GS_selected_year, "%Y"))
+      variable_data <- weather_data %>%
+        filter(format(Date, "%Y") == selected_year)
+      # Group and summarise data, selecting for the correctly variable
+      variable_data <- variable_data %>%
+        group_by(Station, Year, LAT, LONG) %>%
+        summarise(ValueToPlot = if(grepl("Rainfall", selected_var)) {
+          sum(.data[[selected_var]], na.rm = TRUE) # Sum or average based on the variable
+        } else if (grepl("Temperature", selected_var)) {
+          mean(.data[[selected_var]], na.rm = TRUE)
+        }, .groups = 'drop')
+    }
+    
+    legend_title <- if(grepl("Rainfall", input$GS_selected_var )) {"Rainfall (mm)"} else if(grepl("Temperature", input$GS_selected_var )) {"Temperature (°C)"}
 
+    # # Update variable_data before converting to sf
+    variable_data[[legend_title]] <- variable_data$ValueToPlot
+
+    variable_data_sf <- st_as_sf(variable_data, coords = c("LONG", "LAT"), crs = 4326) %>%
+    st_transform(crs = 3414)
+    
     main_title <- if(grepl("Rainfall", input$GS_selected_var )) {
       if(input$GS_time_resolution == "Day") {
         paste("Daily Rainfall (mm) for", format(as.Date(input$GS_selected_date), "%d %B %Y"), "across stations in Singapore")
@@ -491,9 +495,9 @@ server <- function(input, output) {
     }
     
     # Update reactive variable
-    GS_reactiveDataTmap$variable_data <- results$variable_data
-    GS_reactiveDataTmap$variable_data_sf <- results$variable_data_sf
-    GS_reactiveDataTmap$legend_title <- results$legend_title
+    GS_reactiveDataTmap$variable_data <- variable_data
+    GS_reactiveDataTmap$variable_data_sf <- variable_data_sf
+    GS_reactiveDataTmap$legend_title <- legend_title 
     GS_reactiveDataTmap$main_title <- main_title
 
   })
@@ -520,14 +524,24 @@ server <- function(input, output) {
   # Geospatial: IDW ----
   
   ## 1. Dynamic UI: IDW Parameters
-  ### Removed
+  output$GS_dynamic_IDW <- renderUI({
+    if (input$GS_show_IDW == "Yes") {
+      list(
+        sliderInput("GS_IDW_res", "Resolution", 
+                    min = 30, max = 80, value = 50),
+        sliderInput("GS_IDW_nmax" , "nmax",
+                    min = 1, max = 10, value = 3),
+        actionButton("GS_updateIDW", "Show Result")
+      )
+    }
+    
+  })
+
   ## 2. Prepare and store reactive data
   GS_reactiveDataIDW <- reactiveValues() # To contain variable data and IDW parameters
   observeEvent(input$GS_updateIDW, {
-
-    results <- GS_prepareVariableData(input$GS_selected_var, input$GS_time_resolution, input$GS_selected_date, weather_data)
-    variable_data <-results$variable_data
-    variable_data_sf <- results$variable_data_sf
+    variable_data <- GS_reactiveDataTmap$variable_data # Use same data from tmap
+    variable_data_sf <- GS_reactiveDataTmap$variable_data_sf # Use same data from tmap
     
     # Specify resolution
     bbox <- as.list(st_bbox(mpsz2019))
@@ -599,20 +613,33 @@ server <- function(input, output) {
 
   # Geospatial: OK ----
   ## 1. Dynamic UI: OK Parameters
-  ### Removed
+  output$GS_dynamic_OK <- renderUI({
+    if (input$GS_show_OK == "Yes") {
+      model_choices <- c("Nug", "Exp","Sph","Gau","Exc","Mat","Ste","Cir","Lin","Bes","Pen","Per","Wav","Hol","Log","Pow","Spl")
+      list(
+        sliderInput("GS_OK_res", "Resolution", min = 30, max = 80, value = 50),
+        selectInput("GS_OK_model" , "model", model_choices),
+        sliderInput("GS_OK_psill", "psill", min = 0.5, max = 10, value = 0.5, step = 0.5),
+        sliderInput("GS_OK_range", "range", min = 500, max = 10000, value = 8000, step = 500),
+        sliderInput("GS_OK_nugget", "nugget", min = 0.1, max = 10, value = 0.1, step = 0.1),
+        actionButton("GS_updateOK", "Show Result")
+      )
+    }
+    
+  })
   
   ## 2. Prepare and store reactive data
   GS_reactiveDataOK <- reactiveValues() # To contain variable data and IDW parameters
   observeEvent(input$GS_updateOK, {
-    results <- GS_prepareVariableData(input$GS_selected_var, input$GS_time_resolution, input$GS_selected_date, weather_data)
-    variable_data <-results$variable_data
-    variable_data_sf <- results$variable_data_sf
+    
+    variable_data <- GS_reactiveDataTmap$variable_data # Use same data from tmap
+    variable_data_sf <- GS_reactiveDataTmap$variable_data_sf # Use same data from tmap
     
     # Specify resolution
     bbox <- as.list(st_bbox(mpsz2019))
     res = input$GS_OK_res
     nrows =  (bbox$ymax - bbox$ymin)/res
-    ncols = (bbox$xmax - bbox$xmin)/res
+    ncols = (bbox$xmax - bbox$xmin)/resx
     
     # Create raster layer, 'grid'
     grid <- rast(mpsz2019, nrows = nrows, ncols = ncols)
@@ -624,6 +651,7 @@ server <- function(input, output) {
     coop <- st_filter(coop, mpsz2019) 
     
 
+    
     # Generate Experimental Variogram
     v <- variogram(ValueToPlot ~ 1, 
                    data = variable_data_sf)

@@ -1,7 +1,7 @@
 # Section 1: Set up ----
 pacman::p_load(gstat)
 pacman::p_load(tmap)
-pacman::p_load(shiny, shinydashboard, shinyWidgets, tidyverse, ggthemes, plotly, sf, terra, viridis, ggHoriPlot, ggstatsplot, rstantools, ISOweek)
+pacman::p_load(shiny, shinydashboard, shinyWidgets, tidyverse, ggthemes, plotly, sf, terra, viridis, ggHoriPlot, ggstatsplot, rstantools)
 
 # Section 1.1: Variables and Functions ----
 weather_data <- read_rds("data/weather_imputed_11stations.rds") 
@@ -11,10 +11,6 @@ variables <- c("Daily Rainfall Total (mm)", "Mean Temperature (°C)", "Minimum T
 mpsz2019 <- st_read(dsn = "data/geospatial", layer = "MPSZ-2019") %>% st_transform(crs = 3414)
 
 model_choices <- c("Nug", "Exp","Sph","Gau","Exc","Mat","Ste","Cir","Lin","Bes","Pen","Per","Wav","Hol","Log","Pow","Spl")
-
-weather_tsbl <- as_tsibble(weather_data, key = Station, index = Date)
-
-Station <- weather_tsbl %>% distinct(Station)
 
 GS_prepareVariableData <- function(selected_var, time_resolution, selected_time, weather_data) {
   variable_data <- NULL
@@ -120,20 +116,19 @@ ExploreTSUI <- fluidPage(
   fluidRow(
     box(title = "Data Selection Parameters",  width = 2, status = "primary", solidHeader = TRUE,
         selectInput("ExploreTS_selected_var", "Choose variable", variables, selected = NULL, multiple = FALSE),
-        uiOutput("ExploreTS_dynamic_time_resolution"),
-        checkboxGroupInput("ExploreTS_selectstation", "Select Station", choices = unique(weather_tsbl$Station),  selected = unique(weather_tsbl$Station)[1]),
-        dateInput("ExploreTS_startDate", "Start Date", value = "2021-01-01", min = "2021-01-01", max = "2023-12-31"),
-        dateInput("ExploreTS_endDate", "End Date", value = "2023-12-31", min = "2021-01-02", max = "2023-12-31")
-        ),
+        uiOutput("ExploreTS_dynamic_time_resolution")
+    ),
     tabBox(
       title = "Plots", width = 10,
       # The id lets us use input$ExploreTS_tab on the server to find the current tab
       id = "ExploreTS_tab", height = "250px",
-      tabPanel("Line graph",
-               fluidRow(box(title = "plot"),plotlyOutput("ExploreTS_timeSeriesPlot") 
+      tabPanel("TAB1",
+               fluidRow(
+                 column(3, actionButton("TS_updateplot", "Update plot")), 
+                 column(9, box(title = "plot")) 
                )
       ),
-      tabPanel("Horizon plot",
+      tabPanel("TAB2",
                fluidRow(
                  column(3, box(title = "parameters")),
                  column(9,box(title = "plot"))
@@ -298,7 +293,7 @@ ui <- dashboardPage(
 
 # Section 7: Server code ----
 server <- function(input, output) {
-  # Timeout ----
+  # tIMEOUT ----
   keep_alive <- shiny::reactiveTimer(intervalMs = 10000, session = shiny::getDefaultReactiveDomain())
   shiny::observe({keep_alive()})
   
@@ -375,10 +370,10 @@ server <- function(input, output) {
                    title = CDA_acrossstations_reactiveData$title)
     
   })
-
-  # Time Series: Exploratory Plots ----
   
-  ## 1. Dynamic UI for ExploreTS
+  # Time Series: Exploratory Horizon Plot ----
+  
+  ## 1. Dynamic UI
   output$ExploreTS_dynamic_time_resolution <- renderUI({
     if (grepl("Rainfall", input$ExploreTS_selected_var)) {
       radioButtons("ExploreTS_time_resolution", label = "Select time resolution", c("Week", "Month"))
@@ -386,72 +381,6 @@ server <- function(input, output) {
       radioButtons("ExploreTS_time_resolution", label = "Select time resolution", c("Day" ,"Week", "Month"))
     }
   })
-  
-  ## 2. Prepare data and plot line graph
-  
-  output$ExploreTS_timeSeriesPlot <- renderPlotly({
-    
-    # Prepare Data
-    selected_var <- input$ExploreTS_selected_var
-    
-    char_startDate <- as.character(input$ExploreTS_startDate)
-    char_endDate <- as.character(input$ExploreTS_endDate)
-    
-    variable_data <- weather_tsbl %>%
-      filter_index(char_startDate ~ char_endDate) %>%
-      filter(Station %in% input$ExploreTS_selectstation)
-
-    # If Time resolution is Day
-    if (input$ExploreTS_time_resolution == "Day") {
-      variable_data <- variable_data %>%
-        mutate(ValueToPlot = .data[[selected_var]])
-    } else if (input$ExploreTS_time_resolution == "Week") {
-      variable_data <- variable_data %>%
-        as_tibble() %>%
-        filter(Week != 53) %>%
-        group_by(Station, Year, Week) %>%
-        summarise(ValueToPlot = if(grepl("Rainfall", selected_var)) {
-          sum(.data[[selected_var]], na.rm = TRUE) # Sum or average based on the variable
-        } else if (grepl("Temperature", selected_var)) {
-          round(mean(.data[[selected_var]], na.rm = TRUE),2)
-        }, .groups = 'drop') %>%
-        mutate(Date = as.Date(paste(Year, Week, 1, sep = "-"), format = "%Y-%U-%u"))
-      
-    } else if (input$ExploreTS_time_resolution == "Month") {
-      variable_data <- variable_data %>%
-        as_tibble() %>%
-        group_by(Station, Year, Month) %>%
-        summarise(ValueToPlot = if(grepl("Rainfall", selected_var)) {
-          sum(.data[[selected_var]], na.rm = TRUE) # Sum or average based on the variable
-        } else if (grepl("Temperature", selected_var)) {
-          round(mean(.data[[selected_var]], na.rm = TRUE),2)
-        }, .groups = 'drop') %>%
-        mutate(Date = as.Date(paste(Year, Month, "01", sep = "-")))
-    }
-
-    
-    # Update plot annotations
-    yaxis_title <- if(grepl("Rainfall", selected_var)) {"Rainfall (mm)"} else if(grepl("Temperature", selected_var )) {"Temperature (°C)"}
-    time_title <- switch(input$ExploreTS_time_resolution,"Day" = "Daily", "Week" = "Weekly", "Month" = "Monthly")
-    var_title <- if (grepl("Rainfall", selected_var)) {"Rainfall (mm)"} else if (grepl("Temperature", selected_var)) {
-      if(input$ExploreTS_time_resolution == "Day"){selected_var} else {paste("Average", selected_var)}}
-    title <- paste(time_title, var_title, "\n", char_startDate, "to", char_endDate)
-    
-    plot_ly(variable_data, x = ~Date, y = ~ValueToPlot, 
-            type = 'scatter', mode = 'lines', 
-            color = ~Station, hoverinfo = 'text',
-            text = ~paste("<b>Station:</b>", Station,
-                          "<br><b>Date:</b>", Date,
-                          "<br><b>", selected_var, ":</b>", ValueToPlot)) %>%
-      layout(title = title,
-             xaxis = list(title = "", 
-                          range = c(char_startDate, char_endDate), 
-                          rangeslider = list(type = "date", range = c(char_startDate, char_endDate))),
-             yaxis = list(title = yaxis_title))
-    
-  })
-  
-  ## 3. Plot horizon plot 
   
   
   # Geospatial: tmap ----

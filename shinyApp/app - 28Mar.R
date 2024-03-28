@@ -11,7 +11,7 @@ variables <- c("Daily Rainfall Total (mm)", "Mean Temperature (°C)", "Minimum T
 ## Used for Time Series module
 weather_tsbl <- as_tsibble(weather_data, key = Station, index = Date)
 Station <- weather_tsbl %>% distinct(Station)
-ForecastTS_model_choices <- list("STL Naive" = "STL_Naive","STL ARIMA" = "STL_ARIMA","STL ETS" = "STL_ETS","AUTO ARIMA" = "AUTO_ARIMA","AUTO Prophet" = "AUTO_Prophet","AUTO ETS" = "AUTO_ETS")
+ForecastTS_model_choices <- list("STL Naive" = "STL_Naive","STL ARIMA" = "STL_Arima","STL ETS" = "STL_ETS","AUTO ARIMA" = "ARIMA","AUTO Prophet" = "prophet","AUTO ETS" = "ETS")
 
 ## Used for Spatial Interpolation module
 GS_model_choices <- c("Nug", "Exp","Sph","Gau","Exc","Mat","Ste","Cir","Lin","Bes","Pen","Per","Wav","Hol","Log","Pow","Spl")
@@ -25,32 +25,6 @@ calculateValueToPlot <- function(data, var) {
   } else if (grepl("Temperature", var)) {
     round(mean(data[[var]], na.rm = TRUE), 2)
   }
-}
-
-## Function to prepare
-TS_prepareVariableData <- function(selected_var, char_startDate, char_endDate, selected_station, time_resolution, weather_tsbl) {
-    variable_data <- weather_tsbl %>%
-      filter_index(char_startDate ~ char_endDate) %>%
-      filter(Station == selected_station)
-    
-    if (time_resolution == "Day") {
-      variable_data <- variable_data %>%
-        mutate(ValueToPlot = .data[[selected_var]])
-    } else if (time_resolution == "Week") {
-      variable_data <- variable_data %>%
-        group_by_key() %>%
-        index_by(year_week = ~ yearweek(.)) %>%
-        summarise(ValueToPlot = calculateValueToPlot(cur_data(), selected_var), .groups = 'drop') %>%
-        mutate(Date = floor_date(as.Date(year_week), unit = "week"))
-    }
-    
-    time_title <- switch(time_resolution, "Day" = "Daily", "Week" = "Weekly", "Month" = "Monthly")
-    var_title <- if (grepl("Rainfall", selected_var)) {"Total Rainfall (mm)"} else if (grepl("Temperature", selected_var)) {
-      if(time_resolution == "Day"){selected_var} else {paste("Average", selected_var)}}
-    
-    title <- paste(time_title, var_title, "for", selected_station)
-    
-    return(list(variable_data = variable_data, title = title, char_startDate = char_startDate, char_endDate = char_endDate, selected_station = selected_station, time_resolution = time_resolution))
 }
 
 ## Function to prepare variable data and plot elements. Used for Spatial Interpolation module
@@ -249,7 +223,7 @@ DecompTSUI <- fluidPage(
     box(title = "Data Selection Parameters",  width = 2, status = "primary", solidHeader = TRUE,
         selectInput("DecompTS_selected_var", "Choose variable", variables),
         uiOutput("DecompTS_dynamic_time_resolution"),
-        selectInput("DecompTS_selected_station", "Select Station", choices = unique(weather_tsbl$Station), selected = unique(weather_tsbl$Station)[1]),
+        selectInput("DecompTS_selectstation", "Select Station", choices = unique(weather_tsbl$Station), selected = unique(weather_tsbl$Station)[1]),
         dateInput("DecompTS_startDate", "Start Date", value = "2021-01-01", min = "2021-01-01", max = "2023-12-30"),
         HTML("<div style='margin-top: 15px; margin-bottom: 15px;'>
          <strong>End Date</strong><br>
@@ -264,8 +238,8 @@ DecompTSUI <- fluidPage(
       id = "DecompTS_tab", height = "250px",
       tabPanel("ACF & PACF",
                fluidRow(
-                 column(3, title = "parameters",
-                        uiOutput("DecompTS_dynamiclags")), 
+                 column(3, title = "parameters",     
+                        sliderInput("DecompTS_lags", "Number of Lags", min = 1, max = 365, value = 20)), 
                  column(9, plotlyOutput("DecompTS_ACFPlot"),
                         plotlyOutput("DecompTS_PACFPlot"))
                )
@@ -289,7 +263,7 @@ ForecastTSUI <- fluidPage(
     box(title = "Data Selection Parameters",  width = 2, status = "primary", solidHeader = TRUE,
         selectInput("ForecastTS_selected_var", "Choose variable", variables),
         uiOutput("ForecastTS_dynamic_time_resolution"),
-        selectInput("ForecastTS_selected_station", "Select Station", choices = unique(weather_tsbl$Station), selected = unique(weather_tsbl$Station)[1]),
+        selectInput("ForecastTS_selectstation", "Select Station", choices = unique(weather_tsbl$Station), selected = unique(weather_tsbl$Station)[1]),
         dateInput("ForecastTS_startDate", "Start Date", value = "2021-01-01", min = "2021-01-01", max = "2023-12-30"),
         HTML("<div style='margin-top: 15px; margin-bottom: 15px;'>
          <strong>End Date</strong><br>
@@ -297,8 +271,7 @@ ForecastTSUI <- fluidPage(
            2023-12-31
          </div>
        </div>"),
-        checkboxGroupInput("ForecastTS_selected_models", "Select Forecasting Models", choices = ForecastTS_model_choices),
-        uiOutput("ForecastTS_dynamic_chooseautoSTL"),
+        checkboxGroupInput("ForecastTS_selectmodel", "Select Forecasting Models", choices = ForecastTS_model_choices),
         uiOutput("ForecastTS_dynamic_model_parameters"),
         sliderInput("ForecastTS_train_test_split", "Select Train-Test Split", min = 0, max = 1, value = 0.8),
         actionButton("ForecastTS_build_model", "Build Model")
@@ -308,10 +281,8 @@ ForecastTSUI <- fluidPage(
       # The id lets us use input$ForecastTS_tab on the server to find the current tab
       id = "ForecastTS_tab", height = "250px",
       tabPanel("Model Calibration",
-               fluidRow(plotlyOutput("ForecastTS_forecast_validation_plot")),
-               fluidRow(column(6,plotlyOutput("ForecastTS_residual_plot")),
-                        column(6, DT::dataTableOutput("ForecastTS_buildModel_DataTable"))
-                        )
+               fluidRow(box(title = "plot")
+               )
       ),
       tabPanel("Forecast Result",
                fluidRow(
@@ -820,17 +791,14 @@ server <- function(input, output) {
     var_title <- if (grepl("Rainfall", selected_var)) {"Total Rainfall (mm)"} else if (grepl("Temperature", selected_var)) {
       if(input$ExploreTS_time_resolution == "Day"){selected_var} else {paste("Average", selected_var)}}
     title <- paste(time_title, var_title, "\n", char_startDate, "to", char_endDate)
-  
-    #Create plotly plot
+    
+    # Create plotly plot
     plot_ly(variable_data, x = ~Date, y = ~ValueToPlot, 
             type = 'scatter', mode = 'lines', 
             color = ~Station, hoverinfo = 'text',
             text = ~paste("<b>Station:</b>", Station,
-                          "<br>", 
-                          ifelse(input$ExploreTS_time_resolution == "Week", "<b>Week starting:</b> ", 
-                                 ifelse(input$ExploreTS_time_resolution == "Month", "<b>Month:</b> ", "<b>Date:</b> ")), 
-                          ifelse(input$ExploreTS_time_resolution == "Month", format(Date, "%Y %b"), as.character(Date)),
-                          "<br><b>", ifelse(grepl("Rainfall", selected_var), "Total Rainfall (mm)", selected_var), ":</b> ", ValueToPlot)) %>%
+                          "<br><b>Date:</b>", Date,
+                          "<br><b>", selected_var, ":</b>", ValueToPlot)) %>%
       layout(title = title,
              xaxis = list(title = "", 
                           range = c(char_startDate, char_endDate), 
@@ -845,7 +813,7 @@ server <- function(input, output) {
   
   # Time Series: Decomposition ----
   
-  ## 1.1 Dynamic UI for DecompTS_dynamic_time_resolution
+  ## 1. Dynamic UI for DecompTS_dynamic_time_resolution
   output$DecompTS_dynamic_time_resolution <- renderUI({
     if (grepl("Rainfall", input$DecompTS_selected_var)) {
       radioButtons("DecompTS_time_resolution", label = "Select time resolution", c("Week"))
@@ -854,73 +822,87 @@ server <- function(input, output) {
     }
   })
    
-  ## 1.2 Dynamic UI for DecompTS_dynamic_lags
-  output$DecompTS_dynamic_lags <- renderUI ({
-    if (input$DecompTS_time_resolution == "Day") {
-      sliderInput("DecompTS_lags", "Number of Lags", min = 1, max = 365, value = 20, step = 1)
-    } else if (input$DecompTS_time_resolution == "Week") {
-      sliderInput("DecompTS_lags", "Number of Lags", min = 1, max = 52, value = 20, step = 1)
-    }
-  })
-  ## 1.3 Dynamic UI for DecompTS_autoSTL
+  ## 1.1. Dynamic UI for DecompTS_autoSTL
   output$DecompTS_autoSTL <- renderUI({
     if (input$DecompTS_chooseautoSTL == "No") {
-      if (input$DecompTS_time_resolution == "Day") {
-        list(sliderInput("DecompTS_TrendWindow", "Trend Window", min = 1, max = 365, value = 20, step = 1),
-             sliderInput("DecompTS_SeasonWindow", "Season Window", min = 1, max = 365, value = 20, step = 1))
-        } else if (input$DecompTS_time_resolution == "Week") {
-          list(sliderInput("DecompTS_TrendWindow", "Trend Window", min = 1, max = 52, value = 20, step = 1),
-               sliderInput("DecompTS_SeasonWindow", "Season Window", min = 1, max = 52, value = 20, step = 1))
-        }
-      }
-    })
+      list(sliderInput("DecompTS_TrendWindow", "Trend Window", min = 1, max = 365, value = 20),
+           sliderInput("DecompTS_SeasonWindow", "Season Window", min = 1, max = 365, value = 20))
+    } 
+  })
   
+  ## 2. Data Preparation using Reactive Expression
+  DecompTS_reactiveVariable <- reactive({
+
+    # Prepare Data
+    selected_var <- input$DecompTS_selected_var
+    char_startDate <- as.character(input$DecompTS_startDate)
+    char_endDate <- as.character("2023-12-31")
+    
+    variable_data <- weather_tsbl %>%
+      filter_index(char_startDate ~ char_endDate) %>%
+      filter(Station == input$DecompTS_selectstation)
+    
+    if (input$DecompTS_time_resolution == "Day") {
+      variable_data <- variable_data %>%
+        mutate(ValueToPlot = .data[[selected_var]])
+    } else if (input$DecompTS_time_resolution == "Week") {
+      variable_data <- variable_data %>%
+        group_by_key() %>%
+        index_by(year_week = ~ yearweek(.)) %>%
+        summarise(ValueToPlot = calculateValueToPlot(cur_data(), selected_var), .groups = 'drop') %>%
+        mutate(Date = floor_date(as.Date(year_week), unit = "week"))
+    }
+    
+    time_title <- switch(input$DecompTS_time_resolution, "Day" = "Daily", "Week" = "Weekly", "Month" = "Monthly")
+    var_title <- if (grepl("Rainfall", selected_var)) {"Total Rainfall (mm)"} else if (grepl("Temperature", selected_var)) {
+      if(input$DecompTS_time_resolution == "Day"){selected_var} else {paste("Average", selected_var)}}
+    
+    title <- paste(time_title, var_title, "for", input$DecompTS_selectstation, "\n", char_startDate, "to", char_endDate)
+
+    list(variable_data = variable_data, title = title)
+
+  })
   
-  ## 2. ACF Plot and PACF Plot
+  ## 3. ACF Plot and PACF Plot
   ### ACF plot
   output$DecompTS_ACFPlot <- renderPlotly({
+    # Extract data and variables from reactive expression
+    res <- DecompTS_reactiveVariable()
+    variable_data <- res$variable_data
+    title <- res$title
     
-    result <- TS_prepareVariableData(input$DecompTS_selected_var,as.character(input$DecompTS_startDate),"2023-12-31",input$DecompTS_selected_station,input$DecompTS_time_resolution,weather_tsbl)
-    
-    variable_data <- result$variable_data
-    title <- result$title
-    char_startDate <- result$char_startDate
-    char_endDate <- result$char_endDate
-
     ACF <- variable_data %>%
       ACF(ValueToPlot, lag_max = input$DecompTS_lags) %>%
       autoplot() +
-      labs(title = paste("ACF plot of", title,  "\n", char_startDate, "to", char_endDate)) +
+      labs(title = paste("ACF plot of", title)) +
       theme_minimal()
     
     ggplotly(ACF)
   })
   ### PACF plot
   output$DecompTS_PACFPlot <- renderPlotly({ 
-    result <- TS_prepareVariableData(input$DecompTS_selected_var,as.character(input$DecompTS_startDate),"2023-12-31",input$DecompTS_selected_station, input$DecompTS_time_resolution,weather_tsbl)
-    
-    variable_data <- result$variable_data
-    title <- result$title
-    char_startDate <- result$char_startDate
-    char_endDate <- result$char_endDate
-    
+    # Extract data and variables from reactive expression
+    res <- DecompTS_reactiveVariable()
+    variable_data <- res$variable_data
+    title <- res$title    
     PACF <- variable_data %>%
       PACF(ValueToPlot, lag_max = input$DecompTS_lags) %>%
       autoplot() +
-      labs(title = paste("PACF plot of", title,  "\n", char_startDate, "to", char_endDate)) +
+      labs(title = paste("PACF plot of", title)) +
       theme_minimal()
     
     ggplotly(PACF)
   })
   
-  # 3. DecompTS_STLPlot
+  # 4. DecompTS_STLPlot
   output$DecompTS_STLPlot <- renderPlotly({
-    result <- TS_prepareVariableData(input$DecompTS_selected_var,as.character(input$DecompTS_startDate),"2023-12-31", input$DecompTS_selected_station,input$DecompTS_time_resolution,weather_tsbl)
-    
-    variable_data <- result$variable_data
-    title <- result$title
-    char_startDate <- result$char_startDate
-    char_endDate <- result$char_endDate
+    # Ensure the reactive variable is available before proceeding
+    req(DecompTS_reactiveVariable())
+
+    # Extract data from the reactive expression
+    res <- DecompTS_reactiveVariable()
+    variable_data <- res$variable_data
+    title <- res$title
     
     if(input$DecompTS_chooseautoSTL == "No") {
       trend_window <- input$DecompTS_TrendWindow
@@ -951,7 +933,7 @@ server <- function(input, output) {
     # Visualize the STL components
     plot_stl <- stl_fit %>%
       autoplot() +
-      labs(title = paste(title, "\n", char_startDate, "to", char_endDate))
+      labs(title = title)
 
     # Convert the ggplot object to a plotly object
     ggplotly(plot_stl) %>%
@@ -959,7 +941,7 @@ server <- function(input, output) {
   })
   # Time Series: Forecasting ----
   
-  ## 1.1 Dynamic UI for ForecastTS_dynamic_time_resolution
+  ## 1. Dynamic UI for ForecastTS_dynamic_time_resolution
   output$ForecastTS_dynamic_time_resolution <- renderUI({
     if (grepl("Rainfall", input$ForecastTS_selected_var)) {
       radioButtons("ForecastTS_time_resolution", label = "Select time resolution", c("Week"))
@@ -968,28 +950,20 @@ server <- function(input, output) {
     }
   })
   
-  ## 1.3 Dynamic UI for ForecastTS_dynamic_chooseautoSTL
-  output$ForecastTS_dynamic_chooseautoSTL <- renderUI({
-    if (!is.null(input$ForecastTS_selected_models) &&
-        any(grepl("STL", input$ForecastTS_selected_models))
-    ) {radioButtons("ForecastTS_chooseautoSTL", label = "Use Auto STL?" ,c("Yes", "No"))
-    }
-  })
-  
-  ## 1.3 Dynamic UI for ForecastTS_dynamic_model_parameters
+  ## 1.1. Dynamic UI for ForecastTS_dynamic_model_parameters
   output$ForecastTS_dynamic_model_parameters <- renderUI({
     # Check if any of the STL options are selected
-    if (!is.null(input$ForecastTS_selected_models) &&
-        any(grepl("STL", input$ForecastTS_selected_models))) {
-      if(input$ForecastTS_chooseautoSTL == "No"
-         ){
-        list(sliderInput("ForecastTS_TrendWindow", "Trend Window", min = 1, max = 365, value = 20),
-             sliderInput("ForecastTS_SeasonWindow", "Season Window", min = 1, max = 365, value = 20))
-        } 
-      }
-    })
-  ## 1.4 Dynamic UI for ForecastTS_dynamic_forecast_period
+    if (!is.null(input$ForecastTS_selectmodel) &&
+        any(grepl("STL", input$ForecastTS_selectmodel))
+        ) {
+      list(
+        sliderInput("trendWindow", "Trend Window", min = 1, max = 365, value = 20),
+        sliderInput("seasonWindow", "Season Window", min = 1, max = 365, value = 20)
+      )}
+  })
+  ## 1.2. Dynamic UI for ForecastTS_dynamic_forecast_period
   output$ForecastTS_dynamic_forecast_period <- renderUI({
+    
     end_date <- as.Date("2023-12-31")
     total_days <- as.numeric(difftime(end_date, input$ForecastTS_startDate, units = "days"))
     
@@ -998,113 +972,9 @@ server <- function(input, output) {
     
     sliderInput("forecast_period_days", 
                 "Select Forecast Period", min = 1, max = max(max_forecast_period_days, 1), value = min(10, max_forecast_period_days), step = 1, post = " days")
+    # sliderInput("days", "Select Forecast Period", min = 0, max = 365, value = 10, post = " days")
   })
   
-  
-  ## 2. Prepare data and create eventReactive object that updates only when the Build Model button is clicked
-  model_building <- eventReactive(input$ForecastTS_build_model, {
-    req(length(input$ForecastTS_selected_models) > 0)  # Ensure models are selected
-    
-    # Proceed with model fitting and forecasting logic
-    result <- TS_prepareVariableData(input$ForecastTS_selected_var,as.character(input$ForecastTS_startDate),"2023-12-31", input$ForecastTS_selected_station,input$ForecastTS_time_resolution, weather_tsbl)
-    variable_data <- result$variable_data
-    title <- result$title
-    
-    split_point <- nrow(variable_data) * input$ForecastTS_train_test_split
-    train_data <- variable_data %>% slice(1:floor(split_point))
-    test_data <- variable_data %>% slice((floor(split_point) + 1):n())
-
-    
-    if (!is.null(input$ForecastTS_selected_models) &&
-        any(grepl("STL", input$ForecastTS_selected_models))){
-      if(input$ForecastTS_chooseautoSTL == "No") {
-        trend_window <- input$ForecastTS_TrendWindow
-        season_window <- input$ForecastTS_SeasonWindow
-        } else { 
-          trend_window <- NULL
-          season_window <- NULL
-        }
-      }
-    ForecastTS_model_list <- list(
-      STL_Naive = decomposition_model(STL(ValueToPlot ~ season(window = season_window) + trend(window = trend_window)), NAIVE(season_adjust)),
-      STL_ARIMA = decomposition_model(STL(ValueToPlot ~ season(window = season_window) + trend(window = trend_window)), ARIMA(season_adjust)),
-      STL_ETS = decomposition_model(STL(ValueToPlot ~ season(window = season_window) + trend(window = trend_window)), ETS(season_adjust ~ season("N"))),
-      AUTO_ARIMA = ARIMA(ValueToPlot),
-      AUTO_Prophet = prophet(ValueToPlot),
-      AUTO_ETS = ETS(ValueToPlot)
-    )
-      
-    # Retaining original list without accounting for trend window and season window
-    # ForecastTS_model_list <- list( STL_Naive =
-    # decomposition_model(STL(ValueToPlot), NAIVE(season_adjust)), STL_ARIMA =
-    # decomposition_model(STL(ValueToPlot), ARIMA(season_adjust)), STL_ETS =
-    # decomposition_model(STL(ValueToPlot), ETS(season_adjust ~ season("N"))),
-    # AUTO_ARIMA = ARIMA(ValueToPlot), AUTO_Prophet = prophet(ValueToPlot),
-    # AUTO_ETS = ETS(ValueToPlot) )
-
-    selected_models <- ForecastTS_model_list[names(ForecastTS_model_list) %in% input$ForecastTS_selected_models]
-    train_fit <- model(train_data, !!!selected_models)
-    forecast_horizon <- nrow(test_data)
-    forecasts <- forecast(train_fit, h = forecast_horizon)
-    
-    # Return both the forecasts and the test data for plotting
-    list(train_fit = train_fit, forecasts = forecasts, test_data = test_data, train_data = train_data, title = title)
-  }, ignoreNULL = FALSE)
-  
-  ## 3. Forecast Plots
-  ### Forecast Validation Plot
-  output$ForecastTS_forecast_validation_plot <- renderPlotly({
-    # Extract the result from the eventReactive object
-    result <- model_building()
-    # Extract data and variables from reactive expression
-    variable_data <- result$variable_data
-    title <- result$title
-    train_data <- result$train_data
-    test_data <- result$test_data
-    forecasts <- result$forecasts
-
-    plot <- autoplot(train_data, ValueToPlot) + 
-      autolayer(test_data, ValueToPlot) +
-      autolayer(forecasts, level = NULL) + 
-      labs(title = paste("Forecast Validation", title)) + 
-      theme_minimal()
-    
-    ggplotly(plot, tooltip = c("x", "y", ".model"))
-        
-  })
-  ### Residual Plot
-  output$ForecastTS_residual_plot <- renderPlotly({
-    # Extract the result from the eventReactive object
-    result <- model_building()
-    # Extract data and variables from reactive expression
-    variable_data <- result$variable_data
-    train_fit <- result$train_fit
-    
-    residual <- train_fit %>% augment()
-    
-    a <- autoplot(residual, .innov) +
-      labs(title = "Residual Plot") +
-      theme_minimal() 
-  })
-  
-  ### Data Table
-  output$ForecastTS_buildModel_DataTable <- DT::renderDataTable({
-    result <- model_building()
-    test_data <- result$test_data
-    forecasts <- result$forecasts
-    
-    accuracy_metrics <- accuracy(forecasts, test_data) %>%
-      arrange(.model) %>%
-      select(.model, .type, RMSE, MAE, MAPE) %>%
-      mutate(across(c(RMSE, MAE, MAPE), round, 2))
-
-    datatable(accuracy_metrics, 
-              class= "hover",
-              rownames = FALSE,
-              width="100%", 
-              options = list(pageLength = 10,scrollX=T))
-
-  })
   
   # Geospatial: tmap ----
   

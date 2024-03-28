@@ -1,7 +1,7 @@
 # Section 1: Set up ----
 pacman::p_load(gstat)
 pacman::p_load(tmap)
-pacman::p_load(shiny, shinydashboard, shinyWidgets, tidyverse, ggthemes, plotly, sf, terra, viridis, ggHoriPlot, ggstatsplot, rstantools, ISOweek, DT, nortest, ggridges)
+pacman::p_load(shiny, shinydashboard, shinyWidgets, tidyverse, ggthemes, plotly, sf, terra, viridis, ggHoriPlot, ggstatsplot, rstantools, ISOweek, DT, nortest, ggridges, tsibble, tsibbledata, feasts, fable, fabletools, fable.prophet)
 
 # Section 1.1: Variables and Functions ----
 ## Import data 

@@ -526,8 +526,7 @@ stl_rain_week <- summarised_rain_week_sstn %>%
 plot_stl_default <- stl_rain_week %>%
   autoplot()
 
-ggplotly(plot_stl_default) %>% layout(width = 700, height = 700, 
-                      plot_bgcolor="#edf2f7")
+ggplotly(plot_stl_default) %>% layout(plot_bgcolor="#edf2f7")
 ```
 :::
 

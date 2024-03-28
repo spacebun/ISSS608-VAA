@@ -26,7 +26,7 @@ calculateValueToPlot <- function(data, var) {
   }
 }
 
-## Function to prepare variable data. Used for Spatial Interpolation module
+## Function to prepare variable data and plot elements. Used for Spatial Interpolation module
 GS_prepareVariableData <- function(selected_var, time_resolution, selected_time, weather_data) {
   variable_data <- NULL
   
@@ -62,7 +62,20 @@ GS_prepareVariableData <- function(selected_var, time_resolution, selected_time,
       st_transform(crs = 3414)
   } else {variable_data_sf <- NULL}
   
-  return(list(variable_data = variable_data, variable_data_sf = variable_data_sf, legend_title = legend_title))
+  
+  time_title <- switch(time_resolution, "Day" = "Daily", "Month" = "Monthly", "Year" = "Yearly", NA)
+  
+  var_title <- if (grepl("Rainfall", selected_var)) {"Total Rainfall (mm)"} 
+  else if (grepl("Temperature", selected_var)) {if(time_resolution == "Day"){selected_var} else {paste("Average", selected_var)}}
+  
+  # Date title with a check
+  # date_input <- switch(time_resolution, "Day" = input$GS_selected_date, "Month" = input$GS_selected_month, "Year" = input$GS_selected_year,NA) 
+  
+  date_title <- format(as.Date(selected_time), switch(time_resolution,"Day" = "%d %B %Y","Month" = "%B %Y","Year" = "%Y",NA))
+  
+  main_title <- paste(time_title, var_title, "for\n", date_title, "across stations in Singapore")
+  
+  return(list(variable_data = variable_data, variable_data_sf = variable_data_sf, legend_title = legend_title, main_title = main_title))
 }
 
 # Function to get raster layer
@@ -102,7 +115,6 @@ sidebar <- dashboardSidebar(
   )
 
 # Section 3 CDA compare across stations UI  ----
-
 CDAUI <- fluidPage(
   # Row 1
   fluidRow(
@@ -234,8 +246,8 @@ DecompTSUI <- fluidPage(
       tabPanel("STL Decomposition",
                fluidRow(
                  column(3, title = "parameters",
-                        sliderInput("DecompTS_TrendWindow", "Trend Window", min = 1, max = 365, value = 20),
-                        sliderInput("DecompTS_SeasonWindow", "Season Window", min = 1, max = 365, value = 20)),
+                        radioButtons("DecompTS_chooseautoSTL", label = "Use Auto STL?" ,c("Yes", "No")),
+                        uiOutput("DecompTS_autoSTL")),
                  column(9,plotlyOutput("DecompTS_STLPlot"))
                )
       )
@@ -296,8 +308,8 @@ GeospatialUI <- fluidPage(
       tabPanel("Inverse Distance Weighted Interpolation Method",
                fluidRow(
                column(3, 
-                      sliderInput("GS_IDW_res", "Resolution", min = 30, max = 80, value = 50),
-                      sliderInput("GS_IDW_nmax" , "nmax", min = 1, max = 10, value = 3),
+                        sliderInput("GS_IDW_res", "Resolution", min = 100, max = 200, value = 100, step = 50),
+                      sliderInput("GS_IDW_nmax" , "nmax", min = 1, max = 10, value = 5),
                       actionButton("GS_updateIDW", "Show Result")
                       ),
                column(9,plotOutput("GS_IDW_map"))
@@ -306,10 +318,10 @@ GeospatialUI <- fluidPage(
       tabPanel("Ordinary Kriging Method",
                fluidRow(
                  column(2, 
-                        sliderInput("GS_OK_res", "Resolution", min = 30, max = 80, value = 50),
-                        selectInput("GS_OK_model" , "model", model_choices),
+                        sliderInput("GS_OK_res", "Resolution", min = 100, max = 200, value = 100, step = 50),
+                        selectInput("GS_OK_model" , "model", model_choices, selected = "Gau"),
                         sliderInput("GS_OK_psill", "psill", min = 0.5, max = 10, value = 0.5, step = 0.5),
-                        sliderInput("GS_OK_range", "range", min = 500, max = 10000, value = 8000, step = 500),
+                        sliderInput("GS_OK_range", "range", min = 2000, max = 10000, value = 5000, step = 500),
                         sliderInput("GS_OK_nugget", "nugget", min = 0.1, max = 10, value = 0.1, step = 0.1),
                         actionButton("GS_updateOK", "Show Result")
                  ),
@@ -752,22 +764,12 @@ server <- function(input, output) {
         group_by_key() %>%
         index_by(year_week = ~ yearweek(.)) %>%
         summarise(ValueToPlot = calculateValueToPlot(cur_data(), selected_var), .groups = 'drop') %>%
-        # summarise(ValueToPlot = if(grepl("Rainfall", selected_var)) {
-        #   sum(.data[[selected_var]], na.rm = TRUE) # Sum or average based on the variable
-        # } else if (grepl("Temperature", selected_var)) {
-        #   round(mean(.data[[selected_var]], na.rm = TRUE),2)
-        # }, .groups = 'drop') %>%
       mutate(Date = floor_date(as.Date(year_week), unit = "week"))
     } else if (input$ExploreTS_time_resolution == "Month") {
       variable_data <- variable_data %>%
         as_tibble() %>%
         group_by(Station, Year, Month) %>%
         summarise(ValueToPlot = calculateValueToPlot(cur_data(), selected_var), .groups = 'drop') %>%
-        # summarise(ValueToPlot = if(grepl("Rainfall", selected_var)) {
-        #   sum(.data[[selected_var]], na.rm = TRUE) # Sum or average based on the variable
-        # } else if (grepl("Temperature", selected_var)) {
-        #   round(mean(.data[[selected_var]], na.rm = TRUE),2)
-        # }, .groups = 'drop') %>%
         mutate(Date = as.Date(paste(Year, Month, "01", sep = "-")))
     }
     
@@ -799,13 +801,21 @@ server <- function(input, output) {
   
   # Time Series: Decomposition ----
   
-  ## 1. Dynamic UI
+  ## 1. Dynamic UI for DecompTS_dynamic_time_resolution
   output$DecompTS_dynamic_time_resolution <- renderUI({
     if (grepl("Rainfall", input$DecompTS_selected_var)) {
       radioButtons("DecompTS_time_resolution", label = "Select time resolution", c("Week"))
     } else if (grepl("Temperature", input$DecompTS_selected_var)) {
       radioButtons("DecompTS_time_resolution", label = "Select time resolution", c("Day" ,"Week"))
     }
+  })
+   
+  ## 1.1. Dynamic UI for DecompTS_autoSTL
+  output$DecompTS_autoSTL <- renderUI({
+    if (input$DecompTS_chooseautoSTL == "No") {
+      list(sliderInput("DecompTS_TrendWindow", "Trend Window", min = 1, max = 365, value = 20),
+           sliderInput("DecompTS_SeasonWindow", "Season Window", min = 1, max = 365, value = 20))
+    } 
   })
   
   ## 2. Data Preparation using Reactive Expression
@@ -828,11 +838,6 @@ server <- function(input, output) {
         group_by_key() %>%
         index_by(year_week = ~ yearweek(.)) %>%
         summarise(ValueToPlot = calculateValueToPlot(cur_data(), selected_var), .groups = 'drop') %>%
-        # summarise(ValueToPlot = if(grepl("Rainfall", selected_var)) {
-        #   sum(.data[[selected_var]], na.rm = TRUE)
-        # } else if (grepl("Temperature", selected_var)) {
-        #   round(mean(.data[[selected_var]], na.rm = TRUE),2)
-        # }, .groups = 'drop') %>%
         mutate(Date = floor_date(as.Date(year_week), unit = "week"))
     }
     
@@ -843,15 +848,12 @@ server <- function(input, output) {
     title <- paste(time_title, var_title, "for", input$DecompTS_selectstation, "\n", char_startDate, "to", char_endDate)
 
     list(variable_data = variable_data, title = title)
-    
-    # variable_data # Return the prepared data if single vairable
+
   })
   
   ## 3. ACF Plot and PACF Plot
   ### ACF plot
   output$DecompTS_ACFPlot <- renderPlotly({
-    # variable_data <- DecompTS_reactiveVariable() # Use the reactive expression if single variable
-    
     # Extract data and variables from reactive expression
     res <- DecompTS_reactiveVariable()
     variable_data <- res$variable_data
@@ -867,8 +869,6 @@ server <- function(input, output) {
   })
   ### PACF plot
   output$DecompTS_PACFPlot <- renderPlotly({ 
-    # variable_data <- DecompTS_reactiveVariable() # Use the reactive expression if single variable
-    
     # Extract data and variables from reactive expression
     res <- DecompTS_reactiveVariable()
     variable_data <- res$variable_data
@@ -882,11 +882,54 @@ server <- function(input, output) {
     ggplotly(PACF)
   })
   
-  ## 4. DecompTS_STLPlot
-  output$DecompTS_STLPlot <- renderPloty({
+  # 4. DecompTS_STLPlot
+  output$DecompTS_STLPlot <- renderPlotly({
+    # Ensure the reactive variable is available before proceeding
+    req(DecompTS_reactiveVariable())
+
+    # Extract data from the reactive expression
+    res <- DecompTS_reactiveVariable()
+    variable_data <- res$variable_data
+    title <- res$title
     
+    if(input$DecompTS_chooseautoSTL == "No") {
+      trend_window <- input$DecompTS_TrendWindow
+      season_window <- input$DecompTS_SeasonWindow
+    } else { 
+      trend_window <- NULL
+      season_window <- NULL
+      }
+      
+    # Note that variable name is always 'ValueToPlot', because of the reactive variable. So, use it directly in STL
+    stl_fit <- variable_data %>%
+      model(STL(ValueToPlot ~ season(window = season_window) + trend(window = trend_window))) %>%
+      components()
+
+    # Convert to tibble and perform common transformations
+    stl_fit_tibble <- as_tibble(stl_fit) %>%
+      mutate(trend = round(trend, 2),
+             season_adjust = round(season_adjust, 2),
+             season_year = round(season_year, 4),
+             remainder = round(remainder, 4))
     
+    # Conditionally mutate season_week if the resolution is "Day"
+    if(input$DecompTS_time_resolution == "Day") {
+      stl_fit_tibble <- stl_fit_tibble %>%
+        mutate(season_week = round(season_week, 4))
+    }
+
+    # Visualize the STL components
+    plot_stl <- stl_fit %>%
+      autoplot() +
+      labs(title = title)
+
+    # Convert the ggplot object to a plotly object
+    ggplotly(plot_stl) %>%
+      layout(plot_bgcolor="#edf2f7")
   })
+  # Time Series: Forecasting ----
+  
+  ## 1. Dynamic UI for DecompTS_dynamic_time_resolution
   
   # Geospatial: tmap ----
   
@@ -906,29 +949,11 @@ server <- function(input, output) {
   observeEvent(input$GS_updatetmap, {
     results <- GS_prepareVariableData(input$GS_selected_var, input$GS_time_resolution, input$GS_selected_date, weather_data)
 
-    main_title <- if(grepl("Rainfall", input$GS_selected_var )) {
-      if(input$GS_time_resolution == "Day") {
-        paste("Daily Rainfall (mm) for", format(as.Date(input$GS_selected_date), "%d %B %Y"), "across stations in Singapore")
-      } else if(input$GS_time_resolution == "Month") {
-        paste("Monthly Rainfall (mm) for", format(as.Date(input$GS_selected_month), "%B %Y"), "across stations in Singapore")
-      } else if(input$GS_time_resolution == "Year") {
-        paste("Yearly Rainfall (mm) for", format(as.Date(input$GS_selected_year), "%Y"), "across stations in Singapore")
-      }
-    } else if(grepl("Temperature", input$GS_selected_var )) {
-      if(input$GS_time_resolution == "Day") {
-        paste("Daily", input$GS_selected_var , "for", format(as.Date(input$GS_selected_date), "%d %B %Y"), "across stations in Singapore")
-      } else if(input$GS_time_resolution == "Month") {
-        paste("Monthly", input$GS_selected_var , "for", format(as.Date(input$GS_selected_month), "%B %Y"), "across stations in Singapore")
-      } else if(input$GS_time_resolution == "Year") {
-        paste("Yearly", input$GS_selected_var , "for", format(as.Date(input$GS_selected_year), "%Y"), "across stations in Singapore")
-      }
-    }
-    
     # Update reactive variable
     GS_reactiveDataTmap$variable_data <- results$variable_data
     GS_reactiveDataTmap$variable_data_sf <- results$variable_data_sf
     GS_reactiveDataTmap$legend_title <- results$legend_title
-    GS_reactiveDataTmap$main_title <- main_title
+    GS_reactiveDataTmap$main_title <- results$main_title
 
   })
   
@@ -945,8 +970,7 @@ server <- function(input, output) {
       tm_borders() +
       tm_shape(GS_reactiveDataTmap$variable_data_sf) +
       tm_dots(col = 'ValueToPlot', title = GS_reactiveDataTmap$legend_title, popup.vars = dynamicPopupVars) +
-      tm_layout(title = GS_reactiveDataTmap$main_title) # Add the dynamic title here
-    
+      tm_layout(title = GS_reactiveDataTmap$main_title) 
     tm
   })
   
@@ -963,6 +987,8 @@ server <- function(input, output) {
     raster_layer <- GS_rasterlayer(input$GS_IDW_res)
     variable_data <-results$variable_data
     variable_data_sf <- results$variable_data_sf
+    main_title <- results$main_title
+    legend_title <- results$legend_title
     grid <- raster_layer$grid
     coop <- raster_layer$coop
     
@@ -977,26 +1003,6 @@ server <- function(input, output) {
     resp$y <- st_coordinates(resp)[,2]
     resp$pred <- resp$var1.pred
     pred <- rasterize(resp, grid, field="pred", fun="mean")
-
-    # Prepare plot elements
-    legend_title <- if(grepl("Rainfall", input$GS_selected_var )) {"Rainfall (mm)"} else if(grepl("Temperature", input$GS_selected_var )) {"Temperature (°C)"}
-    main_title <- if(grepl("Rainfall", input$GS_selected_var )) {
-      if(input$GS_time_resolution == "Day") {
-        paste("Daily Rainfall (mm) for", format(as.Date(input$GS_selected_date), "%d %B %Y"), "across stations in Singapore")
-      } else if(input$GS_time_resolution == "Month") {
-        paste("Monthly Rainfall (mm) for", format(as.Date(input$GS_selected_month), "%B %Y"), "across stations in Singapore")
-      } else if(input$GS_time_resolution == "Year") {
-        paste("Yearly Rainfall (mm) for", format(as.Date(input$GS_selected_year), "%Y"), "across stations in Singapore")
-      }
-    } else if(grepl("Temperature", input$GS_selected_var )) {
-      if(input$GS_time_resolution == "Day") {
-        paste("Daily", input$GS_selected_var , "for", format(as.Date(input$GS_selected_date), "%d %B %Y"), "across stations in Singapore")
-      } else if(input$GS_time_resolution == "Month") {
-        paste("Monthly", input$GS_selected_var , "for", format(as.Date(input$GS_selected_month), "%B %Y"), "across stations in Singapore")
-      } else if(input$GS_time_resolution == "Year") {
-        paste("Yearly", input$GS_selected_var , "for", format(as.Date(input$GS_selected_year), "%Y"), "across stations in Singapore")
-      }
-    }
     
     # Update reactive variable
     GS_reactiveDataIDW$variable_data <- variable_data
@@ -1029,6 +1035,8 @@ server <- function(input, output) {
     raster_layer <- GS_rasterlayer(input$GS_OK_res)
     variable_data <-results$variable_data
     variable_data_sf <- results$variable_data_sf
+    main_title <- results$main_title
+    legend_title <- results$legend_title
     grid <- raster_layer$grid
     coop <- raster_layer$coop
     
@@ -1054,27 +1062,7 @@ server <- function(input, output) {
     # create a raster surface data object
     kpred <- rasterize(resp, grid,
                        field = "pred")
-    
-    # plot elements
-    legend_title <- if(grepl("Rainfall", input$GS_selected_var )) {"Total Rainfall (mm)"} else if(grepl("Temperature", input$GS_selected_var )) {"Temperature (°C)"}
-    main_title <- if(grepl("Rainfall", input$GS_selected_var )) {
-      if(input$GS_time_resolution == "Day") {
-        paste("Daily Rainfall (mm) for", format(as.Date(input$GS_selected_date), "%d %B %Y"), "across stations in Singapore")
-      } else if(input$GS_time_resolution == "Month") {
-        paste("Monthly Rainfall (mm) for", format(as.Date(input$GS_selected_month), "%B %Y"), "across stations in Singapore")
-      } else if(input$GS_time_resolution == "Year") {
-        paste("Yearly Rainfall (mm) for", format(as.Date(input$GS_selected_year), "%Y"), "across stations in Singapore")
-      }
-    } else if(grepl("Temperature", input$GS_selected_var )) {
-      if(input$GS_time_resolution == "Day") {
-        paste("Daily", input$GS_selected_var , "for", format(as.Date(input$GS_selected_date), "%d %B %Y"), "across stations in Singapore")
-      } else if(input$GS_time_resolution == "Month") {
-        paste("Monthly", input$GS_selected_var , "for", format(as.Date(input$GS_selected_month), "%B %Y"), "across stations in Singapore")
-      } else if(input$GS_time_resolution == "Year") {
-        paste("Yearly", input$GS_selected_var , "for", format(as.Date(input$GS_selected_year), "%Y"), "across stations in Singapore")
-      }
-    }
-    
+
     # Extracting the variance
     resp$variance <- resp$var1.var
     
@@ -1097,7 +1085,6 @@ server <- function(input, output) {
     
     # Check reactive variable
     req(GS_reactiveDataOK$v)
-    
     plot(GS_reactiveDataOK$v, cex = 1.5)
     
   })

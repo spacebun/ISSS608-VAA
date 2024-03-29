@@ -27,30 +27,7 @@ calculateValueToPlot <- function(data, var) {
   }
 }
 
-## Function to prepare data for CDA Across Stations module
-CDA_AS_prepareVariableData <- function(selected_var, time_resolution, selected_date, selected_stations, weather_data){
-  # If Time resolution is Month 
-  if (time_resolution == "Month") {
-    selected_month <- format(as.Date(selected_date), "%m")
-    selected_year <- format(as.Date(selected_date), "%Y")
-
-    variable_data <- weather_data %>%
-      filter(format(Date, "%Y-%m") == paste0(selected_year, "-", selected_month),
-             Station %in% selected_stations)
-    
-    # If Time resolution is Year
-  } else if (time_resolution == "Year") {
-    
-    selected_year <- as.character(format(selected_date, "%Y"))
-
-    variable_data <- weather_data %>%
-      filter(format(Date, "%Y") == selected_year,
-             Station %in% selected_stations)
-  } 
-  return(list(selected_var = selected_var, variable_data = variable_data, time_resolution = time_resolution, selected_date = selected_date, selected_stations = selected_stations))
-}
-
-## Function to prepare data for TS module
+## Function to prepare
 TS_prepareVariableData <- function(selected_var, char_startDate, char_endDate, selected_station, time_resolution, weather_tsbl) {
     variable_data <- weather_tsbl %>%
       filter_index(char_startDate ~ char_endDate) %>%
@@ -164,91 +141,75 @@ sidebar <- dashboardSidebar(
     )
   )
 
-# Section 3: CDA compare across stations UI  ----
+# Section 3 CDA compare across stations UI  ----
 CDAUI <- fluidPage(
   # Row 1
-  fluidRow(tabBox(
-          title = "", width = 12,
-          # The id lets us use input$CDA_tab on the server to find the current tab
-          id = "CDA_tab", height = "250px",
-          tabPanel(
-            "Compare across Stations",
-            fluidRow(
-              box(#inputs
-                title = "Data Selection Parameters",  width = 2, status = "primary", solidHeader = TRUE,
-                selectInput("CDA_AS_selected_var", "Choose variable", variables, selected = NULL, multiple = FALSE),
-                radioButtons("CDA_AS_time_resolution", label = "Select time resolution", c("Month", "Year")),
-                uiOutput("CDA_AS_dynamic_time_resolution"),
-                checkboxGroupInput("CDA_AS_selected_stations", "Select Station (s)", choices = unique(weather_data$Station), selected = unique(weather_data$Station)[1])
-                
-                ),
-              tabBox(
-                title = "", width = 10,
-                id = "CDA_AS_tab", height = "250px",
-                tabPanel(
-                  "Check Normality",
-                  fluidRow(actionButton("CDA_AS_checknormality_button", "Run Normality Checks"),
-                           plotOutput("CDA_AS_checknormality_plot"),
-                           tableOutput("CDA_AS_checknormality_results")
-                  )
-                ),
-                tabPanel(
-                  "Run Statistic Test",
-                  fluidRow(
-                    column(2, 
-                           selectInput("CDA_AS_selectedStatApproach", "Statistical Approach", choices = c("parametric", "nonparametric", "robust", "bayes"),multiple = FALSE),
-                           selectInput("CDA_AS_selectedConflevel", "Confidence Level", choices = c("90%"="0.90","95%"="0.95", "99%"="0.99"),multiple = FALSE),
-                           selectInput("CDA_AS_plotType", "Plot Type",choices = c("Boxviolin" = "boxviolin", "Box" = "box", "Violin" = "violin"),selected = "boxviolin",multiple = FALSE),
-                           textInput("CDA_AS_plot_title","Plot Title", placeholder = "Enter plot title"),
-                           actionButton("CDA_AS_plot_button", "Run test")
-                    ),
-                    column(8,plotlyOutput("CDA_AS_plot"))
-                  )
-                )
-                
-              )
-            )
-          ),
-          tabPanel(
-            "Compare across Time",
-            fluidRow(
-              box(#inputs
-                title = "Data Selection Parameters",  width = 2, status = "primary", solidHeader = TRUE,
-                selectInput("CDA_AT_selected_var", "Choose variable", variables, selected = NULL, multiple = FALSE),
-                selectInput("CDA_AT_selected_station", "Select Station", choices = unique(weather_data$Station), selected = unique(weather_data$Station)[1],  multiple = FALSE),
-                selectInput("CDA_AT_time_resolution", label = "Compare across", c("Years", "Months", "Months for a specified year", "Months of different years"), selected = NULL, multiple = FALSE),
-                uiOutput("CDA_AT_dynamic_time_resolution")
-              ),
-              tabBox(
-                title = "", width = 10,
-                id = "CDA_AT_tab", height = "250px",
-                tabPanel(
-                  "Check Normality",
-                  fluidRow(actionButton("CDA_AT_checknormality_button", "Run Normality Checks"),
-                           plotOutput("CDA_AT_checknormality_plot"),
-                           tableOutput("CDA_AT_checknormality_results")
-                  )
-                ),
-                tabPanel(
-                  "Run Statistic Test",
-                  fluidRow(
-                    column(2, 
-                           selectInput("CDA_AT_selectedStatApproach", "Statistical Approach", choices = c("parametric", "nonparametric", "robust", "bayes"),multiple = FALSE),
-                           selectInput("CDA_AT_selectedConflevel", "Confidence Level", choices = c("90%"="0.90","95%"="0.95", "99%"="0.99"),multiple = FALSE),
-                           selectInput("CDA_AT_plotType", "Plot Type",choices = c("Boxviolin" = "boxviolin", "Box" = "box", "Violin" = "violin"),selected = "boxviolin",multiple = FALSE),
-                           textInput("CDA_AT_plot_title","Plot Title", placeholder = "Enter plot title"),
-                           actionButton("CDA_AT_plot_button", "Run test")
-                    ),
-                    column(8,plotlyOutput("CDA_AT_plot"))
-                  )
-                )
-                
-              )
-            )
-          )
-
+  fluidRow(
+    box(title = "Data Selection Parameters",  width = 2, status = "primary", solidHeader = TRUE,
+        selectInput("CDA_selected_var", "Choose variable", variables, selected = NULL, multiple = FALSE),
+        selectInput("CDA_selectedStatApproach", "Statistical Approach", choices = c("parametric", "nonparametric", "robust", "bayes"),multiple = FALSE),
+        selectInput("CDA_selectedConflevel", "Confidence Level", choices = c("90%"="0.90","95%"="0.95", "99%"="0.99"),multiple = FALSE),
+        selectInput("CDA_plotType", "Plot Type",choices = c("Boxviolin" = "boxviolin", "Box" = "box", "Violin" = "violin"),
+                    selected = "boxviolin",multiple = FALSE),
+        textInput("CDA_plot_title","Plot Title", placeholder = "Enter plot title"),
+    ),
+    tabBox(
+      title = "", width = 10,
+      # The id lets us use input$EDACDA_tab on the server to find the current tab
+      id = "EDACDA_tab", height = "250px",
+      tabPanel("Check Normality Across stations",
+               fluidRow(
+                 column(3,
+                        radioButtons("CDA_checknormality_AS_time_resolution", label = "Select time resolution", c("Month", "Year")),
+                        uiOutput("CDA_checknormality_AS_dynamic_time_resolution"),
+                        checkboxGroupInput("CDA_checknormality_AS_stationSelection", "Select Station", choices = unique(weather_data$Station), selected = unique(weather_data$Station)[1]),
+                        actionButton("CDA_checknormality_AS_updateplot", "Update plot")), 
+                 column(9, plotOutput("CDA_checknormality_AS_Plot")),
+                 column(3, tableOutput("CDA_ADtest_AS_results"))
+               )
+      ),
+      tabPanel("Check Normality Across Time",
+               fluidRow(
+                 column(3,
+                        radioButtons("CDA_checknormality_AT_time_resolution", label = "Select time resolution", c("Month", "Year")),
+                        uiOutput("CDA_checknormality_AT_dynamic_time_resolution"),
+                        selectInput("CDA_checknormality_AT_stationSelection", "Select Station", choices = unique(weather_data$Station), selected = unique(weather_data$Station)[1], multiple = FALSE),
+                        actionButton("CDA_checknormality_AT_updateplot", "Update plot")), 
+                 column(9, plotOutput("CDA_checknormality_AT_Plot")),
+                 column(3, tableOutput("CDA_ADtest_AT_results"))
+               )
+      ),
+      tabPanel("Compare Across Stations",
+               fluidRow(
+                 column(3,
+                        radioButtons("CDA_acrossstations_time_resolution", label = "Select time resolution", c("Month", "Year")),
+                        uiOutput("CDA_acrossstations_dynamic_time_resolution"),
+                        checkboxGroupInput("CDA_acrossstations_stationSelection", "Select Station", choices = unique(weather_data$Station), selected = unique(weather_data$Station)[1]),
+                        actionButton("CDA_acrossstations_updateplot", "Update plot")), 
+                 column(9, plotlyOutput("CDA_acrossstations_Plot")) 
+               )
+      ),
+      tabPanel("Compare Across Years",
+               fluidRow(
+                 column(3, 
+                        checkboxGroupInput("CDA_acrossyears_selected_years", label = "Select years",choices = unique(format(weather_data$Date, "%Y")),selected = unique(format(weather_data$Date, "%Y"))[1]),
+                        selectInput("CDA_acrossyears_stationSelection", "Select Station", choices = unique(weather_data$Station), selected = unique(weather_data$Station)[1], multiple = FALSE),
+                        actionButton("CDA_acrossyears_updateplot", "Update plot")),
+                 column(9,plotlyOutput("CDA_acrossyears_Plot"))
+               )
+      ),
+      tabPanel("Compare Across Months",
+               fluidRow(
+                 column(3, 
+                        checkboxGroupInput("CDA_acrossmonths_selected_month", label = "Select month", choices = unique(weather_data$Month_Name)),
+                        selectInput("CDA_acrossmonths_stationSelection", "Select Station", choices = unique(weather_data$Station), selected = unique(weather_data$Station)[1], multiple = FALSE),
+                        actionButton("CDA_acrossmonths_updateplot", "Update plot")),
+                 column(9,plotlyOutput("CDA_acrossmonths_Plot"))
+               )
+      )
+      
+    )
   )
-)
 )
 
 # Section 4.1: ExploreTS UI ----
@@ -313,7 +274,7 @@ DecompTSUI <- fluidPage(
                fluidRow(
                  column(3, title = "parameters",
                         radioButtons("DecompTS_chooseautoSTL", label = "Use Auto STL?" ,c("Yes", "No")),
-                        uiOutput("DecompTS_dynamic_autoSTL")),
+                        uiOutput("DecompTS_autoSTL")),
                  column(9,plotlyOutput("DecompTS_STLPlot"))
                )
       )
@@ -359,6 +320,13 @@ ForecastTSUI <- fluidPage(
                  column(9,fluidRow(plotlyOutput("ForecastTS_future_forecast_plot")),
                         fluidRow(DT::dataTableOutput("ForecastTS_future_forecast_DataTable")))
                )
+               # tabPanel("Forecast Result",
+               #          fluidRow(
+               #            column(3,uiOutput("ForecastTS_dynamic_forecast_period"),
+               #                   actionButton("ForecastTS_future_forecast", "Forecast")),
+                        #   column(9,fluidRow(plotlyOutput("ForecastTS_future_forecast_plot")),
+                        #          fluidRow(DT::dataTableOutput("ForecastTS_future_forecast_DataTable")))
+                        # )
       )
     )
   )
@@ -389,7 +357,7 @@ GeospatialUI <- fluidPage(
       tabPanel("Inverse Distance Weighted Interpolation Method",
                fluidRow(
                column(3, 
-                        sliderInput("GS_IDW_res", "Resolution", min = 100, max = 300, value = 100, step = 50),
+                        sliderInput("GS_IDW_res", "Resolution", min = 100, max = 200, value = 100, step = 50),
                       sliderInput("GS_IDW_nmax" , "nmax", min = 1, max = 10, value = 5),
                       actionButton("GS_updateIDW", "Show Result")
                       ),
@@ -399,10 +367,10 @@ GeospatialUI <- fluidPage(
       tabPanel("Ordinary Kriging Method",
                fluidRow(
                  column(2, 
-                        sliderInput("GS_OK_res", "Resolution", min = 100, max = 300, value = 100, step = 50),
+                        sliderInput("GS_OK_res", "Resolution", min = 100, max = 200, value = 100, step = 50),
                         selectInput("GS_OK_model" , "model", GS_model_choices, selected = "Gau"),
                         sliderInput("GS_OK_psill", "psill", min = 0.5, max = 10, value = 0.5, step = 0.5),
-                        sliderInput("GS_OK_range", "range", min = 2000, max = 10000, value = 5000, step = 200),
+                        sliderInput("GS_OK_range", "range", min = 2000, max = 10000, value = 5000, step = 500),
                         sliderInput("GS_OK_nugget", "nugget", min = 0.1, max = 10, value = 0.1, step = 0.1),
                         actionButton("GS_updateOK", "Show Result")
                  ),
@@ -464,116 +432,74 @@ ui <- dashboardPage(
 # Section 7: Server code ----
 server <- function(input, output) {
   
-  # CDA Compare Across Stations ----
+  # CDA:  CDA_acrossstations_Plot----
   
-  # 1. Dynamic UI: CDA_AS_dynamic_time_resolution
-  output$CDA_AS_dynamic_time_resolution <- renderUI ({
-    if(input$CDA_AS_time_resolution == "Month") {
-      airMonthpickerInput("CDA_AS_selected_date", label = "Select month and year", value = "2021-01-01", maxDate = "2023-12-31", minDate = "2021-01-01", dateFormat = "yyyy-MM")
-    } else if (input$CDA_AS_time_resolution == "Year") {
-      airYearpickerInput("CDA_AS_selected_date", label = "Select year", value = "2021-01-01", maxDate = "2023-12-31", minDate = "2021-01-01", dateFormat = "yyyy")
+  ## 1. Dynamic UI
+  output$CDA_acrossstations_dynamic_time_resolution <- renderUI({
+    if(input$CDA_acrossstations_time_resolution == "Month") {
+      airMonthpickerInput("CDA_acrossstations_selected_month", label = "Select month and year", value = "2021-01-01", maxDate = "2023-12-31", minDate = "2021-01-01", dateFormat = "yyyy-MM")
+    } else if (input$CDA_acrossstations_time_resolution == "Year") {
+      airYearpickerInput("CDA_acrossstations_selected_year", label = "Select year", value = "2021-01-01", maxDate = "2023-12-31", minDate = "2021-01-01", dateFormat = "yyyy")
     }
   })
   
-  # 2. Normality Plot
-  ## Prepare data and create eventReactive object that updates only when button is clicked
-  CDA_AS_checknormality_data_prep <- eventReactive(input$CDA_AS_checknormality_button, {
-    req(length(input$CDA_AS_selected_stations) > 0)  # Ensure at least one station is selected    
+  ## 2. Prepare and store reactive data
+  CDA_acrossstations_reactiveData <- reactiveValues()
+  observeEvent(input$CDA_acrossstations_updateplot, {
     
-    # Prepare data 
-    result <- CDA_AS_prepareVariableData(input$CDA_AS_selected_var, input$CDA_AS_time_resolution, input$CDA_AS_selected_date, input$CDA_AS_selected_stations, weather_data)
-    variable_data <- result$variable_data
-    selected_var <- result$selected_var
-    time_resolution <- result$time_resolution
-    selected_stations <- input$selected_stations
-    selected_date <- input$CDA_AS_selected_date # Take directly from input
-
-    var_title <- if (grepl("Rainfall", selected_var)) {"Total Rainfall (mm)"} else if (grepl("Temperature", selected_var)) {selected_var}
-    title <- paste("Distribution of", var_title, "for", selected_date)
+    selected_var <- input$CDA_selected_var
     
-    list(variable_data = variable_data, selected_var = selected_var, time_resolution = time_resolution, selected_stations = selected_stations, selected_date = selected_date, title = title)
-  })
+    # If Time resolution is Month 
+    if (input$CDA_acrossstations_time_resolution == "Month") {
+      
+      selected_month <- format(as.Date(input$CDA_acrossstations_selected_month), "%m")
+      selected_year <- format(as.Date(input$CDA_acrossstations_selected_month), "%Y")
+      
+      # Select data
+      variable_data <- weather_data %>%
+        filter(format(Date, "%Y-%m") == paste0(selected_year, "-", selected_month),
+               Station %in% input$CDA_acrossstations_stationSelection)
+      
+      # Set plot title
+      title <- input$CDA_plot_title
+      # If Time resolution is Year
+    } else if (input$CDA_acrossstations_time_resolution == "Year") {
+      
+      selected_year <- as.character(format(input$CDA_acrossstations_selected_year, "%Y"))
+      
+      # Select data
+      variable_data <- weather_data %>%
+        filter(format(Date, "%Y") == selected_year,
+               Station %in% input$CDA_acrossstations_stationSelection)
+      # Set plot title
+      title <- input$CDA_plot_title
+    } 
     
-  
-  ## Output normality plot
-  output$CDA_AS_checknormality_plot <- renderPlot({
-    
-    result <- CDA_AS_checknormality_data_prep()
-    
-    var_symbol <- rlang::sym(result$selected_var)
-    variable_data <- result$variable_data
-    selected_var <- result$selected_var
-    time_resolution <- result$time_resolution
-    selected_date <- result$selected_date
-    title <- result$title
-  
-    ggplot(data = variable_data,
-           aes(x = !!var_symbol, y = Station)) +
-      geom_density_ridges(fill = "lightblue",alpha = 0.9) +
-      labs(title = title) +
-      theme_ridges()+
-      theme(legend.position = "none", axis.title.y = element_blank())   
-    })
-  
-  ## Output table of normality test results 
-  output$CDA_AS_checknormality_results <- renderTable({
-    
-    result <- CDA_AS_checknormality_data_prep()
-    
-    var_symbol <- rlang::sym(result$selected_var)
-    variable_data <- result$variable_data
-    
-    ad_results <- variable_data %>%
-      group_by(Station) %>%
-      summarise_at(vars(!!var_symbol), list(
-        `Anderson-Darling Statistic` = ~ad.test(.)$statistic,
-        `Anderson-Darling p.value` = ~ad.test(.)$p.value,
-        `Shapiro-Wilk Statistic` = ~shapiro.test(.)$statistic,
-        `Shapiro-Wilk p.value` = ~shapiro.test(.)$p.value
-      )) %>%
-      mutate(across(where(is.numeric), ~format(round(., 4), nsmall = 4))) %>%
-      ungroup()
-    ad_results
+    # Update reactive variable
+    CDA_acrossstations_reactiveData$variable_data <- variable_data
+    CDA_acrossstations_reactiveData$selected_var <- selected_var
+    CDA_acrossstations_reactiveData$title <- title
   })
   
-  #3. Comparison Plot
-  ## Prepare data and create eventReactive object that updates only when button is clicked
-  CDA_AS_data_prep <- eventReactive(input$CDA_AS_plot_button, {
-    req(length(input$CDA_AS_selected_stations) > 0)  # Ensure at least one station is selected    
-    
-    # Prepare data 
-    result <- CDA_AS_prepareVariableData(input$CDA_AS_selected_var, input$CDA_AS_time_resolution, input$CDA_AS_selected_date, input$CDA_AS_selected_stations, weather_data)
-    variable_data <- result$variable_data
-    selected_var <- result$selected_var
-    time_resolution <- result$time_resolution
-    selected_stations <- input$selected_stations
-    selected_date <- input$CDA_AS_selected_date # Take directly from input
-    title <- input$CDA_AS_plot_title # Take directly from input
-    
-    list(variable_data = variable_data, selected_var = selected_var, time_resolution = time_resolution, selected_stations = selected_stations, selected_date = selected_date, title = title)
-  })
   
-  ## Output plot
-  output$CDA_AS_plot <- renderPlotly({
-    # Extract the result from the eventReactive object
-    result <- CDA_AS_data_prep()
+  
+  ## 3. Output plotly plot
+  output$CDA_acrossstations_Plot <- renderPlotly({
     
-    var_symbol <- rlang::sym(result$selected_var)
-    variable_data <- result$variable_data
-    selected_var <- result$selected_var
-    time_resolution <- result$time_resolution
-    selected_date <- input$CDA_AS_selected_date # Take directly from input
-    title <- input$CDA_AS_plot_title # Take directly from input
+    req(CDA_acrossstations_reactiveData$variable_data)
     
-    ggbetweenstats(data = variable_data,
+    var_symbol <- rlang::sym(CDA_acrossstations_reactiveData$selected_var)
+    
+    
+    ggbetweenstats(data = CDA_acrossstations_reactiveData$variable_data,
                    x = "Station",
                    y = !!var_symbol, 
-                   type = input$CDA_AS_selectedStatApproach,
+                   type = input$CDA_selectedStatApproach,
                    mean.ci = TRUE,
-                   conf.level = input$CDA_AS_selectedConflevel,
-                   violin.args = if(input$CDA_AS_plotType == "box"){list(width = 0, linewidth = 0,alpha = 0)} 
+                   conf.level = input$CDA_selectedConflevel,
+                   violin.args = if(input$CDA_plotType == "box"){list(width = 0, linewidth = 0,alpha = 0)} 
                    else {list(trim=TRUE,alpha = 0.2)},
-                   boxplot.args = if(input$CDA_AS_plotType == "violin"){list(width = 0, linewidth = 0,alpha = 0)} 
+                   boxplot.args = if(input$CDA_plotType == "violin"){list(width = 0, linewidth = 0,alpha = 0)} 
                    else {list(alpha = 0.2)},
                    pairwise.comparisons = TRUE, 
                    pairwise.annotation = TRUE,
@@ -581,216 +507,280 @@ server <- function(input, output) {
                    sig.level = NA,
                    p.adjust.method = "fdr",
                    messages = FALSE,
-                   title = title)+
+                   title = CDA_acrossstations_reactiveData$title)+
       theme(axis.text.x = element_text(angle = 45, hjust = 1))
-  })
-
-  # CDA Compare Across Time ----
-  # 1. Dynamic UI
-  output$CDA_AT_dynamic_time_resolution <- renderUI ({
-
-      if (input$CDA_AT_time_resolution == "Years") {
-        checkboxGroupInput("CDA_AT_selected_dates", label = "Select years", choices = unique(format(weather_data$Date, "%Y")),selected = unique(format(weather_data$Date, "%Y"))[1])
-        } else if (input$CDA_AT_time_resolution == "Months") {
-          checkboxGroupInput("CDA_AT_selected_dates", label = "Select month", choices = unique(weather_data$Month_Name))      
-          } else if (input$CDA_AT_time_resolution == "Months for a specified year") {
-           list(selectInput("CDA_AT_selected_year", label = "Select year", choices = unique(format(weather_data$Date, "%Y")),selected = unique(format(weather_data$Date, "%Y"))[1], multiple = FALSE),
-            checkboxGroupInput("CDA_AT_selected_dates", label = "Select month", choices = unique(weather_data$Month_Name)) 
-            )
-          } else if (input$CDA_AT_time_resolution == "Months of different years") {
-            list(checkboxGroupInput("CDA_AT_selected_dates", label = "Select year", choices = unique(format(weather_data$Date, "%Y")),selected = unique(format(weather_data$Date, "%Y"))[1]),
-                 selectInput("CDA_AT_selected_month", label = "Select month", choices = unique(weather_data$Month_Name), multiple = FALSE) 
-            )
-          }
+    
   })
   
-  # 2. Normality Plot
-  ## Prepare data and create eventReactive object that updates only when button is clicked
-  CDA_AT_checknormality_data_prep <- eventReactive(input$CDA_AT_checknormality_button, {
-    req(length(input$CDA_AT_selected_dates) > 0)  # Ensure at least one "date" is selected
+  # CDA:  CDA_acrossyears_Plot----
+  
+  ## 1. Prepare and store  data
+  CDA_acrossyears_reactiveData <- reactiveValues()
+  observeEvent(input$CDA_acrossyears_updateplot, {
     
-    selected_var <- input$CDA_AT_selected_var
-    time_resolution <- input$CDA_AT_time_resolution
-    selected_station <- input$CDA_AT_selected_station
+    selected_var <- input$CDA_selected_var
     
-    if (time_resolution == "Years") {
-      
-      selected_dates <- input$CDA_AT_selected_dates
-      variable_data <- weather_data %>%
-        filter(Year %in% selected_dates,
-               Station %in% selected_station)
-      
-    } else if (time_resolution == "Months") {
-      
-      selected_dates <- input$CDA_AT_selected_dates
-      variable_data <- weather_data %>%
-        filter(Month_Name %in% selected_dates,
-               Station %in% selected_station)
-      
-    } else if (time_resolution == "Months for a specified year") {
-      
-      selected_dates <- input$CDA_AT_selected_dates
-      selected_year <- input$CDA_AT_selected_year
-      
-      variable_data <- weather_data %>%
-        filter(Year %in% selected_year,
-               Month_Name %in% selected_dates,
-               Station %in% selected_station)
-      
-    } else if (time_resolution == "Months of different years") {
-      
-      selected_dates <- input$CDA_AT_selected_dates
-      selected_month <- input$CDA_AT_selected_month
-      variable_data <- weather_data %>%
-        filter(Year %in% selected_dates,
-               Month_Name %in% selected_month,
-               Station %in% selected_station)
+    # Select data
+    variable_data <- weather_data %>%
+      filter(Year %in% input$CDA_acrossyears_selected_years,
+             Station %in% input$CDA_acrossyears_stationSelection)
+    
+    # Set plot title
+    title <- input$CDA_plot_title
+    
+    # Update reactive variable
+    CDA_acrossyears_reactiveData$variable_data <- variable_data
+    CDA_acrossyears_reactiveData$selected_var <- selected_var
+    CDA_acrossyears_reactiveData$title <- title
+  })
+  
+  
+  
+  ## 3. Output plotly plot
+  output$CDA_acrossyears_Plot <- renderPlotly({
+    
+    req(CDA_acrossyears_reactiveData$variable_data)
+    
+    var_symbol <- rlang::sym(CDA_acrossyears_reactiveData$selected_var)
+    
+    ggbetweenstats(data = CDA_acrossyears_reactiveData$variable_data,
+                   x = "Year",
+                   y = !!var_symbol, 
+                   type = input$CDA_selectedStatApproach,
+                   plot.type = input$CDA_plotType,
+                   mean.ci = TRUE,
+                   conf.level = input$CDA_selectedConflevel,
+                   violin.args = if(input$CDA_plotType == "box"){list(width = 0, linewidth = 0,alpha = 0)} 
+                   else {list(trim=TRUE,alpha = 0.2)},
+                   boxplot.args = if(input$CDA_plotType == "violin"){list(width = 0, linewidth = 0,alpha = 0)} 
+                   else {list(alpha = 0.2)},
+                   pairwise.comparisons = TRUE, 
+                   pairwise.annotation = "p.value",
+                   pairwise.display = "none", 
+                   sig.level = NA,
+                   p.adjust.method = "fdr",
+                   messages = FALSE,
+                   title = CDA_acrossyears_reactiveData$title)
+    
+  })
+  
+  # CDA:  CDA_acrossmonths_Plot----
+  
+  ## 1. Prepare and store  data
+  CDA_acrossmonths_reactiveData <- reactiveValues()
+  observeEvent(input$CDA_acrossmonths_updateplot, {
+    
+    selected_var <- input$CDA_selected_var
+    
+    
+    # Select data
+    variable_data <- weather_data %>%
+      filter(Month_Name %in% input$CDA_acrossmonths_selected_month,
+             Station %in% input$CDA_acrossmonths_stationSelection)
+    
+    # Set plot title
+    title <- input$CDA_plot_title
+    
+    # Update reactive variable
+    CDA_acrossmonths_reactiveData$variable_data <- variable_data
+    CDA_acrossmonths_reactiveData$selected_var <- selected_var
+    CDA_acrossmonths_reactiveData$title <- title
+  })
+  
+  
+  
+  ## 3. Output plotly plot
+  output$CDA_acrossmonths_Plot <- renderPlotly({
+    
+    req(CDA_acrossmonths_reactiveData$variable_data)
+    
+    var_symbol <- rlang::sym(CDA_acrossmonths_reactiveData$selected_var)
+    
+    ggbetweenstats(data = CDA_acrossmonths_reactiveData$variable_data,
+                   x = "Month_Name",
+                   y = !!var_symbol, 
+                   type = input$CDA_selectedStatApproach,
+                   mean.ci = TRUE,
+                   conf.level = input$CDA_selectedConflevel,
+                   violin.args = if(input$CDA_plotType == "box"){list(width = 0, linewidth = 0,alpha = 0)} 
+                   else {list(trim=TRUE,alpha = 0.2)},
+                   boxplot.args = if(input$CDA_plotType == "violin"){list(width = 0, linewidth = 0,alpha = 0)} 
+                   else {list(alpha = 0.2)},
+                   pairwise.comparisons = TRUE, 
+                   pairwise.annotation = "p.value",
+                   pairwise.display = "all", 
+                   sig.level = NA,
+                   p.adjust.method = "fdr",
+                   messages = TRUE,
+                   xlab= "Month",
+                   title = CDA_acrossmonths_reactiveData$title,
+                   results.subtitle = TRUE)+
+      theme(axis.text.x = element_text(angle = 45, hjust = 1))
+    
+  })
+  
+  # CDA:  CDA_checknormality_AS_Plot----
+  
+  ## 1. Dynamic UI
+  output$CDA_checknormality_AS_dynamic_time_resolution <- renderUI({
+    if(input$CDA_checknormality_AS_time_resolution == "Month") {
+      airMonthpickerInput("CDA_checknormality_AS_selected_month", label = "Select month and year", value = "2021-01-01", maxDate = "2023-12-31", minDate = "2021-01-01", dateFormat = "yyyy-MM")
+    } else if (input$CDA_checknormality_AS_time_resolution == "Year") {
+      airYearpickerInput("CDA_checknormality_AS_selected_year", label = "Select year", value = "2021-01-01", maxDate = "2023-12-31", minDate = "2021-01-01", dateFormat = "yyyy")
     }
-    
-    var_title <- if (grepl("Rainfall", selected_var)) {"Total Rainfall (mm)"} else if (grepl("Temperature", selected_var)) {selected_var}
-    time_title <- if(time_resolution == "Months") {"across months"} else if (time_resolution == "Years") {"across years"} 
-    else if(time_resolution =="Months for a specified year") {paste("across months of", input$CDA_AT_selected_year)}
-    else if (time_resolution == "Months of different years"){paste("for", input$CDA_AT_selected_month, "across years")}
-    
-    title <- paste("Distribution of", var_title, time_title, "for", selected_station)
-    
-    y_axis <- if(time_resolution == "Months") {"Month_Name"} else if (time_resolution == "Years") {"Year"} 
-    else if(time_resolution =="Months for a specified year") {"Month_Name"}
-    else if (time_resolution == "Months of different years"){"Year"}
-
-    list(variable_data = variable_data, selected_var = selected_var, y_axis = y_axis, time_resolution = time_resolution, selected_stations = selected_stations, title = title)
   })
   
-  ## Output normality plot
-  output$CDA_AT_checknormality_plot <- renderPlot({
+  ## 2. Prepare and store reactive data
+  CDA_checknormality_AS_reactiveData <- reactiveValues()
+  observeEvent(input$CDA_checknormality_AS_updateplot, {
     
-    result <- CDA_AT_checknormality_data_prep()
+    selected_var <- input$CDA_selected_var
     
-    var_symbol <- rlang::sym(result$selected_var)
-    variable_data <- result$variable_data
-    selected_var <- result$selected_var
-    time_resolution <- result$time_resolution
-    title <- result$title
-    y_axis <- result$y_axis
-  
-
-    ggplot(data = variable_data, aes(x = !!var_symbol, y = as.factor(!!rlang::sym(y_axis)))) +
-      geom_density_ridges(fill = "lightblue", alpha = 0.9) +
-      labs(title = title) + 
-      theme_ridges() +
-      theme(legend.position = "none", axis.title.y = element_blank())  
+    # If Time resolution is Month 
+    if (input$CDA_checknormality_AS_time_resolution == "Month") {
+      
+      selected_month <- format(as.Date(input$CDA_checknormality_AS_selected_month), "%m")
+      selected_year <- format(as.Date(input$CDA_checknormality_AS_selected_month), "%Y")
+      
+      # Select data
+      variable_data <- weather_data %>%
+        filter(format(Date, "%Y-%m") == paste0(selected_year, "-", selected_month),
+               Station %in% input$CDA_checknormality_AS_stationSelection)
+      
+      # Set plot title
+      title <- input$CDA_plot_title
+      # If Time resolution is Year
+    } else if (input$CDA_checknormality_AS_time_resolution == "Year") {
+      
+      selected_year <- as.character(format(input$CDA_checknormality_AS_selected_year, "%Y"))
+      
+      # Select data
+      variable_data <- weather_data %>%
+        filter(format(Date, "%Y") == selected_year,
+               Station %in% input$CDA_checknormality_AS_stationSelection)
+      # Set plot title
+      title <- input$CDA_plot_title
+    } 
+    
+    # Update reactive variable
+    CDA_checknormality_AS_reactiveData$variable_data <- variable_data
+    CDA_checknormality_AS_reactiveData$selected_var <- selected_var
+    CDA_checknormality_AS_reactiveData$title <- title
   })
   
-  ## Output table of normality test results 
-  output$CDA_AT_checknormality_results <- renderTable({
+  
+  
+  ## 3. Output plot
+  ## Normality plot
+  output$CDA_checknormality_AS_Plot <- renderPlot({
     
-    result <- CDA_AT_checknormality_data_prep()
+    req(CDA_checknormality_AS_reactiveData$variable_data)
     
-    var_symbol <- rlang::sym(result$selected_var)
-    variable_data <- result$variable_data
-    y_axis <- result$y_axis
+    var_symbol <- rlang::sym(CDA_checknormality_AS_reactiveData$selected_var)
     
-    ad_results <- variable_data %>%
-      group_by(Group = as.factor(!!rlang::sym(y_axis))) %>%
-      summarise(
-        `Anderson-Darling Statistic` = list(ad.test(get(var_symbol))$statistic),
-        `Anderson-Darling p.value` = list(ad.test(get(var_symbol))$p.value),
-        `Shapiro-Wilk Statistic` = list(shapiro.test(get(var_symbol))$statistic),
-        `Shapiro-Wilk p.value` = list(shapiro.test(get(var_symbol))$p.value)
+    ggplot(data = CDA_checknormality_AS_reactiveData$variable_data,
+           aes(x = !!var_symbol, y = Station)) +
+      geom_density_ridges(fill = "lightblue",alpha = 0.9) +
+      labs(title = CDA_checknormality_AS_reactiveData$title) +
+      theme_ridges()+
+      theme(legend.position = "none") })
+  
+  ## Anderson-Darling test result
+  output$CDA_ADtest_AS_results <- renderTable({
+    
+    req(CDA_checknormality_AS_reactiveData$variable_data)
+    
+    var_symbol <- rlang::sym(CDA_checknormality_AS_reactiveData$selected_var)
+    
+    ad_results <- CDA_checknormality_AS_reactiveData$variable_data %>%
+      group_by(Station) %>%
+      summarise("Statistic" = ad.test(!!var_symbol)$statistic,
+                "p Value" = ad.test(!!var_symbol)$p.value
       ) %>%
-      unnest(cols = c(`Anderson-Darling Statistic`, `Anderson-Darling p.value`, `Shapiro-Wilk Statistic`, `Shapiro-Wilk p.value`)) %>%
-      mutate(across(where(is.numeric), ~format(round(., 4), nsmall = 4))) %>%
-      ungroup() %>%
-      setNames(c(y_axis, names(.)[-1]))  # Dynamically rename the first column
+      ungroup() 
+    # Return the results to be displayed as a table
     ad_results
   })
   
-  #3. Comparison Plot
-  ## Prepare data and create eventReactive object that updates only when button is clicked
-  CDA_AT_data_prep <- eventReactive(input$CDA_AT_plot_button, {
-    req(length(input$CDA_AT_selected_dates) > 0)  # Ensure at least one "date" is selected
-    
-    selected_var <- input$CDA_AT_selected_var
-    time_resolution <- input$CDA_AT_time_resolution
-    selected_station <- input$CDA_AT_selected_station
-    title <- input$CDA_AT_plot_title # Take directly from input
-    
-    if (time_resolution == "Years") {
-      
-      selected_dates <- input$CDA_AT_selected_dates
-      variable_data <- weather_data %>%
-        filter(Year %in% selected_dates,
-               Station %in% selected_station)
-      
-    } else if (time_resolution == "Months") {
-      
-      selected_dates <- input$CDA_AT_selected_dates
-      variable_data <- weather_data %>%
-        filter(Month_Name %in% selected_dates,
-               Station %in% selected_station)
-      
-    } else if (time_resolution == "Months for a specified year") {
-      
-      selected_dates <- input$CDA_AT_selected_dates
-      selected_year <- input$CDA_AT_selected_year
-      
-      variable_data <- weather_data %>%
-        filter(Year %in% selected_year,
-               Month_Name %in% selected_dates,
-               Station %in% selected_station)
-      
-    } else if (time_resolution == "Months of different years") {
-      
-      selected_dates <- input$CDA_AT_selected_dates
-      selected_month <- input$CDA_AT_selected_month
-      variable_data <- weather_data %>%
-        filter(Year %in% selected_dates,
-               Month_Name %in% selected_month,
-               Station %in% selected_station)
+  # CDA:  CDA_checknormality_AT_Plot----
+  
+  ## 1. Dynamic UI
+  output$CDA_checknormality_AT_dynamic_time_resolution <- renderUI({
+    if(input$CDA_checknormality_AT_time_resolution == "Month") {
+      checkboxGroupInput("CDA_checknormality_AT_selected_month", label = "Select month", choices = unique(weather_data$Month_Name))
+    } else if (input$CDA_checknormality_AT_time_resolution == "Year") {
+      checkboxGroupInput("CDA_checknormality_AT_selected_years", label = "Select years",choices = unique(format(weather_data$Date, "%Y")),selected = unique(format(weather_data$Date, "%Y"))[1])
     }
-    
-    y_axis <- if(time_resolution == "Months") {"Month_Name"} else if (time_resolution == "Years") {"Year"} 
-    else if(time_resolution =="Months for a specified year") {"Month_Name"}
-    else if (time_resolution == "Months of different years"){"Year"}
-
-    list(variable_data = variable_data, selected_var = selected_var, y_axis = y_axis, time_resolution = time_resolution, selected_stations = selected_stations, title = title)
   })
   
-  ## Output plot
-  output$CDA_AT_plot <- renderPlotly({
-
-    # Extract the result from the eventReactive object
-    result <- CDA_AT_data_prep()
+  ## 2. Prepare and store reactive data
+  CDA_checknormality_AT_reactiveData <- reactiveValues()
+  observeEvent(input$CDA_checknormality_AT_updateplot, {
     
-    var_symbol <- rlang::sym(result$selected_var)
-    variable_data <- result$variable_data
-    selected_var <- result$selected_var
-    time_resolution <- result$time_resolution
-    title <- result$title 
-    y_axis <- result$y_axis
+    selected_var <- input$CDA_selected_var
     
-    ggbetweenstats(data = variable_data,
-                   x = !!rlang::sym(y_axis),
-                   y = !!var_symbol, 
-                   type = input$CDA_AT_selectedStatApproach,
-                   mean.ci = TRUE,
-                   conf.level = input$CDA_AT_selectedConflevel,
-                   violin.args = if(input$CDA_AT_plotType == "box"){list(width = 0, linewidth = 0,alpha = 0)} 
-                   else {list(trim=TRUE,alpha = 0.2)},
-                   boxplot.args = if(input$CDA_AT_plotType == "violin"){list(width = 0, linewidth = 0,alpha = 0)} 
-                   else {list(alpha = 0.2)},
-                   pairwise.comparisons = TRUE, 
-                   pairwise.annotation = TRUE,
-                   pairwise.display = "none", 
-                   sig.level = NA,
-                   p.adjust.method = "fdr",
-                   messages = FALSE,
-                   title = title)+
-      theme(axis.text.x = element_text(angle = 45, hjust = 1))
+    # If Time resolution is Month 
+    if (input$CDA_checknormality_AT_time_resolution == "Month") {
+      
+      # Select data
+      variable_data <- weather_data %>%
+        filter(Month_Name %in% input$CDA_checknormality_AT_selected_month,
+               Station %in% input$CDA_checknormality_AT_stationSelection)
+      
+      # Set plot title
+      title <- input$CDA_plot_title
+      # If Time resolution is Year
+    } else if (input$CDA_checknormality_AT_time_resolution == "Year") {
+      
+      # Select data
+      variable_data <- weather_data %>%
+        filter(Year %in% input$CDA_checknormality_AT_selected_years,
+               Station %in% input$CDA_checknormality_AT_stationSelection)
+      # Set plot title
+      title <- input$CDA_plot_title
+    } 
     
-    
+    # Update reactive variable
+    CDA_checknormality_AT_reactiveData$variable_data <- variable_data
+    CDA_checknormality_AT_reactiveData$selected_var <- selected_var
+    CDA_checknormality_AT_reactiveData$title <- title
   })
-
+  
+  
+  
+  ## 3. Output plot
+  ## Normality plot
+  output$CDA_checknormality_AT_Plot <- renderPlot({
+    
+    req(CDA_checknormality_AT_reactiveData$variable_data)
+    
+    var_symbol <- rlang::sym(CDA_checknormality_AT_reactiveData$selected_var)
+    
+    ggplot(data = CDA_checknormality_AT_reactiveData$variable_data,
+           aes(x = !!var_symbol,
+               y = if(input$CDA_checknormality_AT_time_resolution == "Month"){Month_Name}else{Year})) +
+      geom_density_ridges(fill = "lightblue",alpha = 0.9) +
+      labs(title = CDA_checknormality_AT_reactiveData$title) +
+      theme_ridges()+
+      theme(legend.position = "none") })
+  
+  ## Anderson-Darling test result
+  output$CDA_ADtest_AT_results <- renderTable({
+    
+    req(CDA_checknormality_AT_reactiveData$variable_data)
+    
+    var_symbol <- rlang::sym(CDA_checknormality_AT_reactiveData$selected_var)
+    
+    ad_results <- CDA_checknormality_AT_reactiveData$variable_data %>%
+      group_by(if(input$CDA_checknormality_AT_time_resolution == "Month"){Month_Name}else{Year}) %>%
+      summarise("Statistic" = ad.test(!!var_symbol)$statistic,
+                "p Value" = ad.test(!!var_symbol)$p.value
+      ) %>%
+      ungroup() 
+    # Return the results to be displayed as a table
+    ad_results
+  })
+  
   # Time Series: Exploratory Plots ----
   
   ## 1. Dynamic UI for ExploreTS
@@ -805,7 +795,6 @@ server <- function(input, output) {
   ## 2. Prepare data and plot line graph
   output$ExploreTS_timeSeriesPlot <- renderPlotly({
     
-    req(length(input$ExploreTS_selectstation) > 0)  # Ensure stations are selected
     # Prepare Data
     selected_var <- input$ExploreTS_selected_var
     
@@ -873,16 +862,16 @@ server <- function(input, output) {
     }
   })
    
-  ## 1.2 Dynamic UI for DecompTS_dynamiclags
-  output$DecompTS_dynamiclags <- renderUI ({
+  ## 1.2 Dynamic UI for DecompTS_dynamic_lags
+  output$DecompTS_dynamic_lags <- renderUI ({
     if (input$DecompTS_time_resolution == "Day") {
       sliderInput("DecompTS_lags", "Number of Lags", min = 1, max = 365, value = 20, step = 1)
     } else if (input$DecompTS_time_resolution == "Week") {
       sliderInput("DecompTS_lags", "Number of Lags", min = 1, max = 52, value = 20, step = 1)
     }
   })
-  ## 1.3 Dynamic UI for DecompTS_dynamic_autoSTL
-  output$DecompTS_dynamic_autoSTL <- renderUI({
+  ## 1.3 Dynamic UI for DecompTS_autoSTL
+  output$DecompTS_autoSTL <- renderUI({
     if (input$DecompTS_chooseautoSTL == "No") {
       if (input$DecompTS_time_resolution == "Day") {
         list(sliderInput("DecompTS_TrendWindow", "Trend Window", min = 1, max = 365, value = 20, step = 1),
@@ -1074,7 +1063,7 @@ server <- function(input, output) {
     
     # Return data to be used for plotting for Forecast validation
     list(train_fit = train_fit, forecasts = forecasts, test_data = test_data, train_data = train_data, title = title)
-  })
+  }, ignoreNULL = FALSE)
   
   ## 3. Model Calibration tab
   ### Forecast Validation Plot
@@ -1182,7 +1171,7 @@ server <- function(input, output) {
     # Return data to be used for plotting for Future Forecast
     list(full_fit = full_fit, full_forecast = full_forecast, full_forecast_df=full_forecast_df, title = title)
     
-  })
+  }, ignoreNULL = FALSE)
   
     ## 5. Forecast Result tab 
     

@@ -171,7 +171,7 @@ sidebar <- dashboardSidebar(
     )
   )
 
-# Section 3: CDA compare across stations UI  ----
+# Section 3: CDA UI ----
 CDAUI <- fluidPage(
   # Row 1
   fluidRow(tabBox(
@@ -204,7 +204,7 @@ CDAUI <- fluidPage(
                   fluidRow(
                     column(2, 
                            selectInput("CDA_AS_selectedStatApproach", "Statistical Approach", choices = c("parametric", "nonparametric", "robust", "bayes"),multiple = FALSE),
-                           selectInput("CDA_AS_selectedConflevel", "Confidence Level", choices = c("90%"="0.90","95%"="0.95", "99%"="0.99"),multiple = FALSE),
+                           selectInput("CDA_AS_selectedConflevel", "Confidence Level", choices = c("90%"=0.90,"95%"=0.95, "99%"=0.99),multiple = FALSE),
                            selectInput("CDA_AS_plotType", "Plot Type",choices = c("Boxviolin" = "boxviolin", "Box" = "box", "Violin" = "violin"),selected = "boxviolin",multiple = FALSE),
                            textInput("CDA_AS_plot_title","Plot Title", placeholder = "Enter plot title"),
                            actionButton("CDA_AS_plot_button", "Run test"),
@@ -244,7 +244,7 @@ CDAUI <- fluidPage(
                   fluidRow(
                     column(2, 
                            selectInput("CDA_AT_selectedStatApproach", "Statistical Approach", choices = c("parametric", "nonparametric", "robust", "bayes"),multiple = FALSE),
-                           selectInput("CDA_AT_selectedConflevel", "Confidence Level", choices = c("90%"="0.90","95%"="0.95", "99%"="0.99"),multiple = FALSE),
+                           selectInput("CDA_AT_selectedConflevel", "Confidence Level", choices = c("90%"=0.90,"95%"=0.95, "99%"=0.99),multiple = FALSE),
                            selectInput("CDA_AT_plotType", "Plot Type",choices = c("Boxviolin" = "boxviolin", "Box" = "box", "Violin" = "violin"),selected = "boxviolin",multiple = FALSE),
                            textInput("CDA_AT_plot_title","Plot Title", placeholder = "Enter plot title"),
                            actionButton("CDA_AT_plot_button", "Run test"),
@@ -252,7 +252,9 @@ CDAUI <- fluidPage(
                            actionButton("CDA_AT_Insights_button", "Save insights")
                     ),
                     column(8, fluidRow(plotlyOutput("CDA_AT_plot"), 
-                                       verbatimTextOutput("CDA_AT_Insights_Output")) )
+                                       textOutput("CDA_AT_Caption_Output"),
+                                       verbatimTextOutput("CDA_AT_Insights_Output")
+                                       ))
                     
                     
                     
@@ -395,17 +397,15 @@ GeospatialUI <- fluidPage(
     tabBox(
       title = "", width = 10,
       # The id lets us use input$Geospatial_tab on the server to find the current tab
-      id = "Geospatial_tab", height = "250px",
-      tabPanel("tmap",
-               fluidRow(
-                 column(3, actionButton("GS_updatetmap", "Update map")), # Adjust the width as needed
-                 column(9, tmapOutput("GS_tmap")) # Adjust the width so that the total does not exceed 12
-               )
+      id = "Geospatial_tab", height = "auto",
+      tabPanel("Map of stations",
+                 actionButton("GS_updatetmap", "Update map"), 
+                 tmapOutput("GS_tmap") 
                ),
       tabPanel("Inverse Distance Weighted Interpolation Method",
                fluidRow(
                column(3, 
-                        sliderInput("GS_IDW_res", "Resolution", min = 100, max = 300, value = 100, step = 50),
+                      sliderInput("GS_IDW_res", "Resolution", min = 100, max = 300, value = 100, step = 50),
                       sliderInput("GS_IDW_nmax" , "nmax", min = 1, max = 10, value = 5),
                       actionButton("GS_updateIDW", "Show Result")
                       ),
@@ -424,12 +424,16 @@ GeospatialUI <- fluidPage(
                  ),
                  column(10,
                         fluidRow(
-                          column(5,plotOutput("GS_OK_variogram")),
-                          column(5,plotOutput("GS_OK_fitted_variogram"))
+                          box(title = "Experimental and Fitted Variograms", width = 12, solidHeader = FALSE, collapsible = TRUE, collapsed = TRUE,
+                          column(6,plotOutput("GS_OK_variogram")),
+                          column(6,plotOutput("GS_OK_fitted_variogram"))
+                          )
                         ),
+                        
                         fluidRow(
-                          column(5,plotOutput("GS_OK_map")),
-                          column(5,plotOutput("GS_OK_prediction_variance"))
+                          column(12,plotOutput("GS_OK_map"))),
+                        fluidRow(
+                          column(12,plotOutput("GS_OK_prediction_variance"))
                         ))
                )
       )
@@ -505,7 +509,9 @@ server <- function(input, output) {
     selected_date <- input$CDA_AS_selected_date # Take directly from input
 
     var_title <- if (grepl("Rainfall", selected_var)) {"Total Rainfall (mm)"} else if (grepl("Temperature", selected_var)) {selected_var}
-    title <- paste("Distribution of", var_title, "for", selected_date)
+    time_title <- if (input$CDA_AS_time_resolution == "Month") {paste(format(as.Date(selected_date), "%B"), format(as.Date(selected_date), "%Y"))} else if (input$CDA_AS_time_resolution == "Year") {as.character(format(selected_date, "%Y"))}
+    title <- paste("Distribution of", var_title, "for", time_title)
+    
     
     list(variable_data = variable_data, selected_var = selected_var, time_resolution = time_resolution, selected_stations = selected_stations, selected_date = selected_date, title = title)
   })
@@ -586,7 +592,7 @@ server <- function(input, output) {
                    y = !!var_symbol, 
                    type = input$CDA_AS_selectedStatApproach,
                    mean.ci = TRUE,
-                   conf.level = input$CDA_AS_selectedConflevel,
+                   conf.level = as.integer(input$CDA_AS_selectedConflevel),
                    violin.args = if(input$CDA_AS_plotType == "box"){list(width = 0, linewidth = 0,alpha = 0)} 
                    else {list(trim=TRUE,alpha = 0.2)},
                    boxplot.args = if(input$CDA_AS_plotType == "violin"){list(width = 0, linewidth = 0,alpha = 0)} 
@@ -780,6 +786,7 @@ server <- function(input, output) {
   })
   
   ## Output plot
+  CDA_AT_caption_reactive <- reactiveVal() # Initializes a reactive value
   output$CDA_AT_plot <- renderPlotly({
 
     # Extract the result from the eventReactive object
@@ -791,28 +798,38 @@ server <- function(input, output) {
     time_resolution <- result$time_resolution
     title <- result$title 
     y_axis <- result$y_axis
-    
-    ggbetweenstats(data = variable_data,
+
+    p <- ggbetweenstats(data = variable_data,
                    x = !!rlang::sym(y_axis),
-                   y = !!var_symbol, 
+                   y = !!var_symbol,
                    type = input$CDA_AT_selectedStatApproach,
                    mean.ci = TRUE,
-                   conf.level = input$CDA_AT_selectedConflevel,
-                   violin.args = if(input$CDA_AT_plotType == "box"){list(width = 0, linewidth = 0,alpha = 0)} 
-                   else {list(trim=TRUE,alpha = 0.2)},
-                   boxplot.args = if(input$CDA_AT_plotType == "violin"){list(width = 0, linewidth = 0,alpha = 0)} 
-                   else {list(alpha = 0.2)},
-                   pairwise.comparisons = TRUE, 
-                   pairwise.annotation = TRUE,
-                   pairwise.display = "none", 
+                   centrality.plotting = TRUE,
+                   conf.level = as.integer(input$CDA_AT_selectedConflevel),
+                   violin.args = if(input$CDA_AT_plotType == "box"){list(width = 0, linewidth = 0,alpha = 0)} else {list(trim=TRUE,alpha = 0.2)},
+                   boxplot.args = if(input$CDA_AT_plotType == "violin"){list(width = 0, linewidth = 0,alpha = 0)} else {list(alpha = 0.2)},
+                   pairwise.comparisons = TRUE,
+                   pairwise.annotation = FALSE,
+                   pairwise.display = "s",
                    sig.level = NA,
                    p.adjust.method = "fdr",
-                   messages = FALSE,
-                   title = title)+
+                   title = title,
+                   messages = FALSE)+
       theme(axis.text.x = element_text(angle = 45, hjust = 1))
+    
+    # Extract stats and store in reactive variable
+    test_stats <- extract_stats(p)
+    # print(test_stats)
+    caption <- paste(test_stats$subtitle_data[["method"]][1], ":", test_stats$subtitle_data[["statistic"]][1], ", p-value:", test_stats$subtitle_data[["p.value"]][1])
+    CDA_AT_caption_reactive(caption)
+    # return(p)
+   return(plotly::ggplotly(p))
     
     
   })
+  
+  ## Output test statistics
+  output$CDA_AT_Caption_Output <- renderText({ CDA_AT_caption_reactive() })
   
   ## Output insights
   AT_insightsText <- eventReactive(input$CDA_AT_Insights_button,{
@@ -1141,6 +1158,11 @@ server <- function(input, output) {
     a <- autoplot(residual, .innov) +
       labs(title = "Residual Plot") +
       theme_minimal() 
+    
+    a_plotly <- ggplotly(a) %>%
+      layout(legend = list(orientation = "h", x = 0.5, y = -0.3, xanchor = "center", yanchor = "top"),
+             margin = list(b = 80))
+     return(a_plotly)
   })
   
   ### Data Table
@@ -1297,7 +1319,6 @@ server <- function(input, output) {
               rownames = FALSE,
               width="100%", 
               options = list(pageLength = 10,scrollX=T))
-    
   })
 
   
@@ -1343,6 +1364,8 @@ server <- function(input, output) {
       tm_layout(title = GS_reactiveDataTmap$main_title) 
     tm
   })
+  ### Plot title
+  
   
   
   # Geospatial: IDW ----
@@ -1455,7 +1478,7 @@ server <- function(input, output) {
     
     # Check reactive variable
     req(GS_reactiveDataOK$v)
-    plot(GS_reactiveDataOK$v, cex = 1.5)
+    plot(GS_reactiveDataOK$v, cex = 1.5, main = "Experimental Variogram")
     
   })
   output$GS_OK_fitted_variogram <- renderPlot({
@@ -1464,7 +1487,7 @@ server <- function(input, output) {
     req(GS_reactiveDataOK$v)
     req(GS_reactiveDataOK$fv)
     
-    plot(GS_reactiveDataOK$v, GS_reactiveDataOK$fv, cex = 1.5)
+    plot(GS_reactiveDataOK$v, GS_reactiveDataOK$fv, cex = 1.5, main = "Fitted Variogram")
     
   })
   output$GS_OK_map <- renderPlot({

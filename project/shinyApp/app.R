@@ -129,7 +129,7 @@ sidebar <- dashboardSidebar(
   ),
   sidebarMenu(
     menuItem("Landing Page", tabName = "LandingPage", icon = icon("home")),
-    menuItem("Confirmatory Data Analysis", tabName = "EDACDA", icon = icon("temperature-half")),
+    menuItem("Exploratory & Confirmatory Analysis", tabName = "EDACDA", icon = icon("temperature-half")),
     menuItem("Univariate Forecasting", tabName = "Univariate", icon = icon("chart-line"),
     menuSubItem("Exploratory Time Series", tabName = "ExploreTS"),
     menuSubItem("Time Series Decomposition", tabName = "DecomposeTS"),
@@ -284,7 +284,7 @@ ForecastTSUI <- fluidPage(
         checkboxGroupInput("ForecastTS_selected_models", "Select Forecasting Models", choices = ForecastTS_model_choices),
         uiOutput("ForecastTS_dynamic_chooseautoSTL"),
         uiOutput("ForecastTS_dynamic_model_parameters"),
-        sliderInput("ForecastTS_train_test_split", "Select Train-Test Split", min = 0, max = 1, value = 0.8),
+        sliderInput("ForecastTS_train_test_split", "Select Train-Test Split", min = 0.6, max = 1, value = 0.8, step = 0.1),
         actionButton("ForecastTS_build_model", "Build Model")
         ),
     tabBox(title = "", width = 10, id = "ForecastTS_tab", height = "250px",
@@ -407,8 +407,8 @@ body <- dashboardBody(
       "))
   ),
   tabItems(
-    tabItem(tabName = "LandingPage", LandingPageUI, icon = icon("home")),
-    tabItem(tabName = "EDACDA", h2("Confirmatory Data Analysis"), CDAUI),
+    tabItem(tabName = "LandingPage", LandingPageUI),
+    tabItem(tabName = "EDACDA", h2("Exploratory & Confirmatory Analysis"), CDAUI),
     tabItem(tabName = "Univariate"),
     tabItem(tabName = "ExploreTS", h2("Exploring timeseries across stations"), ExploreTSUI),
     tabItem(tabName = "DecomposeTS",h2("Time Series Decomposition and ACF PACF plots"), DecompTSUI),
@@ -756,7 +756,7 @@ server <- function(input, output, session) {
     
     # Extract stats and store in reactive variable
     test_stats <- extract_stats(p)
-    # print(test_stats)
+    print(test_stats)
     caption <- paste(test_stats$subtitle_data[["method"]][1], ":", test_stats$subtitle_data[["statistic"]][1], ", p-value:", test_stats$subtitle_data[["p.value"]][1])
     CDA_AT_caption_reactive$caption <- caption
     CDA_AT_caption_reactive$caption_full <- test_stats$subtitle_data
@@ -1195,11 +1195,11 @@ server <- function(input, output, session) {
     if (input$ForecastTS_time_resolution == "Day"){
       total_days <- as.numeric(difftime(end_date, input$ForecastTS_startDate, units = "days"))
       # Calculate maximum future forecasting horizon
-      max_forecast_period <- floor(total_days * (1-input$ForecastTS_train_test_split)/ 3) # To discuss
+      max_forecast_period <- floor(total_days / 12)
       sliderInput("ForecastTS_forecast_period", "Select Forecast Period (days)", min = 1, max = max(max_forecast_period, 1), value = min(10, max_forecast_period), step = 1)
     } else if (input$ForecastTS_time_resolution == "Week"){
       total_weeks <- as.numeric(difftime(end_date, input$ForecastTS_startDate, units = "weeks"))
-      max_forecast_period <- floor(total_weeks * (1-input$ForecastTS_train_test_split)/ 3) # To discuss
+      max_forecast_period <- floor(total_weeks / 12)
       sliderInput("ForecastTS_forecast_period", "Select Forecast Period (weeks)", min = 1, max = max(max_forecast_period, 1), value = min(10, max_forecast_period), step = 1)
     }
 

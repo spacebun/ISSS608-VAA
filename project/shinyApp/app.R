@@ -129,7 +129,7 @@ sidebar <- dashboardSidebar(
   ),
   sidebarMenu(
     menuItem("Landing Page", tabName = "LandingPage", icon = icon("home")),
-    menuItem("Confirmatory Data Analysis", tabName = "EDACDA"),
+    menuItem("Confirmatory Data Analysis", tabName = "EDACDA", icon = icon("temperature-half")),
     menuItem("Univariate Forecasting", tabName = "Univariate", icon = icon("chart-line"),
     menuSubItem("Exploratory Time Series", tabName = "ExploreTS"),
     menuSubItem("Time Series Decomposition", tabName = "DecomposeTS"),
@@ -165,7 +165,7 @@ CDAUI <- fluidPage(
                            textInput("CDA_AS_Insights","Insights", placeholder = "Enter your insights"),
                            actionButton("CDA_AS_Insights_button", "Save insights")
                            ),
-                           column(8, plotlyOutput("CDA_AS_plot"), 
+                           column(10, plotlyOutput("CDA_AS_plot"), 
                                        verbatimTextOutput("CDA_AS_Insights_Output")
                                   ))
                 )
@@ -194,7 +194,7 @@ CDAUI <- fluidPage(
                                   textInput("CDA_AT_Insights","Insights", placeholder = "Enter your insights"),
                                   actionButton("CDA_AT_Insights_button", "Save insights")
                     ),
-                    column(8, plotlyOutput("CDA_AT_plot"), 
+                    column(10, plotlyOutput("CDA_AT_plot"), 
                                        textOutput("CDA_AT_Caption_Output"),
                                        verbatimTextOutput("CDA_AT_Caption_Output_full"),
                                        verbatimTextOutput("CDA_AT_Insights_Output")
@@ -216,7 +216,8 @@ ExploreTSUI <- fluidPage(
         uiOutput("ExploreTS_dynamic_time_resolution"),
         checkboxGroupInput("ExploreTS_selectstation", "Select Station", choices = unique(weather_tsbl$Station),  selected = unique(weather_tsbl$Station)[1]),
         dateInput("ExploreTS_startDate", "Start Date", value = "2021-01-01", min = "2021-01-01", max = "2023-12-31", startview ="year"),
-        dateInput("ExploreTS_endDate", "End Date", value = "2023-12-31", min = "2021-01-02", max = "2023-12-31", startview ="year")
+        dateInput("ExploreTS_endDate", "End Date", value = "2023-12-31", min = "2021-01-02", max = "2023-12-31", startview ="year"),
+        uiOutput("ExporeTS_Date_Instructions")
         ),
     tabBox(title = "", width = 10,id = "ExploreTS_tab", height = "250px",
       tabPanel("Line graph",
@@ -368,10 +369,10 @@ GeospatialUI <- fluidPage(
 # Define UI
 LandingPageUI <- fluidPage(
   fluidRow(
-    column(width = 12,
-           h1("A Visual Exploration Tool for Singapore's Climate"),
+    column(width = 5,
+           h2("A Visual Exploration Tool for Singapore's Climate"),
            p("Understanding Singapore's changing weather patterns is crucial, yet current tools for visualizing historical weather data are limited, often static, and lack depth. To fill this gap, we developed this interactive R Shiny application. Use this tool to explore and analyse Singapore's weather (2021-2023)!"),
-           h2("Dataset Description"),
+           h3("Dataset Description"),
            p("Singapore Climate Records (2021-2023)"),
            p("Our dataset comprises historical daily records of rainfall and temperature across 11 locations in Singapore, spanning from 2021 to 2023. It provides a detailed look into the climate variations experienced in recent years.")
     )
@@ -788,7 +789,7 @@ server <- function(input, output, session) {
   
   ## 1. Dynamic UI for ExploreTS
   
-  ### For time resolution
+  ### Dynamic UI  For time resolution
   output$ExploreTS_dynamic_time_resolution <- renderUI({
     if (grepl("Rainfall", input$ExploreTS_selected_var)) {
       radioButtons("ExploreTS_time_resolution", label = "Select time resolution", c("Week", "Month"))
@@ -796,43 +797,73 @@ server <- function(input, output, session) {
       radioButtons("ExploreTS_time_resolution", label = "Select time resolution", c("Day" ,"Week", "Month"))
     }
   })
-  ### Dynamic UI for input start date and end date
+  ### Update input start date and end date
   observe({
     start_date <- input$ExploreTS_startDate
     end_date <- input$ExploreTS_endDate
+    # Calculate the minimum end date by adding one month to the start date
+    min_end_date <- start_date %m+% months(1) # Adjust to get the day before a full month, ensuring a full month period
     
-    # Calculate the duration of the selected date range in days
-    duration <- as.numeric(end_date - start_date) + 1  # Add 1 to include both start and end dates
-    
-    # If the duration is less than 7 days, adjust the end date
-    if (duration < 7) {
-      # Check if the end date is selected before the start date
+    # If the end date is less than the minimum end date, adjust it
+    if (end_date < start_date || end_date < min_end_date) {
+      # If the end date is selected before the start date, adjust the start date instead
       if (end_date < start_date) {
-        # Adjust the start date to ensure a minimum duration of 7 days
-        new_start_date <- end_date - 6
-        
-        # Check if the new start date is earlier than the minimum allowed date
-        if (new_start_date < as.Date("2021-01-01")) {
-          new_start_date <- as.Date("2021-01-01")
+        # Ensure that adjusting the start date backward does not go before a minimum allowed date
+        min_allowed_start_date <- as.Date("2021-01-01")
+        new_start_date <- end_date %m-% months(1) + days(1) # Adjust to ensure a full month period from end date
+        if (new_start_date < min_allowed_start_date) {
+          new_start_date <- min_allowed_start_date
         }
-        
-        # Update the start date input
+        # Update the start date input to ensure a minimum 1 month period
         updateDateInput(session, "ExploreTS_startDate", value = new_start_date)
       } else {
-        # Adjust the end date to ensure a minimum duration of 7 days
-        new_end_date <- start_date + 6
-        
-        # Check if the new end date is later than the maximum allowed date
-        if (new_end_date > as.Date("2023-12-31")) {
-          new_end_date <- as.Date("2023-12-31")
+        # Adjust the end date to ensure a minimum duration of 1 month
+        if (min_end_date > as.Date("2023-12-31")) {
+          # If the new minimum end date exceeds the maximum allowed date, adjust it to the maximum
+          min_end_date <- as.Date("2023-12-31")
         }
-        
-        # Update the end date input
-        updateDateInput(session, "ExploreTS_endDate", value = new_end_date)
+        # Update the end date input to ensure a minimum 1 month period
+        updateDateInput(session, "ExploreTS_endDate", value = min_end_date)
       }
     }
+
+    # # Code for Limited period by days
+    # # Calculate the duration of the selected date range in days
+    # duration <- as.numeric(end_date - start_date) + 1  # Add 1 to include both start and end dates
+    # 
+    # # If the duration is less than 31 days, adjust the end date
+    # if (duration < 31) {
+    #   # Check if the end date is selected before the start date
+    #   if (end_date < start_date) {
+    #     # Adjust the start date to ensure a minimum duration of 31 days
+    #     new_start_date <- end_date - 30
+    #     
+    #     # Check if the new start date is earlier than the minimum allowed date
+    #     if (new_start_date < as.Date("2021-01-01")) {
+    #       new_start_date <- as.Date("2021-01-01")
+    #     }
+    #     
+    #     # Update the start date input
+    #     updateDateInput(session, "ExploreTS_startDate", value = new_start_date)
+    #   } else {
+    #     # Adjust the end date to ensure a minimum duration of 31 days
+    #     new_end_date <- start_date + 30
+    #     
+    #     # Check if the new end date is later than the maximum allowed date
+    #     if (new_end_date > as.Date("2023-12-31")) {
+    #       new_end_date <- as.Date("2023-12-31")
+    #     }
+    #     
+    #     # Update the end date input
+    #     updateDateInput(session, "ExploreTS_endDate", value = new_end_date)
+    #   }
+    # }
   })
   
+  ### Instructions
+  output$ExporeTS_Date_Instructions <- renderUI({
+    HTML("<em>Please select a period of at least 1 month for plotting</em>")
+  })
   ## 2. Prepare data and plot line graph
   ### Output Plot
   ExploreTS_timeSeriesPlot_DataTable_reactive <- reactiveVal()

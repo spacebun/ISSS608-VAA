@@ -1,7 +1,7 @@
 # Section 1: Set up ----
 pacman::p_load(gstat)
 pacman::p_load(tmap)
-pacman::p_load(shiny, shinydashboard, shinyWidgets, tidyverse, ggthemes, plotly, sf, terra, viridis, ggHoriPlot, ggstatsplot, rstantools, ISOweek, DT, nortest, ggridges, tsibble, tsibbledata, feasts, fable, fabletools, fable.prophet, RColorBrewer, urca, bslib)
+pacman::p_load(shiny, shinydashboard, shinyWidgets, tidyverse, ggthemes, plotly, sf, terra, viridis, ggHoriPlot, ggstatsplot, rstantools, ISOweek, DT, nortest, ggridges, tsibble, tsibbledata, feasts, fable, fabletools, fable.prophet, RColorBrewer, urca, bslib, parameters)
 
 # Section 1.1: Variables and Functions ----
 ## Import data 
@@ -196,7 +196,8 @@ CDAUI <- fluidPage(
                     ),
                     column(10, plotlyOutput("CDA_AT_plot"), 
                                        textOutput("CDA_AT_Caption_Output"),
-                                       verbatimTextOutput("CDA_AT_Caption_Output_full"),
+                                       tableOutput("CDA_AT_Caption_Output_centrality_measure_datatable"),
+                                      tableOutput("CDA_AT_Caption_Output_pairwise_comparison_datatable"),
                                        verbatimTextOutput("CDA_AT_Insights_Output")
                                        )
                   )
@@ -296,10 +297,10 @@ ForecastTSUI <- fluidPage(
       ),
       tabPanel("Forecast Result",
                fluidRow(
-                 column(3,uiOutput("ForecastTS_dynamic_forecast_period"),
+                 column(2,uiOutput("ForecastTS_dynamic_forecast_period"),
                         actionButton("ForecastTS_future_forecast", "Forecast")),
-                 column(9,fluidRow(plotlyOutput("ForecastTS_future_forecast_plot")),
-                        fluidRow(DT::dataTableOutput("ForecastTS_future_forecast_DataTable")))
+               column(10, plotlyOutput("ForecastTS_future_forecast_plot"),
+               DT::dataTableOutput("ForecastTS_future_forecast_DataTable"))
                )
       )
     )
@@ -381,28 +382,28 @@ LandingPageUI <- fluidPage(
 # Section 7: Dashboard Body and UI ----
 body <- dashboardBody(
   tags$head(
-    tags$link(rel = "stylesheet", type = "text/css", href = "https://fonts.googleapis.com/css2?family=Merriweather:ital,wght@0,300;0,400;0,700;0,900;1,300;1,400;1,700;1,900&display=swap"),
+    tags$link(rel = "stylesheet", type = "text/css", href = "https://fonts.googleapis.com/css2?family=Merriweather+Sans:ital,wght@0,300..800;1,300..800&display=swap"),
   tags$style(HTML("
   body{
-        font-family: 'Merriweather', regular;
+        font-family: 'Merriweather Sans', sans-serif;
   }
          h1, h2, h3 {
-        font-family: 'Merriweather', serif;
+        font-family: 'Merriweather Sans', sans-serif;
         font-weight: 700; /* Bold */
       }
       /* Customize the main header and navbar with a bold font */
       .skin-blue .main-header .logo, .skin-blue .main-header .logo:hover, .skin-blue .main-header, .skin-blue .main-header .navbar {
         background-color: #1B264F !important;
-        font-family: 'Merriweather', serif;
+        font-family: 'Merriweather Sans', sans-serif;
         font-weight: 700; /* Bold */
       }
         .skin-blue .main-header .logo:hover {
           background-color: #1B264F;
-          font-family: 'Merriweather', regular ;
+          font-family: 'Merriweather Sans', sans-serif;
         }
         .skin-blue .main-header, .skin-blue .main-header .navbar {
       background-color: #1B264F !important;
-        font-family: 'Merriweather', serif; 
+        font-family: 'Merriweather Sans', sans-serif;
         }
       "))
   ),
@@ -757,23 +758,63 @@ server <- function(input, output, session) {
     # Extract stats and store in reactive variable
     test_stats <- extract_stats(p)
     print(test_stats)
+    
     caption <- paste(test_stats$subtitle_data[["method"]][1], ":", test_stats$subtitle_data[["statistic"]][1], ", p-value:", test_stats$subtitle_data[["p.value"]][1])
     CDA_AT_caption_reactive$caption <- caption
-    CDA_AT_caption_reactive$caption_full <- test_stats$subtitle_data
-    # return(p)
+    CDA_AT_caption_reactive$pairwise_table <- as.data.frame(test_stats$pairwise_comparisons_data) %>% select(-expression)
+    
+    # print(describe_distribution(variable_data[[var_symbol]], centrality = "mean"))
+    # Compute distribution statistics by y_axis
+    
+    if (input$CDA_AT_selectedStatApproach == "parametric"){
+      distribution_stats <- variable_data %>%
+        group_by(!!rlang::sym(y_axis)) %>%
+        summarise(
+          describe_distribution(!!var_symbol, centrality = "mean")[1]
+        )
+      CDA_AT_caption_reactive$centrality_measure <- as.data.frame(distribution_stats)
+    } else if (input$CDA_AT_selectedStatApproach == "nonparametric"){
+      distribution_stats <- variable_data %>%
+        group_by(!!rlang::sym(y_axis)) %>%
+        summarise(
+          describe_distribution(!!var_symbol, centrality = "median")[1]
+        )
+      CDA_AT_caption_reactive$centrality_measure <- as.data.frame(distribution_stats)
+    }else if (input$CDA_AT_selectedStatApproach == "robust"){
+      distribution_stats <- variable_data %>%
+        group_by(!!rlang::sym(y_axis)) %>%
+        summarise(
+          describe_distribution(!!var_symbol, centrality = "trimmed")[1]
+        )
+      CDA_AT_caption_reactive$centrality_measure <- as.data.frame(distribution_stats)
+    }else if (input$CDA_AT_selectedStatApproach == "bayes"){
+      distribution_stats <- variable_data %>%
+        group_by(!!rlang::sym(y_axis)) %>%
+        summarise(
+          describe_distribution(!!var_symbol, centrality = "MAP")[1]
+        )
+      CDA_AT_caption_reactive$centrality_measure <- as.data.frame(distribution_stats)
+    }
+    
+    # CDA_AT_caption_reactive$caption_full <- test_stats$subtitle_data
    return(plotly::ggplotly(p))
-    
-    
+    # return(p)
+
   })
   
   ## Output test statistics
   output$CDA_AT_Caption_Output <- renderText({ CDA_AT_caption_reactive$caption })
   
-  output$CDA_AT_Caption_Output_full <-renderPrint({ 
-    if (!is.null(CDA_AT_caption_reactive$caption_full)) {
-      CDA_AT_caption_reactive$caption_full 
+  output$CDA_AT_Caption_Output_centrality_measure_datatable <-renderTable({
+    if (!is.null(CDA_AT_caption_reactive$centrality_measure)) {
+      CDA_AT_caption_reactive$centrality_measure
     }
       })
+  output$CDA_AT_Caption_Output_pairwise_comparison_datatable <-renderTable({
+    if (!is.null(CDA_AT_caption_reactive$pairwise_table)) {
+      CDA_AT_caption_reactive$pairwise_table
+    }
+  })
   
   ## Output insights
   AT_insightsText <- eventReactive(input$CDA_AT_Insights_button,{
@@ -1268,14 +1309,22 @@ server <- function(input, output, session) {
     train_data <- result$train_data
     test_data <- result$test_data
     forecasts <- result$forecasts
+    selected_var <- input$ForecastTS_selected_var
+    var_title <- if (grepl("Rainfall", selected_var)) {"Rainfall (mm)"} else if (grepl("Temperature", selected_var)) {"Temperature (°C)"}
+    
 
     plot <- autoplot(train_data, ValueToPlot) + 
       autolayer(test_data, ValueToPlot) +
       autolayer(forecasts, level = NULL) + 
-      labs(title = paste("Forecast Validation", title)) + 
+      labs(title = paste("Forecast Validation", title),  y = var_title) + 
       theme_minimal()
     
-    ggplotly(plot, tooltip = c("x", "y", ".model"))
+    ggplotly(plot,
+             tooltip = c("x", "y", ".model"))
+    
+    # Convert ggplot object to plotly
+    p <- ggplotly(plot)
+    return(p)
         
   })
   ### Residual Plot
@@ -1326,6 +1375,7 @@ server <- function(input, output, session) {
     result <- TS_prepareVariableData(input$ForecastTS_selected_var,as.character(input$ForecastTS_startDate),"2023-12-31", input$ForecastTS_selected_station,input$ForecastTS_time_resolution, weather_tsbl)
     variable_data <- result$variable_data
     title <- result$title
+    
     
     if (!is.null(input$ForecastTS_selected_models) &&
         any(grepl("STL", input$ForecastTS_selected_models))){
@@ -1383,6 +1433,8 @@ server <- function(input, output, session) {
     full_forecast <- result$full_forecast
     full_forecast_df <- result$full_forecast_df
     selected_var <- input$ForecastTS_selected_var
+    var_title <- if (grepl("Rainfall", selected_var)) {"Rainfall (mm)"} else if (grepl("Temperature", selected_var)) {"Temperature (°C)"}
+    
     
     
     # Initialize an empty plotly object
@@ -1402,7 +1454,7 @@ server <- function(input, output, session) {
       # Define the custom hovertemplate for lines
       hovertemplate_line <- paste(
         "Date: %{x}<br>",
-        "Mean Temperature (°C): %{y:.2f}<br>",
+        var_title, ": %{y:.2f}<br>",
         "Model: ", model_name, "<br>",
         "95% CI: [%{customdata[0]:.2f}, %{customdata[1]:.2f}]<extra></extra>"
       )

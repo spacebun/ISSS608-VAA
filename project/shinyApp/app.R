@@ -240,11 +240,11 @@ DecompTSUI <- fluidPage(
         selectInput("DecompTS_selected_station", "Select Station", choices = unique(weather_tsbl$Station), selected = unique(weather_tsbl$Station)[1]),
         dateInput("DecompTS_startDate", "Start Date", value = "2021-01-01", min = "2021-01-01", max = "2023-12-30"),
         HTML("<div style='margin-top: 15px; margin-bottom: 15px;'>
-         <strong>End Date</strong><br>
-         <div style='border: 1px solid #ccc; padding: 5px 10px; margin-top: 5px; display: inline-block; width: 200px;'>
-           2023-12-31
-         </div>
-       </div>")
+  <strong>End Date (fixed)</strong><br>
+  <div style='padding: 5px 10px; margin-top: 5px; display: inline-block; width: auto; color: #808080;'>
+    2023-12-31
+  </div>
+</div>")
         ),
     tabBox(title = "", width = 10,id = "DecompTS_tab", height = "250px",
       tabPanel("ACF & PACF",
@@ -260,7 +260,7 @@ DecompTSUI <- fluidPage(
                  column(3, title = "parameters",
                         radioButtons("DecompTS_chooseautoSTL", label = "Use Auto STL?" ,c("Yes", "No")),
                         uiOutput("DecompTS_dynamic_autoSTL")),
-                 column(9,plotlyOutput("DecompTS_STLPlot"))
+                 column(9,plotlyOutput("DecompTS_STLPlot",width = "100%", height = "600px"))
                )
       )
     )
@@ -276,19 +276,19 @@ ForecastTSUI <- fluidPage(
         selectInput("ForecastTS_selected_station", "Select Station", choices = unique(weather_tsbl$Station), selected = unique(weather_tsbl$Station)[1]),
         dateInput("ForecastTS_startDate", "Start Date", value = "2021-01-01", min = "2021-01-01", max = "2023-12-30"),
         HTML("<div style='margin-top: 15px; margin-bottom: 15px;'>
-         <strong>End Date</strong><br>
-         <div style='border: 1px solid #ccc; padding: 5px 10px; margin-top: 5px; display: inline-block; width: 200px;'>
-           2023-12-31
-         </div>
-       </div>"),
+  <strong>End Date (fixed)</strong><br>
+  <div style='padding: 5px 10px; margin-top: 5px; display: inline-block; width: auto; color: #808080;'>
+    2023-12-31
+  </div>
+</div>"),
         checkboxGroupInput("ForecastTS_selected_models", "Select Forecasting Models", choices = ForecastTS_model_choices),
         uiOutput("ForecastTS_dynamic_chooseautoSTL"),
         uiOutput("ForecastTS_dynamic_model_parameters"),
-        sliderInput("ForecastTS_train_test_split", "Select Train-Test Split", min = 0.6, max = 1, value = 0.8, step = 0.1),
-        actionButton("ForecastTS_build_model", "Build Model")
+        sliderInput("ForecastTS_train_test_split", "Select Train-Test Split", min = 0.6, max = 1, value = 0.8, step = 0.1)
         ),
     tabBox(title = "", width = 10, id = "ForecastTS_tab", height = "250px",
       tabPanel("Model Calibration",
+               actionButton("ForecastTS_build_model", "Build Model"),
                plotlyOutput("ForecastTS_forecast_validation_plot"),
                fluidRow(column(6,plotlyOutput("ForecastTS_residual_plot")),
                         column(6, DT::dataTableOutput("ForecastTS_buildModel_DataTable"))

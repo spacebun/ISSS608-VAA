@@ -5,6 +5,6 @@ account: isss608-spacebun
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 11581916
-bundleId: 8432733
+bundleId: 8433545
 url: https://isss608-spacebun.shinyapps.io/shinyapp/
 version: 1

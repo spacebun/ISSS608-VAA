@@ -7,10 +7,11 @@ pacman::p_load(shiny, shinydashboard, shinyWidgets, tidyverse, ggthemes, plotly,
 ## Import data 
 weather_data <- read_rds("data/weather_imputed_11stations.rds") 
 variables <- c("Daily Rainfall Total (mm)", "Mean Temperature (°C)", "Minimum Temperature (°C)", "Maximum Temperature (°C)")
+variables_select <- c("Total Rainfall (mm)" = "Daily Rainfall Total (mm)", "Mean Temperature (°C)" = "Mean Temperature (°C)", "Minimum Temperature (°C)" = "Minimum Temperature (°C)" , "Maximum Temperature (°C)" = "Maximum Temperature (°C)")
 
 ## Used for Time Series module
 weather_tsbl <- as_tsibble(weather_data, key = Station, index = Date)
-Station <- weather_tsbl %>% distinct(Station)
+Station <- weather_tsbl %>% distinct(factor(Station))
 ForecastTS_model_choices <- list("STL Naive" = "STL_Naive","STL ARIMA" = "STL_ARIMA","STL ETS" = "STL_ETS","AUTO ARIMA" = "AUTO_ARIMA","AUTO Prophet" = "AUTO_Prophet","AUTO ETS" = "AUTO_ETS")
 
 ## Used for Spatial Interpolation module
@@ -20,7 +21,7 @@ mpsz2019 <- st_read(dsn = "data/geospatial", layer = "MPSZ-2019") %>% st_transfo
 ## Function to calculate ValueToPlot based on  selected variable.
 ## Used in Time Series and Spatial Interpolation modules
 calculateValueToPlot <- function(data, var) {
-  if (grepl("Rainfall", var)) {sum(data[[var]], na.rm = TRUE)} else if (grepl("Temperature", var)) {round(mean(data[[var]], na.rm = TRUE), 2)}
+  if (grepl("Rainfall", var)) {round(sum(data[[var]], na.rm = TRUE),2)} else if (grepl("Temperature", var)) {round(mean(data[[var]], na.rm = TRUE), 2)}
 }
 
 ## Function to prepare data for CDA Across Stations tab
@@ -144,7 +145,7 @@ CDAUI <- fluidPage(
           tabPanel("Compare across Stations",
             fluidRow(
               box(title = "Data Selection Parameters",  width = 2, status = "primary", solidHeader = TRUE,
-                selectInput("CDA_AS_selected_var", "Choose variable", variables, selected = NULL, multiple = FALSE),
+                selectInput("CDA_AS_selected_var", "Choose variable", variables, selected = "Mean Temperature (°C)", multiple = FALSE),
                 radioButtons("CDA_AS_time_resolution", label = "Select time resolution", c("Month", "Year")),
                 uiOutput("CDA_AS_dynamic_time_resolution"),
                 checkboxGroupInput("CDA_AS_selected_stations", "Select Station (s)", choices = unique(weather_data$Station), selected = unique(weather_data$Station)[1])
@@ -157,8 +158,8 @@ CDAUI <- fluidPage(
                 ),
                 tabPanel("Run Statistic Test",
                   fluidRow(column(2, 
-                           selectInput("CDA_AS_selectedStatApproach", "Statistical Approach", choices = c("parametric", "nonparametric", "robust", "bayes"),multiple = FALSE),
-                           selectInput("CDA_AS_selectedConflevel", "Confidence Level", choices = c("90%"=0.90,"95%"=0.95, "99%"=0.99),multiple = FALSE),
+                           selectInput("CDA_AS_selectedStatApproach", "Statistical Approach", choices = c("parametric", "nonparametric", "robust", "bayes"), selected = "nonparametric", multiple = FALSE),
+                           selectInput("CDA_AS_selectedConflevel", "Confidence Level", choices = c("90%"=0.90,"95%"=0.95, "99%"=0.99),selected ="95%", multiple = FALSE),
                            selectInput("CDA_AS_plotType", "Plot Type",choices = c("Boxviolin" = "boxviolin", "Box" = "box", "Violin" = "violin"),selected = "boxviolin",multiple = FALSE),
                            textInput("CDA_AS_plot_title","Plot Title", placeholder = "Enter plot title"),
                            actionButton("CDA_AS_plot_button", "Run test"),
@@ -174,7 +175,7 @@ CDAUI <- fluidPage(
           ),
           tabPanel("Compare across Time",
             fluidRow(box(title = "Data Selection Parameters",  width = 2, status = "primary", solidHeader = TRUE,
-                selectInput("CDA_AT_selected_var", "Choose variable", variables, selected = NULL, multiple = FALSE),
+                selectInput("CDA_AT_selected_var", "Choose variable", variables, selected = "Mean Temperature (°C)", multiple = FALSE),
                 selectInput("CDA_AT_selected_station", "Select Station", choices = unique(weather_data$Station), selected = unique(weather_data$Station)[1],  multiple = FALSE),
                 selectInput("CDA_AT_time_resolution", label = "Compare across", c("Years", "Months", "Months for a specified year", "Months of different years"), selected = NULL, multiple = FALSE),
                 uiOutput("CDA_AT_dynamic_time_resolution")
@@ -186,8 +187,8 @@ CDAUI <- fluidPage(
                            tableOutput("CDA_AT_checknormality_results")
                 ),
                 tabPanel("Run Statistic Test",
-                  fluidRow(column(2, selectInput("CDA_AT_selectedStatApproach", "Statistical Approach", choices = c("parametric", "nonparametric", "robust", "bayes"),multiple = FALSE),
-                                  selectInput("CDA_AT_selectedConflevel", "Confidence Level", choices = c("90%"=0.90,"95%"=0.95, "99%"=0.99),multiple = FALSE),
+                  fluidRow(column(2, selectInput("CDA_AT_selectedStatApproach", "Statistical Approach", choices = c("parametric", "nonparametric", "robust", "bayes"),selected = "nonparametric", multiple = FALSE),
+                                  selectInput("CDA_AT_selectedConflevel", "Confidence Level", choices = c("90%"=0.90,"95%"=0.95, "99%"=0.99),selected ="95%", multiple = FALSE),
                                   selectInput("CDA_AT_plotType", "Plot Type",choices = c("Boxviolin" = "boxviolin", "Box" = "box", "Violin" = "violin"),selected = "boxviolin",multiple = FALSE),
                                   textInput("CDA_AT_plot_title","Plot Title", placeholder = "Enter plot title"),
                                   actionButton("CDA_AT_plot_button", "Run test"),
@@ -195,10 +196,8 @@ CDAUI <- fluidPage(
                                   actionButton("CDA_AT_Insights_button", "Save insights")
                     ),
                     column(10, plotlyOutput("CDA_AT_plot"), 
-                                       textOutput("CDA_AT_Caption_Output"),
-                                       tableOutput("CDA_AT_Caption_Output_centrality_measure_datatable"),
-                                      tableOutput("CDA_AT_Caption_Output_pairwise_comparison_datatable"),
-                                       verbatimTextOutput("CDA_AT_Insights_Output")
+                           uiOutput("CDA_AT_test_results"),
+                           verbatimTextOutput("CDA_AT_Insights_Output")
                                        )
                   )
                 )
@@ -213,7 +212,7 @@ CDAUI <- fluidPage(
 # Section 4.1: ExploreTS UI ----
 ExploreTSUI <- fluidPage(
   fluidRow(box(title = "Data Selection Parameters",  width = 2, status = "primary", solidHeader = TRUE,
-        selectInput("ExploreTS_selected_var", "Choose variable", variables, selected = NULL, multiple = FALSE),
+        selectInput("ExploreTS_selected_var", "Choose variable", variables_select, selected = "Mean Temperature (°C)", multiple = FALSE),
         uiOutput("ExploreTS_dynamic_time_resolution"),
         checkboxGroupInput("ExploreTS_selectstation", "Select Station", choices = unique(weather_tsbl$Station),  selected = unique(weather_tsbl$Station)[1]),
         dateInput("ExploreTS_startDate", "Start Date", value = "2021-01-01", min = "2021-01-01", max = "2023-12-31", startview ="year"),
@@ -236,7 +235,7 @@ ExploreTSUI <- fluidPage(
 # Section 4.2: DecomposeTS UI ----
 DecompTSUI <- fluidPage(
   fluidRow(box(title = "Data Selection Parameters",  width = 2, status = "primary", solidHeader = TRUE,
-        selectInput("DecompTS_selected_var", "Choose variable", variables),
+        selectInput("DecompTS_selected_var", "Choose variable", variables_select, selected = "Mean Temperature (°C)", multiple = FALSE),
         uiOutput("DecompTS_dynamic_time_resolution"),
         selectInput("DecompTS_selected_station", "Select Station", choices = unique(weather_tsbl$Station), selected = unique(weather_tsbl$Station)[1]),
         dateInput("DecompTS_startDate", "Start Date", value = "2021-01-01", min = "2021-01-01", max = "2023-12-30"),
@@ -252,8 +251,8 @@ DecompTSUI <- fluidPage(
                fluidRow(
                  column(3, title = "parameters",
                         uiOutput("DecompTS_dynamiclags")), 
-                 column(9, plotlyOutput("DecompTS_ACFPlot"),
-                        plotlyOutput("DecompTS_PACFPlot"))
+                 column(9, plotlyOutput("DecompTS_ACFPlot", width = "100%", height = "300px"),
+                        plotlyOutput("DecompTS_PACFPlot", width = "100%", height = "300px"))
                )
       ),
       tabPanel("STL Decomposition",
@@ -272,10 +271,10 @@ DecompTSUI <- fluidPage(
 ForecastTSUI <- fluidPage(
   # Row 1
   fluidRow(box(title = "Data Selection Parameters",  width = 2, status = "primary", solidHeader = TRUE,
-        selectInput("ForecastTS_selected_var", "Choose variable", variables),
-        uiOutput("ForecastTS_dynamic_time_resolution"),
+        selectInput("ForecastTS_selected_var", "Choose variable", variables_select, selected = "Mean Temperature (°C)", multiple = FALSE),
         selectInput("ForecastTS_selected_station", "Select Station", choices = unique(weather_tsbl$Station), selected = unique(weather_tsbl$Station)[1]),
-        dateInput("ForecastTS_startDate", "Start Date", value = "2021-01-01", min = "2021-01-01", max = "2023-12-30"),
+        uiOutput("ForecastTS_dynamic_time_resolution"),
+        uiOutput("ForecastTS_startDate_ui"),
         HTML("<div style='margin-top: 15px; margin-bottom: 15px;'>
   <strong>End Date (fixed)</strong><br>
   <div style='padding: 5px 10px; margin-top: 5px; display: inline-block; width: auto; color: #808080;'>
@@ -291,7 +290,7 @@ ForecastTSUI <- fluidPage(
       tabPanel("Model Calibration",
                actionButton("ForecastTS_build_model", "Build Model"),
                plotlyOutput("ForecastTS_forecast_validation_plot"),
-               fluidRow(column(6,plotlyOutput("ForecastTS_residual_plot")),
+               fluidRow(column(6,plotlyOutput("ForecastTS_residual_plot", width= "100%", height = "280px")),
                         column(6, DT::dataTableOutput("ForecastTS_buildModel_DataTable"))
                         )
       ),
@@ -299,8 +298,11 @@ ForecastTSUI <- fluidPage(
                fluidRow(
                  column(2,uiOutput("ForecastTS_dynamic_forecast_period"),
                         actionButton("ForecastTS_future_forecast", "Forecast")),
-               column(10, plotlyOutput("ForecastTS_future_forecast_plot"),
-               DT::dataTableOutput("ForecastTS_future_forecast_DataTable"))
+               column(10, 
+                      # uiOutput("ForecastTS_future_forecast_result")
+                      plotlyOutput("ForecastTS_future_forecast_plot"),
+               DT::dataTableOutput("ForecastTS_future_forecast_DataTable")
+                      )
                )
       )
     )
@@ -315,8 +317,8 @@ GeospatialUI <- fluidPage(
   # Row 1
   fluidRow(
     box(title = "Data Selection Parameters",  width = 2, status = "primary", solidHeader = TRUE,
-        radioButtons("GS_selected_var", "Choose variable", variables),
-        radioButtons("GS_time_resolution", "Time resolution", c("Day", "Month", "Year")),
+        selectInput("GS_selected_var", "Choose variable", variables_select, selected = "Mean Temperature (°C)", multiple = FALSE),
+        selectInput("GS_time_resolution", "Time resolution", c("Day", "Month", "Year"), selected = "Month", multiple = FALSE),
         uiOutput("GS_dynamic_time_resolution")
     ),
     tabBox(
@@ -349,7 +351,7 @@ GeospatialUI <- fluidPage(
                  ),
                  column(10,
                         fluidRow(
-                          box(title = "Experimental and Fitted Variograms", width = 12, solidHeader = TRUE, collapsible = TRUE, collapsed = TRUE,
+                          box(title =  tags$h4("Experimental and Fitted Variograms"), width = 12, solidHeader = TRUE, collapsible = TRUE, collapsed = TRUE,
                           column(6,plotOutput("GS_OK_variogram", height = "200px")),
                           column(6,plotOutput("GS_OK_fitted_variogram", height = "200px"))
                           )
@@ -386,11 +388,30 @@ body <- dashboardBody(
   tags$style(HTML("
   body{
         font-family: 'Merriweather Sans', sans-serif;
+        font-size: 14px; /* Set the default font size */
   }
-         h1, h2, h3 {
-        font-family: 'Merriweather Sans', sans-serif;
-        font-weight: 700; /* Bold */
-      }
+  h1 {
+  font-family: 'Merriweather Sans', sans-serif;
+  font-size: 2em; /* 36px if the base size is 16px */
+  font-weight: 700; /* Bold */
+  }
+  h2 {
+  font-family: 'Merriweather Sans', sans-serif;
+  font-size: 1.75em; /* 28px if the base size is 16px */
+  font-weight: 700; /* Bold */
+  }
+  h3 {
+  font-family: 'Merriweather Sans', sans-serif;
+  font-size: 1.25em; 
+  font-weight: 600; /* Semi-Bold */
+  }
+  h4 {
+  font-family: 'Merriweather Sans', sans-serif;
+  font-size: 1em; 
+  font-weight: 600; /* Semi-Bold */
+  }
+
+
       /* Customize the main header and navbar with a bold font */
       .skin-blue .main-header .logo, .skin-blue .main-header .logo:hover, .skin-blue .main-header, .skin-blue .main-header .navbar {
         background-color: #1B264F !important;
@@ -803,14 +824,75 @@ server <- function(input, output, session) {
   })
   
   ## Output test statistics
-  output$CDA_AT_Caption_Output <- renderText({ CDA_AT_caption_reactive$caption })
   
-  output$CDA_AT_Caption_Output_centrality_measure_datatable <-renderTable({
+  output$CDA_AT_test_results <- renderUI({
+    # Use tagList to return multiple UI components
+    tagList(
+      textOutput("CDA_AT_Caption_Output"),
+      textOutput("CDA_AT_centrality_measure_title"),
+      tableOutput("CDA_AT_centrality_measure_datatable"),
+      textOutput("CDA_AT_pairwise_comparison_title"),
+      tableOutput("CDA_AT_pairwise_comparison_datatable"),
+      
+      # Dynamic content based on condition
+      if (!is.null(CDA_AT_caption_reactive)) {
+        tagList(
+          output$CDA_AT_Caption_Output <- renderText({ CDA_AT_caption_reactive$caption }),
+          output$CDA_AT_centrality_measure_title <-renderText({ tags$h4("\nCentrality Measures")}),
+          output$CDA_AT_centrality_measure_datatable <- tableOutput({}),
+            textOutput("CDA_AT_pairwise_comparison_title"),
+            tableOutput("CDA_AT_pairwise_comparison_datatable")
+          
+          # Directly including reactive expressions or values won't work as expected;
+          # they need to be outputted through renderText/renderTable or similar functions.
+          # This placeholder suggests you might need to output these values differently.
+          
+
+          # Assuming 'caption' and 'centrality_measure' are meant to be displayed as text or tables,
+          # you would need additional outputs defined in server and called here using textOutput or tableOutput.
+          # For example:
+          # textOutput("dynamic_caption"),
+          # tableOutput("dynamic_centrality_measure")
+          
+          # If 'pairwise_table' needs to be a table:
+          # This should be handled by its own renderTable/renderDataTable call and included via tableOutput/dataTableOutput
+          # tableOutput("dynamic_pairwise_table")
+        )
+      }
+    )
+  })
+  # output$CDA_AT_test_results <- renderUI({
+  #   # textOutput("CDA_AT_Caption_Output"),
+  #   textOutput("CDA_AT_centrality_measure_title")
+  #   tableOutput("CDA_AT_centrality_measure_datatable")
+  #   textOutput("CDA_AT_pairwise_comparison_title")
+  #   tableOutput("CDA_AT_pairwise_comparison_datatable")
+  #   if (!is.null(CDA_AT_caption_reactive)) {
+  #     
+  #   CDA_AT_caption_reactive$caption
+  #   
+  #   tags$h4("\nCentrality Measures")
+  #   
+  #   CDA_AT_caption_reactive$centrality_measure
+  #   
+  #   if (!is.null(CDA_AT_caption_reactive$pairwise_table)) {
+  #     CDA_AT_caption_reactive$pairwise_table
+  #   }
+  #   
+  #   }  
+  #   })
+  # 
+  output$CDA_AT_Caption_Output <- renderText({ CDA_AT_caption_reactive$caption })
+
+  output$CDA_AT_centrality_measure_title <- renderText({
+    "Hiello" })
+
+  output$CDA_AT_centrality_measure_datatable <-renderTable({
     if (!is.null(CDA_AT_caption_reactive$centrality_measure)) {
       CDA_AT_caption_reactive$centrality_measure
     }
       })
-  output$CDA_AT_Caption_Output_pairwise_comparison_datatable <-renderTable({
+  output$CDA_AT_pairwise_comparison_datatable <-renderTable({
     if (!is.null(CDA_AT_caption_reactive$pairwise_table)) {
       CDA_AT_caption_reactive$pairwise_table
     }
@@ -838,6 +920,8 @@ server <- function(input, output, session) {
       radioButtons("ExploreTS_time_resolution", label = "Select time resolution", c("Day" ,"Week", "Month"))
     }
   })
+  
+
   ### Update input start date and end date
   observe({
     start_date <- input$ExploreTS_startDate
@@ -868,37 +952,6 @@ server <- function(input, output, session) {
       }
     }
 
-    # # Code for Limited period by days
-    # # Calculate the duration of the selected date range in days
-    # duration <- as.numeric(end_date - start_date) + 1  # Add 1 to include both start and end dates
-    # 
-    # # If the duration is less than 31 days, adjust the end date
-    # if (duration < 31) {
-    #   # Check if the end date is selected before the start date
-    #   if (end_date < start_date) {
-    #     # Adjust the start date to ensure a minimum duration of 31 days
-    #     new_start_date <- end_date - 30
-    #     
-    #     # Check if the new start date is earlier than the minimum allowed date
-    #     if (new_start_date < as.Date("2021-01-01")) {
-    #       new_start_date <- as.Date("2021-01-01")
-    #     }
-    #     
-    #     # Update the start date input
-    #     updateDateInput(session, "ExploreTS_startDate", value = new_start_date)
-    #   } else {
-    #     # Adjust the end date to ensure a minimum duration of 31 days
-    #     new_end_date <- start_date + 30
-    #     
-    #     # Check if the new end date is later than the maximum allowed date
-    #     if (new_end_date > as.Date("2023-12-31")) {
-    #       new_end_date <- as.Date("2023-12-31")
-    #     }
-    #     
-    #     # Update the end date input
-    #     updateDateInput(session, "ExploreTS_endDate", value = new_end_date)
-    #   }
-    # }
   })
   
   ### Instructions
@@ -970,6 +1023,9 @@ server <- function(input, output, session) {
     req(length(input$ExploreTS_selectstation) > 0)
     
     data_frame <- as.data.frame(ExploreTS_timeSeriesPlot_DataTable_reactive())
+    
+    data_frame$Station <-  as.factor(data_frame$Station)
+    
     if (input$ExploreTS_time_resolution == "Week") {
       data_frame <- data_frame %>% select(Station, Date, year_week, ValueToPlot)
       data_frame$year_week <- as.character(data_frame$year_week)
@@ -1209,6 +1265,21 @@ server <- function(input, output, session) {
     }
   })
   
+  output$ForecastTS_startDate_ui <- renderUI({
+  if(input$ForecastTS_time_resolution == "Day"){
+    dateInput("ForecastTS_startDate", "Start Date", value = "2021-01-01", min = "2021-01-01", max = "2023-11-30")
+  } else if (input$ForecastTS_time_resolution == "Week"){
+    dateInput("ForecastTS_startDate", "Start Date", value = "2021-01-01", min = "2021-01-01", max = "2023-06-25")
+  }
+
+  })
+  # observe({
+  #   # This will now only react to changes in 'input$ForecastTS_dynamic_time_resolution'
+  #   if(input$ForecastTS_dynamic_time_resolution == "Week"){
+  #     updateDateInput(session, "ForecastTS_startDate", max = "2023-06-01")
+  #   }
+  # })
+
   ## 1.3 Dynamic UI for ForecastTS_dynamic_chooseautoSTL
   output$ForecastTS_dynamic_chooseautoSTL <- renderUI({
     if (!is.null(input$ForecastTS_selected_models) &&
@@ -1280,22 +1351,18 @@ server <- function(input, output, session) {
       AUTO_Prophet = prophet(ValueToPlot),
       AUTO_ETS = ETS(ValueToPlot)
     )
-      
-    # # Retaining original list without accounting for trend window and season window
-    # ForecastTS_model_list <- list( STL_Naive =
-    # decomposition_model(STL(ValueToPlot), NAIVE(season_adjust)), STL_ARIMA =
-    # decomposition_model(STL(ValueToPlot), ARIMA(season_adjust)), STL_ETS =
-    # decomposition_model(STL(ValueToPlot), ETS(season_adjust ~ season("N"))),
-    # AUTO_ARIMA = ARIMA(ValueToPlot), AUTO_Prophet = prophet(ValueToPlot),
-    # AUTO_ETS = ETS(ValueToPlot) )
+
 
     selected_models <- ForecastTS_model_list[names(ForecastTS_model_list) %in% input$ForecastTS_selected_models]
     train_fit <- model(train_data, !!!selected_models) # Fit models to the train data
     forecast_horizon <- nrow(test_data) # Set forecasting horizon to length of test data
-    forecasts <- forecast(train_fit, h = forecast_horizon) #
+    forecasts <- forecast(train_fit, h = forecast_horizon) 
+    
+    selected_var <- input$ForecastTS_selected_var
+    var_title <- if (grepl("Rainfall", selected_var)) {"Rainfall (mm)"} else if (grepl("Temperature", selected_var)) {"Temperature (°C)"}
     
     # Return data to be used for plotting for Forecast validation
-    list(train_fit = train_fit, forecasts = forecasts, test_data = test_data, train_data = train_data, title = title)
+    list(variable_data = variable_data, train_fit = train_fit, forecasts = forecasts, test_data = test_data, train_data = train_data, title = title, var_title = var_title, selected_var = selected_var)
   })
   
   ## 3. Model Calibration tab
@@ -1309,21 +1376,18 @@ server <- function(input, output, session) {
     train_data <- result$train_data
     test_data <- result$test_data
     forecasts <- result$forecasts
-    selected_var <- input$ForecastTS_selected_var
-    var_title <- if (grepl("Rainfall", selected_var)) {"Rainfall (mm)"} else if (grepl("Temperature", selected_var)) {"Temperature (°C)"}
+    selected_var <-result$selected_var
+    var_title <- result$var_title
     
-
-    plot <- autoplot(train_data, ValueToPlot) + 
-      autolayer(test_data, ValueToPlot) +
+    plot <- autoplot(variable_data, ValueToPlot) + 
       autolayer(forecasts, level = NULL) + 
       labs(title = paste("Forecast Validation", title),  y = var_title) + 
       theme_minimal()
-    
-    ggplotly(plot,
+
+    p <- ggplotly(plot,
              tooltip = c("x", "y", ".model"))
     
-    # Convert ggplot object to plotly
-    p <- ggplotly(plot)
+
     return(p)
         
   })
@@ -1342,7 +1406,7 @@ server <- function(input, output, session) {
       theme_minimal() 
     
     a_plotly <- ggplotly(a) %>%
-      layout(legend = list(orientation = "h", x = 0.5, y = -0.3, xanchor = "center", yanchor = "top"),
+      layout(legend = list(orientation = "h", x = 0.5, y = -0.4, xanchor = "center", yanchor = "top"),
              margin = list(b = 80))
      return(a_plotly)
   })
@@ -1365,7 +1429,7 @@ server <- function(input, output, session) {
               options = list(pageLength = 10,scrollX=T))
 
   })
-  
+
   ## 4. Prepare data and create eventReactive object that updates only when the Forecast button is clicked
   future_forecast <- eventReactive(input$ForecastTS_future_forecast, {
     req(length(input$ForecastTS_selected_models) > 0)
@@ -1375,6 +1439,8 @@ server <- function(input, output, session) {
     result <- TS_prepareVariableData(input$ForecastTS_selected_var,as.character(input$ForecastTS_startDate),"2023-12-31", input$ForecastTS_selected_station,input$ForecastTS_time_resolution, weather_tsbl)
     variable_data <- result$variable_data
     title <- result$title
+    selected_var <- input$ForecastTS_selected_var
+    var_title <- if (grepl("Rainfall", selected_var)) {"Rainfall (mm)"} else if (grepl("Temperature", selected_var)) {"Temperature (°C)"}
     
     
     if (!is.null(input$ForecastTS_selected_models) &&
@@ -1414,28 +1480,6 @@ server <- function(input, output, session) {
       full_forecast_df <- full_forecast_df  %>%
         mutate(Date = floor_date(as.Date(year_week), unit = "week"))
     }
-
-    # Return data to be used for plotting for Future Forecast
-    list(full_fit = full_fit, full_forecast = full_forecast, full_forecast_df=full_forecast_df, title = title)
-    
-  })
-  
-    ## 5. Forecast Result tab 
-    
-  ### Future Forecast Plot
-  output$ForecastTS_future_forecast_plot <- renderPlotly({
-    
-    result <- future_forecast()
-    
-    variable_data <- result$variable_data
-    title <- result$title
-    full_fit <- result$full_fit
-    full_forecast <- result$full_forecast
-    full_forecast_df <- result$full_forecast_df
-    selected_var <- input$ForecastTS_selected_var
-    var_title <- if (grepl("Rainfall", selected_var)) {"Rainfall (mm)"} else if (grepl("Temperature", selected_var)) {"Temperature (°C)"}
-    
-    
     
     # Initialize an empty plotly object
     p <- plot_ly()
@@ -1452,12 +1496,21 @@ server <- function(input, output, session) {
       model_data <- filter(full_forecast_df, .model == model_name)
       
       # Define the custom hovertemplate for lines
-      hovertemplate_line <- paste(
-        "Date: %{x}<br>",
-        var_title, ": %{y:.2f}<br>",
-        "Model: ", model_name, "<br>",
-        "95% CI: [%{customdata[0]:.2f}, %{customdata[1]:.2f}]<extra></extra>"
-      )
+      if (input$ForecastTS_time_resolution == "Day"){
+        hovertemplate_line <- paste(
+          "Date: %{x}<br>",
+          var_title, ": %{y:.2f}<br>",
+          "Model: ", model_name, "<br>",
+          "95% CI: [%{customdata[0]:.2f}, %{customdata[1]:.2f}]<extra></extra>"
+        )
+      } else if(input$ForecastTS_time_resolution == "Week") {
+        hovertemplate_line <- paste(
+          "Week starting: %{x}<br>",
+          var_title, ": %{y:.2f}<br>",
+          "Model: ", model_name, "<br>",
+          "95% CI: [%{customdata[0]:.2f}, %{customdata[1]:.2f}]<extra></extra>"
+        )
+      }
       
       # Custom data for the line (lower and upper CI values)
       custom_data <- mapply(function(lower, upper) list(lower, upper), model_data$Lower, model_data$Upper, SIMPLIFY = FALSE)
@@ -1478,31 +1531,45 @@ server <- function(input, output, session) {
     # Customize layout
     p <- p %>% layout(title = paste("Future Forecast Plot with 95% CI for", title),
                       xaxis = list(title = "Date"),
-                      yaxis = list(title = selected_var),
+                      yaxis = list(title = var_title),
                       legend = list(title = list(text = 'Model')),
                       hovermode = 'closest')
     
-    # Display the plot
+
+    # Return data to be used for plotting for Future Forecast
+    list(p = p, full_forecast_df= full_forecast_df)
+    
+  })
+  
+    ## 5. Forecast Result tab 
+   
+  ### Future Forecast Plot
+  output$ForecastTS_future_forecast_plot <- renderPlotly({
+    
+    result <- future_forecast()
+    p<-result$p
     p
     
 
   })
+
   ### Data Table
   output$ForecastTS_future_forecast_DataTable <- DT::renderDataTable({
     result <- future_forecast()
-
+    
     full_forecast_df <- result$full_forecast_df
     
     col<- full_forecast_df %>% 
       select(.model, Date, .mean) %>% 
-      rename(Forecast = .mean) %>%
-      mutate(Forecast = round(Forecast, 2),
+      rename(`Forecasted Value` = .mean) %>%
+      mutate(`Forecasted Value` = round(`Forecasted Value`, 2),
              .model = as.factor(.model))
     
     datatable(col, 
               class= "hover",
               rownames = FALSE,
               width="100%", 
+              filter = 'top',
               options = list(pageLength = 10,scrollX=T))
   })
 
@@ -1513,9 +1580,9 @@ server <- function(input, output, session) {
     if (input$GS_time_resolution == "Day") {
         airDatepickerInput("GS_selected_date", label = "Select date", value = "2021-01-01", maxDate = "2023-12-31", minDate = "2021-01-01", dateFormat = "yyyy-MM-dd")
     } else if (input$GS_time_resolution == "Month") {
-        airMonthpickerInput("GS_selected_month", label = "Select month and year", value = "2021-01-01", maxDate = "2023-12-31", minDate = "2021-01-01", dateFormat = "yyyy-MM")
+        airMonthpickerInput("GS_selected_date", label = "Select month and year", value = "2021-01-01", maxDate = "2023-12-31", minDate = "2021-01-01", dateFormat = "yyyy-MM")
     } else if (input$GS_time_resolution == "Year") {
-      airYearpickerInput("GS_selected_year", label = "Select year", value = "2021-01-01", maxDate = "2023-12-31", minDate = "2021-01-01", dateFormat = "yyyy")
+      airYearpickerInput("GS_selected_date", label = "Select year", value = "2021-01-01", maxDate = "2023-12-31", minDate = "2021-01-01", dateFormat = "yyyy")
     }
   })
   

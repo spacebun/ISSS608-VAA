@@ -1,7 +1,7 @@
 # Section 1: Set up ----
 pacman::p_load(gstat)
 pacman::p_load(tmap)
-pacman::p_load(shiny, shinydashboard, shinyWidgets, tidyverse, ggthemes, plotly, sf, terra, viridis, ggHoriPlot, ggstatsplot, rstantools, ISOweek, DT, nortest, ggridges, tsibble, tsibbledata, feasts, fable, fabletools, fable.prophet, RColorBrewer, urca, bslib, parameters)
+pacman::p_load(shiny, shinydashboard, shinyWidgets, tidyverse, ggthemes, plotly, sf, terra, viridis, ggHoriPlot, ggstatsplot, rstantools, ISOweek, DT, nortest, ggridges, tsibble, tsibbledata, feasts, fable, fabletools, fable.prophet, RColorBrewer, urca, bslib, parameters, shinybusy)
 
 # Section 1.1: Variables and Functions ----
 ## Import data 
@@ -374,16 +374,16 @@ GeospatialUI <- fluidPage(
                  column(10,
                         fluidRow(
                           box(title =  tags$h4("Experimental and Fitted Variograms"), width = 12, solidHeader = TRUE, collapsible = TRUE, collapsed = TRUE,
-                          column(6,plotOutput("GS_OK_variogram", height = "200px")),
-                          column(6,plotOutput("GS_OK_fitted_variogram", height = "200px"))
+                          column(6,plotOutput("GS_OK_variogram", height = "400px")),
+                          column(6,plotOutput("GS_OK_fitted_variogram", height = "400px"))
                           )
                         ),
-                        
+                        fluidRow(uiOutput("GS_OK_result_title")),
                         fluidRow(
-                          column(12,plotOutput("GS_OK_map"))),
-                        fluidRow(
-                          column(12,plotOutput("GS_OK_prediction_variance"))
-                        ))
+                          column(6,plotOutput("GS_OK_map",width = "100%", height = "500px")),
+                          column(6,plotOutput("GS_OK_prediction_variance",width = "100%", height = "500px")))
+
+                 )
                )
       )
     )
@@ -399,7 +399,13 @@ LandingPageUI <- fluidPage(
            p("Understanding Singapore's changing weather patterns is crucial, yet current tools for visualizing historical weather data are limited, often static, and lack depth. To fill this gap, we developed this interactive R Shiny application. Use this tool to explore and analyse Singapore's weather (2021-2023)!"),
            h3("Overview of modules in app"),
            tags$img(src = "overview.png", width = "100%"),
-           p("The app consists of three key modules, each enabling the user to conduct a type of visual analysis with the dataset. The Exploratory & Confirmatory Data Analysis module allows users to conduct comparative analyses of weather data over different spatial and temporal scales. The Univariate Forecasting module provides a comprehensive toolkit of different forecasting models. The Spatial Interpolation module allows users to generate isohyet or isotherm maps to estimate rainfall/temperature at unmonitored locations. "),
+           p(strong("Exploratory & Confirmatory Data Analysis:"), 
+             " Enables analysis of climate variables across stations and time periods, using statistical tests and interactive plots to identify weather patterns."),
+           p(strong("Univariate Forecasting:"), 
+             " Combines exploratory analysis, decomposition, and advanced forecasting with seasonal adjustment for accurate weather predictions across multiple stations."),
+           p(strong("Spatial Interpolation:"), 
+             " Generates isohyet/isotherm maps from sparse data, using interpolation techniques to estimate conditions at unmonitored locations, informed by data from Singapore's weather stations."),
+           # p("The app consists of three key modules, each enabling the user to conduct a type of visual analysis with the dataset. The Exploratory & Confirmatory Data Analysis module allows users to conduct comparative analyses of weather data over different spatial and temporal scales. The Univariate Forecasting module provides a comprehensive toolkit of different forecasting models. The Spatial Interpolation module allows users to generate isohyet or isotherm maps to estimate rainfall/temperature at unmonitored locations. "),
            p("Click ", a("here", href = "https://isss608-group9-weatheranalytics.netlify.app/shinyapp/userguide.pdf", target = "_blank"), " to view the user guide.")
            
     ),
@@ -415,7 +421,7 @@ LandingPageUI <- fluidPage(
   fluidRow(
     column(6, 
            h3("About the Dataset: Singapore Climate Records (2021-2023)"),
-           p("The dataset comprises historical daily records of rainfall and temperature across 11 locations in Singapore, spanning from 2021 to 2023. It provides a detailed look into the climate variations experienced in recent years."),
+           p("The dataset comprises historical daily records of rainfall and temperature across 11 locations in Singapore, spanning from 2021 to 2023."),
            dataTableOutput("landingPageDataTable")),
     column(6, tmapOutput("stationsTmap"))
     
@@ -423,6 +429,8 @@ LandingPageUI <- fluidPage(
 )
 # Section 7: Dashboard Body and UI ----
 body <- dashboardBody(
+  add_busy_spinner(spin = "fading-circle"),
+  
   tags$head(
     tags$link(rel = "stylesheet", type = "text/css", href = "https://fonts.googleapis.com/css2?family=Merriweather+Sans:ital,wght@0,300..800;1,300..800&display=swap"),
   tags$style(HTML("
@@ -484,6 +492,7 @@ ui <- dashboardPage(header, sidebar, body)
 
 # Section 8: Server code ----
 server <- function(input, output, session) {
+
   #Landing Page ----
   
   output$landingPageDataTable <-DT::renderDataTable({
@@ -2098,7 +2107,7 @@ server <- function(input, output, session) {
       kvar <- rasterize(resp, grid, field = "variance")
     
     list(variable_data = results$variable_data, variable_data_sf = results$variable_data_sf, legend_title= results$legend_title, main_title = main_title, palette= results$palette, var_title = results$var_title, 
-         kpred = kpred, kvar = kvar, v = v, fv = fv)
+         kpred = kpred, kvar = kvar, v = v, fv = fv, UI_title = "Result of Interpolation")
   })
   
   # 3. Output plots
@@ -2137,6 +2146,12 @@ server <- function(input, output, session) {
       tm_layout(main.title = "Kriging Prediction Variance", main.title.position = "center", main.title.size = 1.2, legend.height = 0.45, legend.width = 0.35, frame = TRUE) +
       tm_compass(type="8star", size = 2) + tm_scale_bar() + tm_grid(alpha =0.2)
     
+  })
+  
+  
+  output$GS_OK_result_title <- renderUI({
+    UI_title <- GS_OK_event()$UI_title
+    tags$h4(UI_title)
   })
 }
 # Section 9: Run the application ---- 

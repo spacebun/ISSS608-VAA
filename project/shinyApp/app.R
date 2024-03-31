@@ -93,7 +93,7 @@ GS_prepareVariableData <- function(selected_var, time_resolution, selected_time,
   
   palette <- if (grepl("Rainfall", selected_var)) {"Blues"} else if (grepl("Temperature", selected_var)) {"YlOrRd"}
   
-  return(list(variable_data = variable_data, variable_data_sf = variable_data_sf, legend_title = legend_title, main_title = main_title, palette = palette))
+  return(list(variable_data = variable_data, variable_data_sf = variable_data_sf, legend_title = legend_title, main_title = main_title, palette = palette, var_title = var_title))
 }
 
 # Function to get raster layer
@@ -130,7 +130,7 @@ sidebar <- dashboardSidebar(
   ),
   sidebarMenu(
     menuItem("Landing Page", tabName = "LandingPage", icon = icon("home")),
-    menuItem("Exploratory & Confirmatory Analysis", tabName = "EDACDA", icon = icon("temperature-half")),
+    menuItem("Exploratory & Confirmatory Data Analysis", tabName = "EDACDA", icon = icon("temperature-half")),
     menuItem("Univariate Forecasting", tabName = "Univariate", icon = icon("chart-line"),
     menuSubItem("Exploratory Time Series", tabName = "ExploreTS"),
     menuSubItem("Time Series Decomposition", tabName = "DecomposeTS"),
@@ -159,7 +159,7 @@ CDAUI <- fluidPage(
                 tabPanel("Run Statistic Test",
                   fluidRow(column(2, 
                            selectInput("CDA_AS_selectedStatApproach", "Statistical Approach", choices = c("parametric", "nonparametric", "robust", "bayes"), selected = "nonparametric", multiple = FALSE),
-                           selectInput("CDA_AS_selectedConflevel", "Confidence Level", choices = c("90%"=0.90,"95%"=0.95, "99%"=0.99),selected ="95%", multiple = FALSE),
+                           selectInput("CDA_AS_selectedConflevel", "Confidence Level", choices = c("90%"=0.90,"95%"=0.95, "99%"=0.99),selected ="0.95", multiple = FALSE),
                            selectInput("CDA_AS_plotType", "Plot Type",choices = c("Boxviolin" = "boxviolin", "Box" = "box", "Violin" = "violin"),selected = "boxviolin",multiple = FALSE),
                            textInput("CDA_AS_plot_title","Plot Title", placeholder = "Enter plot title"),
                            actionButton("CDA_AS_plot_button", "Run test"),
@@ -167,6 +167,7 @@ CDAUI <- fluidPage(
                            actionButton("CDA_AS_Insights_button", "Save insights")
                            ),
                            column(10, plotlyOutput("CDA_AS_plot"), 
+                                  uiOutput("CDA_AS_test_results"),
                                        verbatimTextOutput("CDA_AS_Insights_Output")
                                   ))
                 )
@@ -188,7 +189,7 @@ CDAUI <- fluidPage(
                 ),
                 tabPanel("Run Statistic Test",
                   fluidRow(column(2, selectInput("CDA_AT_selectedStatApproach", "Statistical Approach", choices = c("parametric", "nonparametric", "robust", "bayes"),selected = "nonparametric", multiple = FALSE),
-                                  selectInput("CDA_AT_selectedConflevel", "Confidence Level", choices = c("90%"=0.90,"95%"=0.95, "99%"=0.99),selected ="95%", multiple = FALSE),
+                                  selectInput("CDA_AT_selectedConflevel", "Confidence Level", choices = c("90%"=0.90,"95%"=0.95, "99%"=0.99),selected ="0.95", multiple = FALSE),
                                   selectInput("CDA_AT_plotType", "Plot Type",choices = c("Boxviolin" = "boxviolin", "Box" = "box", "Violin" = "violin"),selected = "boxviolin",multiple = FALSE),
                                   textInput("CDA_AT_plot_title","Plot Title", placeholder = "Enter plot title"),
                                   actionButton("CDA_AT_plot_button", "Run test"),
@@ -238,14 +239,18 @@ DecompTSUI <- fluidPage(
         selectInput("DecompTS_selected_var", "Choose variable", variables_select, selected = "Mean Temperature (°C)", multiple = FALSE),
         uiOutput("DecompTS_dynamic_time_resolution"),
         selectInput("DecompTS_selected_station", "Select Station", choices = unique(weather_tsbl$Station), selected = unique(weather_tsbl$Station)[1]),
-        dateInput("DecompTS_startDate", "Start Date", value = "2021-01-01", min = "2021-01-01", max = "2023-12-30"),
+        uiOutput("DecompTS_startDate_ui"),
         HTML("<div style='margin-top: 15px; margin-bottom: 15px;'>
   <strong>End Date (fixed)</strong><br>
   <div style='padding: 5px 10px; margin-top: 5px; display: inline-block; width: auto; color: #808080;'>
     2023-12-31
   </div>
-</div>")
+</div>"),
+        uiOutput("DecompTS_Date_Instructions"),
+        HTML("<div style='margin-bottom: 10px;'></div>")
         ),
+        
+        
     tabBox(title = "", width = 10,id = "DecompTS_tab", height = "250px",
       tabPanel("ACF & PACF",
                fluidRow(
@@ -281,6 +286,8 @@ ForecastTSUI <- fluidPage(
     2023-12-31
   </div>
 </div>"),
+        uiOutput("ForecastTS_Date_Instructions"),
+        HTML("<div style='margin-bottom: 10px;'></div>"),
         checkboxGroupInput("ForecastTS_selected_models", "Select Forecasting Models", choices = ForecastTS_model_choices),
         uiOutput("ForecastTS_dynamic_chooseautoSTL"),
         uiOutput("ForecastTS_dynamic_model_parameters"),
@@ -310,7 +317,6 @@ ForecastTSUI <- fluidPage(
 )
 
 
-
 # Section 5: Geospatial UI ----
 
 GeospatialUI <- fluidPage(
@@ -326,8 +332,10 @@ GeospatialUI <- fluidPage(
       # The id lets us use input$Geospatial_tab on the server to find the current tab
       tabPanel("Map of stations",
                  actionButton("GS_updatetmap", "Update map"), 
-               textOutput("GS_tmap_title"),
-                 tmapOutput("GS_tmap") 
+               uiOutput("GS_tmap_title"),
+                 tmapOutput("GS_tmap"),
+               DT::dataTableOutput("GS_tmap_DataTable")
+               
                ),
       tabPanel("Inverse Distance Weighted Interpolation Method",
                fluidRow(
@@ -430,7 +438,7 @@ body <- dashboardBody(
   ),
   tabItems(
     tabItem(tabName = "LandingPage", LandingPageUI),
-    tabItem(tabName = "EDACDA", h2("Exploratory & Confirmatory Analysis"), CDAUI),
+    tabItem(tabName = "EDACDA", h2("Exploratory & Confirmatory Data Analysis"), CDAUI),
     tabItem(tabName = "Univariate"),
     tabItem(tabName = "ExploreTS", h2("Exploring timeseries across stations"), ExploreTSUI),
     tabItem(tabName = "DecomposeTS",h2("Time Series Decomposition and ACF PACF plots"), DecompTSUI),
@@ -490,7 +498,7 @@ server <- function(input, output, session) {
   
     ggplot(data = variable_data,
            aes(x = !!var_symbol, y = Station)) +
-      geom_density_ridges(fill = "lightblue",alpha = 0.9) +
+      geom_density_ridges(fill =     if (grepl("Rainfall", selected_var)) {"lightblue"} else if (grepl("Temperature", selected_var)) {"#FEC26B"}, alpha = 0.9) +
       labs(title = title) +
       theme_ridges()+
       theme(legend.position = "none", axis.title.y = element_blank())   
@@ -518,7 +526,10 @@ server <- function(input, output, session) {
   })
   
   #3. Comparison Plot
+  
   ## Prepare data and create eventReactive object that updates only when button is clicked
+  CDA_AS_caption_reactive <- reactiveValues() # Initializes a reactive value FOR CAPTION
+  
   CDA_AS_data_prep <- eventReactive(input$CDA_AS_plot_button, {
     req(length(input$CDA_AS_selected_stations) > 0)  # Ensure at least one station is selected    
     
@@ -526,44 +537,151 @@ server <- function(input, output, session) {
     result <- CDA_AS_prepareVariableData(input$CDA_AS_selected_var, input$CDA_AS_time_resolution, input$CDA_AS_selected_date, input$CDA_AS_selected_stations, weather_data)
     variable_data <- result$variable_data
     selected_var <- result$selected_var
+    var_symbol <- rlang::sym(selected_var)
     time_resolution <- result$time_resolution
-    selected_stations <- input$selected_stations
+    # selected_stations <- input$selected_stations
     selected_date <- input$CDA_AS_selected_date # Take directly from input
     title <- input$CDA_AS_plot_title # Take directly from input
+    selectedStatApproach <- input$CDA_AS_selectedStatApproach
+    selectedConflevel <- input$CDA_AS_selectedConflevel
+    plotType <- input$CDA_AS_plotType
     
-    list(variable_data = variable_data, selected_var = selected_var, time_resolution = time_resolution, selected_stations = selected_stations, selected_date = selected_date, title = title)
+    p<-ggbetweenstats(data = variable_data, x = "Station", y = !!var_symbol, 
+                      type = selectedStatApproach,
+                      mean.ci = TRUE,
+                      conf.level = as.integer(selectedConflevel),
+                      violin.args = if(plotType == "box"){list(width = 0, linewidth = 0,alpha = 0)} 
+                      else {list(trim=TRUE,alpha = 0.2)},
+                      boxplot.args = if(plotType == "violin"){list(width = 0, linewidth = 0,alpha = 0)} 
+                      else {list(alpha = 0.2)},
+                      pairwise.comparisons = TRUE, 
+                      pairwise.annotation = TRUE,
+                      pairwise.display = "s", 
+                      sig.level = NA,
+                      p.adjust.method = "fdr",
+                      messages = FALSE,
+                      title = title)+
+      theme(axis.text.x = element_text(angle = 45, hjust = 1))
+    
+    # Extract stats and store in reactive variable
+    test_stats <- extract_stats(p)
+    
+    # Extract Caption
+    if (n_distinct(variable_data$Station) > 1){
+      caption <- paste(test_stats$subtitle_data[["method"]][1], ":", test_stats$subtitle_data[["statistic"]][1], ", p-value:", test_stats$subtitle_data[["p.value"]][1])
+      CDA_AS_caption_reactive$caption <- caption
+    }
+    
+    # Compute distribution statistics by y_axis
+    if (selectedStatApproach == "parametric"){
+      distribution_stats <- variable_data %>%
+        group_by(Station) %>%
+        summarise(
+          describe_distribution(!!var_symbol, centrality = "mean")[1]
+        )
+      CDA_AS_caption_reactive$centrality_measure <- as.data.frame(distribution_stats)
+    } else if (selectedStatApproach == "nonparametric"){
+      distribution_stats <- variable_data %>%
+        group_by(Station) %>%
+        summarise(
+          describe_distribution(!!var_symbol, centrality = "median")[1]
+        )
+      CDA_AS_caption_reactive$centrality_measure <- as.data.frame(distribution_stats)
+    }else if (selectedStatApproach == "robust"){
+      distribution_stats <- variable_data %>%
+        group_by(Station) %>%
+        summarise(
+          describe_distribution(!!var_symbol, centrality = "trimmed")[1]
+        )
+      CDA_AS_caption_reactive$centrality_measure <- as.data.frame(distribution_stats)
+    }else if (selectedStatApproach == "bayes"){
+      distribution_stats <- variable_data %>%
+        group_by(Station) %>%
+        summarise(
+          describe_distribution(!!var_symbol, centrality = "MAP")[1]
+        )
+      CDA_AS_caption_reactive$centrality_measure <- as.data.frame(distribution_stats)
+    }
+    # Extract pairwise comparison
+    if (n_distinct(variable_data$Station) > 2){
+      # print(test_stats$pairwise_comparisons_data)
+      CDA_AS_caption_reactive$pairwise_table <- as.data.frame(test_stats$pairwise_comparisons_data) %>% select(-expression)
+    } else { CDA_AS_caption_reactive$pairwise_table <-NULL}
+    
+    list(variable_data = variable_data, selected_var = selected_var,time_resolution = time_resolution, title = title,
+         selectedStatApproach=selectedStatApproach,selectedConflevel=selectedConflevel, plotType = plotType,
+         p = p, CDA_AS_caption_reactive = CDA_AS_caption_reactive
+         )
   })
   
   ## Output plot
   output$CDA_AS_plot <- renderPlotly({
     # Extract the result from the eventReactive object
     result <- CDA_AS_data_prep()
-    
-    var_symbol <- rlang::sym(result$selected_var)
-    variable_data <- result$variable_data
-    selected_var <- result$selected_var
-    time_resolution <- result$time_resolution
-    selected_date <- result$selected_date # Take directly from input
-    title <- result$title # Take directly from input
-    
-    ggbetweenstats(data = variable_data,
-                   x = "Station",
-                   y = !!var_symbol, 
-                   type = input$CDA_AS_selectedStatApproach,
-                   mean.ci = TRUE,
-                   conf.level = as.integer(input$CDA_AS_selectedConflevel),
-                   violin.args = if(input$CDA_AS_plotType == "box"){list(width = 0, linewidth = 0,alpha = 0)} 
-                   else {list(trim=TRUE,alpha = 0.2)},
-                   boxplot.args = if(input$CDA_AS_plotType == "violin"){list(width = 0, linewidth = 0,alpha = 0)} 
-                   else {list(alpha = 0.2)},
-                   pairwise.comparisons = TRUE, 
-                   pairwise.annotation = TRUE,
-                   pairwise.display = "none", 
-                   sig.level = NA,
-                   p.adjust.method = "fdr",
-                   messages = FALSE,
-                   title = title)+
-      theme(axis.text.x = element_text(angle = 45, hjust = 1))
+    # var_symbol <- rlang::sym(result$selected_var)
+    # variable_data <- result$variable_data
+    # selected_var <- result$selected_var
+    # time_resolution <- result$time_resolution
+    # selected_date <- result$selected_date 
+    # title <- result$title 
+    p <-result$p
+    return(p)
+  })
+  
+  
+  ## Output test statistics
+  
+  output$CDA_AS_Caption_Output <- renderText({
+    # Extract the result from the eventReactive object
+    result <- CDA_AS_data_prep()
+    CDA_AS_caption_reactive <-result$CDA_AS_caption_reactive
+    if (!is.null(CDA_AS_caption_reactive$caption)) {
+      CDA_AS_caption_reactive$caption
+    }
+  })
+  
+  output$CDA_AS_centrality_measure_title <- renderUI({
+    result <- CDA_AS_data_prep()
+    CDA_AS_caption_reactive <-result$CDA_AS_caption_reactive
+    if (!is.null(CDA_AS_caption_reactive$centrality_measure)) {
+      tags$h4("\nCentrality Measures")
+    }
+  })
+  
+  output$CDA_AS_centrality_measure_datatable <- renderTable({
+    result <- CDA_AS_data_prep()
+    CDA_AS_caption_reactive <-result$CDA_AS_caption_reactive
+    if (!is.null(CDA_AS_caption_reactive$centrality_measure)) {
+      CDA_AS_caption_reactive$centrality_measure
+    }
+  })
+  
+  output$CDA_AS_pairwise_comparison_title <- renderUI({
+    result <- CDA_AS_data_prep()
+    CDA_AS_caption_reactive <-result$CDA_AS_caption_reactive
+    if(!is.null(CDA_AS_caption_reactive$pairwise_table)){
+      tags$h4("\nPairwise Comparison")
+    }
+  })
+  
+  output$CDA_AS_pairwise_comparison_datatable <- renderTable({
+    result <- CDA_AS_data_prep()
+    CDA_AS_caption_reactive <- result$CDA_AS_caption_reactive
+    if(!is.null(CDA_AS_caption_reactive$pairwise_table)){
+      CDA_AS_caption_reactive$pairwise_table
+    }
+  })
+  
+  output$CDA_AS_test_results <- renderUI({
+    if (!is.null(CDA_AS_caption_reactive)) {
+      tagList(
+        textOutput("CDA_AS_Caption_Output"),
+        uiOutput("CDA_AS_centrality_measure_title"),
+        tableOutput("CDA_AS_centrality_measure_datatable"),
+        uiOutput("CDA_AS_pairwise_comparison_title"),
+        tableOutput("CDA_AS_pairwise_comparison_datatable")
+      )
+    }
   })
 
   ## Output insights
@@ -663,7 +781,7 @@ server <- function(input, output, session) {
   
 
     ggplot(data = variable_data, aes(x = !!var_symbol, y = as.factor(!!rlang::sym(y_axis)))) +
-      geom_density_ridges(fill = "lightblue", alpha = 0.9) +
+      geom_density_ridges(fill =if (grepl("Rainfall", selected_var)) {"lightblue"} else if (grepl("Temperature", selected_var)) {"#FEC26B"}, alpha = 0.9) +
       labs(title = title) + 
       theme_ridges() +
       theme(legend.position = "none", axis.title.y = element_blank())  
@@ -677,6 +795,7 @@ server <- function(input, output, session) {
     var_symbol <- rlang::sym(result$selected_var)
     variable_data <- result$variable_data
     y_axis <- result$y_axis
+    # time_resolution <- result$time_resolution
     
     ad_results <- variable_data %>%
       group_by(Group = as.factor(!!rlang::sym(y_axis))) %>%
@@ -690,11 +809,17 @@ server <- function(input, output, session) {
       mutate(across(where(is.numeric), ~format(round(., 4), nsmall = 4))) %>%
       ungroup() %>%
       setNames(c(y_axis, names(.)[-1]))  # Dynamically rename the first column
+    
+    if (y_axis == "Month_Name") {
+      ad_results <- ad_results %>% rename(Month = Month_Name)
+    }
+    
     ad_results
   })
   
   #3. Comparison Plot
   ## Prepare data and create eventReactive object that updates only when button is clicked
+  CDA_AT_caption_reactive <- reactiveValues() # Initializes a reactive value FOR CAPTION
   CDA_AT_data_prep <- eventReactive(input$CDA_AT_plot_button, {
     req(length(input$CDA_AT_selected_dates) > 0)  # Ensure at least one "date" is selected
     
@@ -702,6 +827,8 @@ server <- function(input, output, session) {
     time_resolution <- input$CDA_AT_time_resolution
     selected_station <- input$CDA_AT_selected_station
     title <- input$CDA_AT_plot_title # Take directly from input
+    var_symbol <- rlang::sym(selected_var)
+    selected_dates <- input$CDA_AT_selected_dates
     
     if (time_resolution == "Years") {
       
@@ -740,75 +867,62 @@ server <- function(input, output, session) {
     y_axis <- if(time_resolution == "Months") {"Month_Name"} else if (time_resolution == "Years") {"Year"} 
     else if(time_resolution =="Months for a specified year") {"Month_Name"}
     else if (time_resolution == "Months of different years"){"Year"}
-
-    list(variable_data = variable_data, selected_var = selected_var, y_axis = y_axis, time_resolution = time_resolution, selected_station = selected_station, title = title)
-  })
-  
-  ## Output plot
-  CDA_AT_caption_reactive <- reactiveValues() # Initializes a reactive value
-  output$CDA_AT_plot <- renderPlotly({
-
-    # Extract the result from the eventReactive object
-    result <- CDA_AT_data_prep()
     
-    var_symbol <- rlang::sym(result$selected_var)
-    variable_data <- result$variable_data
-    selected_var <- result$selected_var
-    time_resolution <- result$time_resolution
-    title <- result$title 
-    y_axis <- result$y_axis
-
+    selectedStatApproach<-input$CDA_AT_selectedStatApproach
+    selectedConflevel<-input$CDA_AT_selectedConflevel
+    plotType<-input$CDA_AT_plotType
+    
+    
     p <- ggbetweenstats(data = variable_data,
-                   x = !!rlang::sym(y_axis),
-                   y = !!var_symbol,
-                   type = input$CDA_AT_selectedStatApproach,
-                   mean.ci = TRUE,
-                   centrality.plotting = TRUE,
-                   conf.level = as.integer(input$CDA_AT_selectedConflevel),
-                   violin.args = if(input$CDA_AT_plotType == "box"){list(width = 0, linewidth = 0,alpha = 0)} else {list(trim=TRUE,alpha = 0.2)},
-                   boxplot.args = if(input$CDA_AT_plotType == "violin"){list(width = 0, linewidth = 0,alpha = 0)} else {list(alpha = 0.2)},
-                   pairwise.comparisons = TRUE,
-                   pairwise.annotation = FALSE,
-                   pairwise.display = "s",
-                   sig.level = NA,
-                   p.adjust.method = "fdr",
-                   title = title,
-                   messages = FALSE)+
+                        x = !!rlang::sym(y_axis),
+                        y = !!var_symbol,
+                        type = selectedStatApproach,
+                        mean.ci = TRUE,
+                        centrality.plotting = TRUE,
+                        conf.level = as.integer(selectedConflevel),
+                        violin.args = if(plotType == "box"){list(width = 0, linewidth = 0,alpha = 0)} else {list(trim=TRUE,alpha = 0.2)},
+                        boxplot.args = if(plotType == "violin"){list(width = 0, linewidth = 0,alpha = 0)} else {list(alpha = 0.2)},
+                        pairwise.comparisons = TRUE,
+                        pairwise.annotation = FALSE,
+                        pairwise.display = "s",
+                        sig.level = NA,
+                        p.adjust.method = "fdr",
+                        title = title,
+                        messages = FALSE)+
       theme(axis.text.x = element_text(angle = 45, hjust = 1))
     
     # Extract stats and store in reactive variable
     test_stats <- extract_stats(p)
-    print(test_stats)
     
-    caption <- paste(test_stats$subtitle_data[["method"]][1], ":", test_stats$subtitle_data[["statistic"]][1], ", p-value:", test_stats$subtitle_data[["p.value"]][1])
-    CDA_AT_caption_reactive$caption <- caption
-    CDA_AT_caption_reactive$pairwise_table <- as.data.frame(test_stats$pairwise_comparisons_data) %>% select(-expression)
-    
-    # print(describe_distribution(variable_data[[var_symbol]], centrality = "mean"))
+    # Extract Caption
+    if (length(selected_dates) > 1){
+      caption <- paste(test_stats$subtitle_data[["method"]][1], ":", test_stats$subtitle_data[["statistic"]][1], ", p-value:", test_stats$subtitle_data[["p.value"]][1])
+      CDA_AT_caption_reactive$caption <- caption
+    }
+
     # Compute distribution statistics by y_axis
-    
-    if (input$CDA_AT_selectedStatApproach == "parametric"){
+    if (selectedStatApproach == "parametric"){
       distribution_stats <- variable_data %>%
         group_by(!!rlang::sym(y_axis)) %>%
         summarise(
           describe_distribution(!!var_symbol, centrality = "mean")[1]
         )
       CDA_AT_caption_reactive$centrality_measure <- as.data.frame(distribution_stats)
-    } else if (input$CDA_AT_selectedStatApproach == "nonparametric"){
+    } else if (selectedStatApproach == "nonparametric"){
       distribution_stats <- variable_data %>%
         group_by(!!rlang::sym(y_axis)) %>%
         summarise(
           describe_distribution(!!var_symbol, centrality = "median")[1]
         )
       CDA_AT_caption_reactive$centrality_measure <- as.data.frame(distribution_stats)
-    }else if (input$CDA_AT_selectedStatApproach == "robust"){
+    }else if (selectedStatApproach == "robust"){
       distribution_stats <- variable_data %>%
         group_by(!!rlang::sym(y_axis)) %>%
         summarise(
           describe_distribution(!!var_symbol, centrality = "trimmed")[1]
         )
       CDA_AT_caption_reactive$centrality_measure <- as.data.frame(distribution_stats)
-    }else if (input$CDA_AT_selectedStatApproach == "bayes"){
+    }else if (selectedStatApproach == "bayes"){
       distribution_stats <- variable_data %>%
         group_by(!!rlang::sym(y_axis)) %>%
         summarise(
@@ -817,86 +931,84 @@ server <- function(input, output, session) {
       CDA_AT_caption_reactive$centrality_measure <- as.data.frame(distribution_stats)
     }
     
+    # Extract pairwise comparison
+    if (length(selected_dates) > 2){
+      CDA_AT_caption_reactive$pairwise_table <- as.data.frame(test_stats$pairwise_comparisons_data) %>% select(-expression)
+    } else { CDA_AT_caption_reactive$pairwise_table <-NULL}
+    
     # CDA_AT_caption_reactive$caption_full <- test_stats$subtitle_data
-   return(plotly::ggplotly(p))
-    # return(p)
+    
+    list(variable_data = variable_data, selected_var = selected_var, y_axis = y_axis, time_resolution = time_resolution, selected_station = selected_station, selected_dates = selected_dates, title = title,
+         selectedStatApproach=selectedStatApproach,selectedConflevel=selectedConflevel, plotType = plotType, 
+         p = p, CDA_AT_caption_reactive = CDA_AT_caption_reactive)
+  })
+  
+  ## Output plot
+  
+  output$CDA_AT_plot <- renderPlotly({
 
+    # Extract the result from the eventReactive object
+    result <- CDA_AT_data_prep()
+    p <-result$p
+
+   return(p)
   })
   
   ## Output test statistics
-  
-  output$CDA_AT_test_results <- renderUI({
-    # Use tagList to return multiple UI components
-    tagList(
-      textOutput("CDA_AT_Caption_Output"),
-      textOutput("CDA_AT_centrality_measure_title"),
-      tableOutput("CDA_AT_centrality_measure_datatable"),
-      textOutput("CDA_AT_pairwise_comparison_title"),
-      tableOutput("CDA_AT_pairwise_comparison_datatable"),
-      
-      # Dynamic content based on condition
-      if (!is.null(CDA_AT_caption_reactive)) {
-        tagList(
-          output$CDA_AT_Caption_Output <- renderText({ CDA_AT_caption_reactive$caption }),
-          output$CDA_AT_centrality_measure_title <-renderText({ tags$h4("\nCentrality Measures")}),
-          output$CDA_AT_centrality_measure_datatable <- tableOutput({}),
-            textOutput("CDA_AT_pairwise_comparison_title"),
-            tableOutput("CDA_AT_pairwise_comparison_datatable")
-          
-          # Directly including reactive expressions or values won't work as expected;
-          # they need to be outputted through renderText/renderTable or similar functions.
-          # This placeholder suggests you might need to output these values differently.
-          
 
-          # Assuming 'caption' and 'centrality_measure' are meant to be displayed as text or tables,
-          # you would need additional outputs defined in server and called here using textOutput or tableOutput.
-          # For example:
-          # textOutput("dynamic_caption"),
-          # tableOutput("dynamic_centrality_measure")
-          
-          # If 'pairwise_table' needs to be a table:
-          # This should be handled by its own renderTable/renderDataTable call and included via tableOutput/dataTableOutput
-          # tableOutput("dynamic_pairwise_table")
-        )
-      }
-    )
+  output$CDA_AT_Caption_Output <- renderText({
+    # Extract the result from the eventReactive object
+    result <- CDA_AT_data_prep()
+    CDA_AT_caption_reactive <-result$CDA_AT_caption_reactive
+    if (!is.null(CDA_AT_caption_reactive$caption)) {
+    CDA_AT_caption_reactive$caption
+    }
   })
-  # output$CDA_AT_test_results <- renderUI({
-  #   # textOutput("CDA_AT_Caption_Output"),
-  #   textOutput("CDA_AT_centrality_measure_title")
-  #   tableOutput("CDA_AT_centrality_measure_datatable")
-  #   textOutput("CDA_AT_pairwise_comparison_title")
-  #   tableOutput("CDA_AT_pairwise_comparison_datatable")
-  #   if (!is.null(CDA_AT_caption_reactive)) {
-  #     
-  #   CDA_AT_caption_reactive$caption
-  #   
-  #   tags$h4("\nCentrality Measures")
-  #   
-  #   CDA_AT_caption_reactive$centrality_measure
-  #   
-  #   if (!is.null(CDA_AT_caption_reactive$pairwise_table)) {
-  #     CDA_AT_caption_reactive$pairwise_table
-  #   }
-  #   
-  #   }  
-  #   })
-  # 
-  output$CDA_AT_Caption_Output <- renderText({ CDA_AT_caption_reactive$caption })
-
-  output$CDA_AT_centrality_measure_title <- renderText({
-    "Hiello" })
-
-  output$CDA_AT_centrality_measure_datatable <-renderTable({
+  
+  output$CDA_AT_centrality_measure_title <- renderUI({
+    result <- CDA_AT_data_prep()
+    CDA_AT_caption_reactive <-result$CDA_AT_caption_reactive
     if (!is.null(CDA_AT_caption_reactive$centrality_measure)) {
-      CDA_AT_caption_reactive$centrality_measure
+      tags$h4("\nCentrality Measures")
     }
       })
-  output$CDA_AT_pairwise_comparison_datatable <-renderTable({
-    if (!is.null(CDA_AT_caption_reactive$pairwise_table)) {
+  
+  output$CDA_AT_centrality_measure_datatable <- renderTable({
+    result <- CDA_AT_data_prep()
+    CDA_AT_caption_reactive <-result$CDA_AT_caption_reactive
+    if (!is.null(CDA_AT_caption_reactive$centrality_measure)) {
+    CDA_AT_caption_reactive$centrality_measure
+    }
+  })
+  
+  output$CDA_AT_pairwise_comparison_title <- renderUI({
+    result <- CDA_AT_data_prep()
+    CDA_AT_caption_reactive <-result$CDA_AT_caption_reactive
+    if(!is.null(CDA_AT_caption_reactive$pairwise_table)){
+    tags$h4("\nPairwise Comparison")
+    }
+  })
+  
+  output$CDA_AT_pairwise_comparison_datatable <- renderTable({
+    result <- CDA_AT_data_prep()
+    CDA_AT_caption_reactive <- result$CDA_AT_caption_reactive
+    if(!is.null(CDA_AT_caption_reactive$pairwise_table)){
       CDA_AT_caption_reactive$pairwise_table
     }
   })
+
+  output$CDA_AT_test_results <- renderUI({
+    if (!is.null(CDA_AT_caption_reactive)) {
+    tagList(
+      textOutput("CDA_AT_Caption_Output"),
+      uiOutput("CDA_AT_centrality_measure_title"),
+      tableOutput("CDA_AT_centrality_measure_datatable"),
+      uiOutput("CDA_AT_pairwise_comparison_title"),
+      tableOutput("CDA_AT_pairwise_comparison_datatable")
+    )
+    }
+  })
+
   
   ## Output insights
   AT_insightsText <- eventReactive(input$CDA_AT_Insights_button,{
@@ -1022,7 +1134,9 @@ server <- function(input, output, session) {
   output$ExploreTS_timeSeriesPlot_DataTable <- DT::renderDataTable({
     req(length(input$ExploreTS_selectstation) > 0)
     
+    
     data_frame <- as.data.frame(ExploreTS_timeSeriesPlot_DataTable_reactive())
+    print(data_frame)
     
     data_frame$Station <-  as.factor(data_frame$Station)
     
@@ -1042,7 +1156,9 @@ server <- function(input, output, session) {
     
     data_frame <- data_frame %>%
       rename(!!input$ExploreTS_selected_var := ValueToPlot)
-    
+    # data_frame <- data_frame %>%
+    #   rename_with(~"ValueToPlot", .cols = all_of(input$ExploreTS_selected_var))
+
     datatable(data_frame, 
               class= "hover",
               rownames = FALSE,
@@ -1111,15 +1227,15 @@ server <- function(input, output, session) {
     ori <- round(ori, 2) # The origin, rounded to 2 decimal places
     sca <- round(sca, 2) # The horizon scale cutpoints
     
-    reverse_T <- ifelse(grepl("Rainfall", selected_var), FALSE, TRUE)
-    
+    # reverse_T <- ifelse(grepl("Rainfall", selected_var), FALSE, TRUE)
+    palette <- if (grepl("Rainfall", selected_var)) {"Blues"} else if (grepl("Temperature", selected_var)) {"YlOrRd"}
     # Plot horizon plot
     variable_data %>% ggplot() +
       geom_horizon(aes(x = Date, 
                        y = .data[["ValueToPlot"]],
                        fill = after_stat(Cutpoints)), 
                    origin = ori, horizonscale = sca) +
-      scale_fill_hcl(palette = 'RdBu', reverse = reverse_T) +
+      scale_fill_hcl(palette = palette, reverse = T) +
       facet_grid(Station ~ .)+
       theme_few() +
       theme(
@@ -1149,6 +1265,26 @@ server <- function(input, output, session) {
     } else if (grepl("Temperature", input$DecompTS_selected_var)) {
       radioButtons("DecompTS_time_resolution", label = "Select time resolution", c("Day" ,"Week"))
     }
+  })
+  
+  output$DecompTS_startDate_ui <- renderUI({
+    if(input$DecompTS_time_resolution == "Day"){
+      dateInput("DecompTS_startDate", "Start Date", value = "2021-01-01", min = "2021-01-01", max = "2023-11-30")
+    } else if (input$DecompTS_time_resolution == "Week"){
+      dateInput("DecompTS_startDate", "Start Date", value = "2021-01-01", min = "2021-01-01", max = "2023-06-25")
+    }
+  
+    
+  })
+  
+  ### Instructions
+  output$DecompTS_Date_Instructions <- renderUI({
+    
+    if(input$DecompTS_time_resolution == "Day"){
+      HTML("<em>Please select a period of at least 30 days for plotting. </em>")
+    } else if (input$DecompTS_time_resolution == "Week"){
+      HTML("<em>Please select a period of at least 26 weeks for plotting. </em>")    }
+    
   })
    
   ## 1.2 Dynamic UI for DecompTS_dynamiclags
@@ -1272,6 +1408,15 @@ server <- function(input, output, session) {
     dateInput("ForecastTS_startDate", "Start Date", value = "2021-01-01", min = "2021-01-01", max = "2023-06-25")
   }
 
+  })
+  ### Instructions
+  output$ForecastTS_Date_Instructions <- renderUI({
+    
+    if(input$ForecastTS_time_resolution == "Day"){
+      HTML("<em>Please select a period of at least 30 days for plotting. </em>")
+      } else if (input$ForecastTS_time_resolution == "Week"){
+        HTML("<em>Please select a period of at least 26 weeks for plotting. </em>")    }
+    
   })
   # observe({
   #   # This will now only react to changes in 'input$ForecastTS_dynamic_time_resolution'
@@ -1586,23 +1731,19 @@ server <- function(input, output, session) {
     }
   })
   
-  ## 2. Prepare and store reactive data
-  GS_reactiveDataTmap <- reactiveValues()
-  observeEvent(input$GS_updatetmap, {
+  ## 2.eventReactive
+  GS_tmap_event <- eventReactive(input$GS_updatetmap, {
+    
     results <- GS_prepareVariableData(input$GS_selected_var, input$GS_time_resolution, input$GS_selected_date, weather_data)
-    # Update reactive variable
-    GS_reactiveDataTmap$variable_data <- results$variable_data
-    GS_reactiveDataTmap$variable_data_sf <- results$variable_data_sf
-    GS_reactiveDataTmap$legend_title <- results$legend_title
-    GS_reactiveDataTmap$main_title <- paste(results$main_title, "across 11 stations in Singapore")
-    GS_reactiveDataTmap$palette <- results$palette
-
+    main_title <- paste(results$main_title, "across 11 stations in Singapore")
+    
+    list(variable_data = results$variable_data, variable_data_sf = results$variable_data_sf, legend_title= results$legend_title, main_title = main_title, palette= results$palette, var_title = results$var_title)
   })
   
   ## 3. Output plot
   output$GS_tmap <- renderTmap({
     
-    req(GS_reactiveDataTmap$variable_data_sf) # Check if reactive variable is not NULL to avoid errors before the first button press
+    GS_reactiveDataTmap <- GS_tmap_event()
     
     dynamicPopupVars <- setNames(list(GS_reactiveDataTmap$legend_title), GS_reactiveDataTmap$legend_title)
     
@@ -1611,14 +1752,34 @@ server <- function(input, output, session) {
     tm <- tm_shape(mpsz2019) +
       tm_borders() +
       tm_shape(GS_reactiveDataTmap$variable_data_sf) +
-      tm_dots(col = 'ValueToPlot', popup.vars = dynamicPopupVars,palette = GS_reactiveDataTmap$palette, size = 0.5, scale = 0.5)  +
+      tm_dots(col = 'ValueToPlot', popup.vars = dynamicPopupVars,palette = GS_reactiveDataTmap$palette, size = 0.5, scale = 0.5, title = GS_reactiveDataTmap$legend_title)  +
       tm_layout(title = GS_reactiveDataTmap$main_title) +
       tm_view(set.view = c(lon = 103.8198, lat = 1.3521, zoom = 11)) # Centered on Singapore with an appropriate zoom level
     
     tm
   })
   ### Plot title
-  output$GS_tmap_title <- renderText({GS_reactiveDataTmap$main_title})
+  output$GS_tmap_title <- renderUI({
+    title_text <- GS_tmap_event()$main_title
+    tags$h4(title_text)
+    })
+  
+  ### Data Table
+  output$GS_tmap_DataTable <- DT::renderDataTable({ 
+    # DT::datatable(head(mtcars), options = list(pageLength = 5))
+    GS_reactiveDataTmap <- GS_tmap_event()
+    
+    variable_data <- GS_reactiveDataTmap$variable_data %>% select(-ValueToPlot)
+    
+    variable_data$Station <-  as.factor(variable_data$Station)
+    
+    datatable(variable_data, 
+              class= "hover",
+              rownames = FALSE,
+              width="100%", 
+              filter = 'top',
+              options = list(pageLength = 10,scrollX=T))
+    })
   
   
   
@@ -1626,45 +1787,41 @@ server <- function(input, output, session) {
   
   ## 1. Dynamic UI: IDW Parameters
   ### Removed
-  ## 2. Prepare and store reactive data
-  GS_reactiveDataIDW <- reactiveValues() # To contain variable data and IDW parameters
-  observeEvent(input$GS_updateIDW, {
-
-    results <- GS_prepareVariableData(input$GS_selected_var, input$GS_time_resolution, input$GS_selected_date, weather_data) 
-    raster_layer <- GS_rasterlayer(input$GS_IDW_res)
-    variable_data <-results$variable_data
-    variable_data_sf <- results$variable_data_sf
-    main_title <- paste(results$main_title, "in Singapore")
-    legend_title <- results$legend_title
-    palette<- results$palette
-    grid <- raster_layer$grid
-    coop <- raster_layer$coop
-
-    # Set nmax value
-    nmax = input$GS_IDW_nmax
+  
+  ## 2. eventReactive
+  GS_IDW_event <- eventReactive(input$GS_updateIDW, {
     
-    # Create gstat object
-    res <- gstat(formula = ValueToPlot ~ 1,locations = variable_data_sf, set = list(idp = 0), nmax = nmax)
-    # Predict values
-    resp <- predict(res,coop)
-    resp$x <- st_coordinates(resp)[,1]
-    resp$y <- st_coordinates(resp)[,2]
-    resp$pred <- resp$var1.pred
-    pred <- rasterize(resp, grid, field="pred", fun="mean")
-    
-    # Update reactive variable
-    GS_reactiveDataIDW$variable_data <- variable_data
-    GS_reactiveDataIDW$variable_data_sf <- variable_data_sf
-    GS_reactiveDataIDW$legend_title <- legend_title
-    GS_reactiveDataIDW$main_title <- main_title
-    GS_reactiveDataIDW$pred <- pred
-    GS_reactiveDataIDW$palette <- palette
+      results <- GS_prepareVariableData(input$GS_selected_var, input$GS_time_resolution, input$GS_selected_date, weather_data)
+      raster_layer <- GS_rasterlayer(input$GS_IDW_res)
+      variable_data <-results$variable_data
+      variable_data_sf <- results$variable_data_sf
+      main_title <- paste(results$main_title, "in Singapore")
+      legend_title <- results$legend_title
+      palette<- results$palette
+      grid <- raster_layer$grid
+      coop <- raster_layer$coop
 
+      # Set nmax value
+      nmax = input$GS_IDW_nmax
+
+      # Create gstat object
+      res <- gstat(formula = ValueToPlot ~ 1,locations = variable_data_sf, set = list(idp = 0), nmax = nmax)
+      # Predict values
+      resp <- predict(res,coop)
+      resp$x <- st_coordinates(resp)[,1]
+      resp$y <- st_coordinates(resp)[,2]
+      resp$pred <- resp$var1.pred
+      pred <- rasterize(resp, grid, field="pred", fun="mean")
+    
+    list(variable_data = results$variable_data, variable_data_sf = results$variable_data_sf, legend_title= results$legend_title, main_title = main_title, palette= results$palette, var_title = results$var_title, pred = pred)
   })
+  
 
   # 3. Output plot
   output$GS_IDW_map <- renderPlot({
-    req(GS_reactiveDataIDW$pred) # Check if reactive variable is not NULL to avoid errors before the first button press
+    
+    GS_reactiveDataIDW <- GS_IDW_event()
+    
     tmap_options(check.and.fix = TRUE)
     tmap_mode("plot")
     tm_shape(GS_reactiveDataIDW$pred) +
@@ -1682,80 +1839,72 @@ server <- function(input, output, session) {
     } else
     {sliderInput("GS_OK_range", "range", min = 2000, max = 10000, value = 5000, step = 200)}
   })
-  ## 2. Prepare and store reactive data
-  GS_reactiveDataOK <- reactiveValues() # To contain variable data and IDW parameters
-  observeEvent(input$GS_updateOK, {
-    results <- GS_prepareVariableData(input$GS_selected_var, input$GS_time_resolution, input$GS_selected_date, weather_data)
-    raster_layer <- GS_rasterlayer(input$GS_OK_res)
-    variable_data <-results$variable_data
-    variable_data_sf <- results$variable_data_sf
-    main_title <- paste(results$main_title, "in Singapore")
-    legend_title <- results$legend_title
-    palette<- results$palette
+  
+  
+  ## 2. eventReactive
+  GS_OK_event <- eventReactive(input$GS_updateOK, {
     
-    grid <- raster_layer$grid
-    coop <- raster_layer$coop
-    
-    # Generate Experimental Variogram
-    v <- variogram(ValueToPlot ~ 1, 
-                   data = variable_data_sf)
-    
-    # Fit Variogram
-    fv <- fit.variogram(object = v,
-                        model = vgm(psill = input$GS_OK_psill, model = input$GS_OK_model, range = input$GS_OK_range, nugget = input$GS_OK_nugget))
-    
-    # perform spatial interpolation
-    k <- gstat(formula = ValueToPlot ~ 1,
-               data = variable_data_sf,
-               model = fv)
-    
-    # estimate the unknown grids
-    resp <- predict(k,coop)
-    resp$x <- st_coordinates(resp)[,1]
-    resp$y <- st_coordinates(resp)[,2]
-    resp$pred <- resp$var1.pred
-    
-    # create a raster surface data object
-    kpred <- rasterize(resp, grid,
-                       field = "pred")
+      results <- GS_prepareVariableData(input$GS_selected_var, input$GS_time_resolution, input$GS_selected_date, weather_data)
+      raster_layer <- GS_rasterlayer(input$GS_OK_res)
+      variable_data <-results$variable_data
+      variable_data_sf <- results$variable_data_sf
+      main_title <- paste(results$main_title, "in Singapore")
+      legend_title <- results$legend_title
+      palette<- results$palette
 
-    # Extracting the variance
-    resp$variance <- resp$var1.var
+      grid <- raster_layer$grid
+      coop <- raster_layer$coop
+
+      # Generate Experimental Variogram
+      v <- variogram(ValueToPlot ~ 1,
+                     data = variable_data_sf)
+
+      # Fit Variogram
+      fv <- fit.variogram(object = v,
+                          model = vgm(psill = input$GS_OK_psill, model = input$GS_OK_model, range = input$GS_OK_range, nugget = input$GS_OK_nugget))
+
+      # perform spatial interpolation
+      k <- gstat(formula = ValueToPlot ~ 1,
+                 data = variable_data_sf,
+                 model = fv)
+
+      # estimate the unknown grids
+      resp <- predict(k,coop)
+      resp$x <- st_coordinates(resp)[,1]
+      resp$y <- st_coordinates(resp)[,2]
+      resp$pred <- resp$var1.pred
+
+      # create a raster surface data object
+      kpred <- rasterize(resp, grid,
+                         field = "pred")
+
+      # Extracting the variance
+      resp$variance <- resp$var1.var
+
+      # Create a raster surface data object for variance
+      kvar <- rasterize(resp, grid, field = "variance")
     
-    # Create a raster surface data object for variance
-    kvar <- rasterize(resp, grid, field = "variance")
-    
-    # Update reactive variable
-    GS_reactiveDataOK$variable_data <- variable_data
-    GS_reactiveDataOK$variable_data_sf <- variable_data_sf
-    GS_reactiveDataOK$v <- v
-    GS_reactiveDataOK$fv <- fv
-    GS_reactiveDataOK$legend_title <- legend_title
-    GS_reactiveDataOK$main_title <- main_title
-    GS_reactiveDataOK$kpred <- kpred
-    GS_reactiveDataOK$kvar <- kvar
-    GS_reactiveDataOK$palette <- palette
+    list(variable_data = results$variable_data, variable_data_sf = results$variable_data_sf, legend_title= results$legend_title, main_title = main_title, palette= results$palette, var_title = results$var_title, 
+         kpred = kpred, kvar = kvar, v = v, fv = fv)
   })
   
   # 3. Output plots
   output$GS_OK_variogram <- renderPlot({
     
-    # Check reactive variable
-    req(GS_reactiveDataOK$v)
+    GS_reactiveDataOK <- GS_OK_event()
+
     plot(GS_reactiveDataOK$v, cex = 1.5, main = "Experimental Variogram")
     
   })
   output$GS_OK_fitted_variogram <- renderPlot({
-    # Check reactive variable
-    req(GS_reactiveDataOK$v)
-    req(GS_reactiveDataOK$fv)
+    
+    GS_reactiveDataOK <- GS_OK_event()
     
     plot(GS_reactiveDataOK$v, GS_reactiveDataOK$fv, cex = 1.5, main = "Fitted Variogram")
     
   })
   output$GS_OK_map <- renderPlot({
-    # Check reactive variable
-    req(GS_reactiveDataOK$kpred) 
+    GS_reactiveDataOK <- GS_OK_event()
     
     tmap_options(check.and.fix = TRUE)
     tmap_mode("plot")
@@ -1766,9 +1915,7 @@ server <- function(input, output, session) {
       tm_compass(type="8star", size = 2) + tm_scale_bar() + tm_grid(alpha =0.2)
   })
   output$GS_OK_prediction_variance <- renderPlot({
-    # Check reactive variable
-    req(GS_reactiveDataOK$kvar)
-    
+    GS_reactiveDataOK <- GS_OK_event()
     variance_title <- "Prediction Variance"
     tmap_options(check.and.fix = TRUE)
     tmap_mode("plot")

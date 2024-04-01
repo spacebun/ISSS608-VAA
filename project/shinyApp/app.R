@@ -493,7 +493,7 @@ ui <- dashboardPage(header, sidebar, body)
 # Section 8: Server code ----
 server <- function(input, output, session) {
 
-  #Landing Page ----
+  # Landing Page ----
   
   output$landingPageDataTable <-DT::renderDataTable({
     
@@ -792,38 +792,29 @@ server <- function(input, output, session) {
     if (n_distinct(variable_data$Station) > 1){
       caption <- paste(test_stats$subtitle_data[["method"]][1], ":", test_stats$subtitle_data[["statistic"]][1], ", p-value:", test_stats$subtitle_data[["p.value"]][1])
       CDA_AS_caption_reactive$caption <- caption
-    }
+      } else{CDA_AS_caption_reactive$caption <- NULL}
     
     # Compute distribution statistics by y_axis
     if (selectedStatApproach == "parametric"){
       distribution_stats <- variable_data %>%
         group_by(Station) %>%
-        summarise(
-          describe_distribution(!!var_symbol, centrality = "mean")[1]
-        )
-      CDA_AS_caption_reactive$centrality_measure <- as.data.frame(distribution_stats)
+        summarise(describe_distribution(!!var_symbol, centrality = "mean")[1])
     } else if (selectedStatApproach == "nonparametric"){
       distribution_stats <- variable_data %>%
         group_by(Station) %>%
-        summarise(
-          describe_distribution(!!var_symbol, centrality = "median")[1]
-        )
-      CDA_AS_caption_reactive$centrality_measure <- as.data.frame(distribution_stats)
+        summarise(describe_distribution(!!var_symbol, centrality = "median")[1])
     }else if (selectedStatApproach == "robust"){
       distribution_stats <- variable_data %>%
         group_by(Station) %>%
-        summarise(
-          describe_distribution(!!var_symbol, centrality = "trimmed")[1]
-        )
-      CDA_AS_caption_reactive$centrality_measure <- as.data.frame(distribution_stats)
+        summarise(describe_distribution(!!var_symbol, centrality = "trimmed")[1])
     }else if (selectedStatApproach == "bayes"){
       distribution_stats <- variable_data %>%
         group_by(Station) %>%
-        summarise(
-          describe_distribution(!!var_symbol, centrality = "MAP")[1]
-        )
-      CDA_AS_caption_reactive$centrality_measure <- as.data.frame(distribution_stats)
+        summarise(describe_distribution(!!var_symbol, centrality = "MAP")[1])
     }
+    
+    CDA_AS_caption_reactive$centrality_measure <- as.data.frame(distribution_stats)
+    
     # Extract pairwise comparison
     if (n_distinct(variable_data$Station) > 2){
       # print(test_stats$pairwise_comparisons_data)
@@ -840,12 +831,6 @@ server <- function(input, output, session) {
   output$CDA_AS_plot <- renderPlotly({
     # Extract the result from the eventReactive object
     result <- CDA_AS_data_prep()
-    # var_symbol <- rlang::sym(result$selected_var)
-    # variable_data <- result$variable_data
-    # selected_var <- result$selected_var
-    # time_resolution <- result$time_resolution
-    # selected_date <- result$selected_date 
-    # title <- result$title 
     p <-result$p
     return(p)
   })
@@ -1120,45 +1105,34 @@ server <- function(input, output, session) {
     if (length(selected_dates) > 1){
       caption <- paste(test_stats$subtitle_data[["method"]][1], ":", test_stats$subtitle_data[["statistic"]][1], ", p-value:", test_stats$subtitle_data[["p.value"]][1])
       CDA_AT_caption_reactive$caption <- caption
-    }
+    } else {      CDA_AT_caption_reactive$caption <- NULL}
 
     # Compute distribution statistics by y_axis
     if (selectedStatApproach == "parametric"){
       distribution_stats <- variable_data %>%
         group_by(!!rlang::sym(y_axis)) %>%
-        summarise(
-          describe_distribution(!!var_symbol, centrality = "mean")[1]
-        )
+        summarise(describe_distribution(!!var_symbol, centrality = "mean")[1])
       CDA_AT_caption_reactive$centrality_measure <- as.data.frame(distribution_stats)
     } else if (selectedStatApproach == "nonparametric"){
       distribution_stats <- variable_data %>%
         group_by(!!rlang::sym(y_axis)) %>%
-        summarise(
-          describe_distribution(!!var_symbol, centrality = "median")[1]
-        )
-      CDA_AT_caption_reactive$centrality_measure <- as.data.frame(distribution_stats)
+        summarise(describe_distribution(!!var_symbol, centrality = "median")[1])
     }else if (selectedStatApproach == "robust"){
       distribution_stats <- variable_data %>%
         group_by(!!rlang::sym(y_axis)) %>%
-        summarise(
-          describe_distribution(!!var_symbol, centrality = "trimmed")[1]
-        )
-      CDA_AT_caption_reactive$centrality_measure <- as.data.frame(distribution_stats)
+        summarise(describe_distribution(!!var_symbol, centrality = "trimmed")[1])
     }else if (selectedStatApproach == "bayes"){
       distribution_stats <- variable_data %>%
         group_by(!!rlang::sym(y_axis)) %>%
-        summarise(
-          describe_distribution(!!var_symbol, centrality = "MAP")[1]
-        )
-      CDA_AT_caption_reactive$centrality_measure <- as.data.frame(distribution_stats)
+        summarise(describe_distribution(!!var_symbol, centrality = "MAP")[1])
     }
+    CDA_AT_caption_reactive$centrality_measure <- as.data.frame(distribution_stats)
+    
     
     # Extract pairwise comparison
     if (length(selected_dates) > 2){
       CDA_AT_caption_reactive$pairwise_table <- as.data.frame(test_stats$pairwise_comparisons_data) %>% select(-expression)
     } else { CDA_AT_caption_reactive$pairwise_table <-NULL}
-    
-    # CDA_AT_caption_reactive$caption_full <- test_stats$subtitle_data
     
     list(variable_data = variable_data, selected_var = selected_var, y_axis = y_axis, time_resolution = time_resolution, selected_station = selected_station, selected_dates = selected_dates, title = title,
          selectedStatApproach=selectedStatApproach,selectedConflevel=selectedConflevel, plotType = plotType, 
@@ -1238,10 +1212,6 @@ server <- function(input, output, session) {
   }, ignoreNULL = TRUE)
   output$CDA_AT_Insights_Output <- renderText({ AT_insightsText() })
   
-  
-  
-  
-
   # Time Series: Exploratory Plots ----
   
   ## 1. Dynamic UI for ExploreTS
